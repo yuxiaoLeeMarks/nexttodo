@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.0
+
+**Projects**
+
+- A timeline: each project a bar over the months it runs, in its category's color, filled as far as its tasks are done, with a line at today. Switch between List and Timeline on the projects page.
+
+**Schedule**
+
+- Import calendars from Calendar, Google Calendar, Outlook or a conference's deadlines (.ics), and export yours. Times keep their zones, repeats their days, ends and exceptions; importing again updates what came before. Settings › Data, or the File menu.
+- Drag a task from above the week's hours to a time to block an hour for it.
+- Events start and end on a day each, so they can go over midnight or over days.
+- ⌘←, ⌘→ and ⌘T move through the weeks and months, as in Calendar.
+
+**Tasks**
+
+- Reminders: a task can remind you on a day at a time, set beside its due date or typed with it ("Call Lin tomorrow 3pm"). A click on the notification opens the task; a bell in its row, and in the menu bar, says when.
+
 ## 0.3.0
 
 **Projects**

@@ -33,8 +33,8 @@
 
 A research life lives in too many places: grants in a spreadsheet, meetings in a calendar, to-dos in another app, and the notes on how an experiment went nowhere at all. NextTodo keeps them together, on your Mac:
 
-- **Projects, sorted your way.** Make your own categories (by funding, by lab, by anything) with a color and an icon, or group by research direction or status. Each project keeps its tasks, events, dated journal and particulars (grant number, lead, funder, dates) in one place, and goes to the archive when it ends.
-- **A calendar that moves with you.** Week and month views, events that repeat, drag to reschedule or to sketch a new one, and a notification before each event starts.
+- **Projects, sorted your way.** Make your own categories (by funding, by lab, by anything) with a color and an icon, or group by research direction or status; see them as a list or on a timeline. Each project keeps its tasks, events, dated journal and particulars (grant number, lead, funder, dates) in one place, and goes to the archive when it ends.
+- **A calendar that moves with you.** Week and month views, events that repeat, drag to reschedule, to sketch a new one or to block time for a task, a notification before each event starts, and .ics import and export to get along with Calendar, Google and Outlook.
 - **Today, from the menu bar.** What is left of the day, and a field to add a task or an event, one click or ⌃⌥Space away.
 - **Yours, offline.** No account, no cloud. One JSON file in your Library, saved as you type, copied every day, with Undo for every deletion.
 
@@ -51,7 +51,7 @@ English and 简体中文. Light and dark.
         <source media="(prefers-color-scheme: dark)" srcset="docs/img/schedule-dark.png">
         <img src="docs/img/schedule-light.png" alt="The week, with events by kind">
       </picture>
-      <p><b>Schedule.</b> Drag an event to move it, in whole days and quarter hours; drag its bottom edge to resize it; drag down empty hours to add one. Events repeat daily, on weekdays, weekly or monthly. In the month, drag events and due tasks between days.</p>
+      <p><b>Schedule.</b> Drag an event to move it, in whole days and quarter hours; drag its bottom edge to resize it; drag down empty hours to add one, or a task into the hours to block time for it. Events repeat daily, on weekdays, weekly or monthly. In the month, drag events and due tasks between days.</p>
     </td>
     <td width="50%">
       <picture>
@@ -67,7 +67,7 @@ English and 简体中文. Light and dark.
         <source media="(prefers-color-scheme: dark)" srcset="docs/img/projects-dark.png">
         <img src="docs/img/projects-light.png" alt="Projects grouped by category">
       </picture>
-      <p><b>Projects.</b> Grouped by your categories, direction or status, each with its progress and when it ends. Open one for its summary, tasks, research journal and upcoming events; archive it when it's done.</p>
+      <p><b>Projects.</b> Grouped by your categories, direction or status, each with its progress and when it ends. Or see them on a timeline, over the months they run. Open one for its summary, tasks, research journal and upcoming events; archive it when it's done.</p>
     </td>
     <td width="50%" align="center">
       <picture>
@@ -79,7 +79,7 @@ English and 简体中文. Light and dark.
   </tr>
 </table>
 
-And: search everything with ⌘F, research directions with their projects, reminders before events (a default and one per event), a Dock badge for what is due, open at login, ⌘1–⌘5 for the pages, daily backups you can restore, and sample data on first launch to show the way.
+And: type the day and the time with what you add ("Seminar fri 3-4pm", "明天下午3点 组会"), reminders for tasks, search everything with ⌘F, research directions with their projects, reminders before events (a default and one per event), a Dock badge for what is due, open at login, ⌘1–⌘5 for the pages, daily backups you can restore, and sample data on first launch to show the way.
 
 ## Quick start
 
@@ -101,7 +101,9 @@ NextTodo is written in Go with [MyGo](https://mygo.egoist.dev/)'s native UI: no 
 | `style.go`, `icons.go`, `art.go` | the palette, the components, the icons |
 | `app.go` | the app's state, saving, the title bar |
 | `overview.go`, `tasks.go`, `schedule.go`, `projects.go`, `directions.go`, `settings.go` | the pages |
-| `repeat.go` | events that repeat, and their occurrences |
+| `repeat.go`, `ics.go` | events that repeat, and calendar files |
+| `parse.go` | the day and the time in what is typed |
+| `timeline.go` | the projects over the months they run |
 | `categories.go`, `search.go`, `undo.go`, `backups.go` | categories, search, Undo, daily copies |
 | `panel.go`, `alerts.go` | the menu bar panel, and when events alert |
 | `locales/` | every string, in English and Chinese |
