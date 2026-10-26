@@ -142,6 +142,26 @@ func (a *app) settingsPage(c *ui.Context) {
 						}
 					})
 				}
+				if a.path != "" {
+					a.formRowHint(c, a.tr.AutoBackups(), a.tr.AutoBackupsHint(keepBackups), func() {
+						list := backups(a.path)
+						if len(list) == 0 {
+							return
+						}
+						none := backup{}
+						chosen := none
+						if selectOf(a, c, "restore", &chosen, append([]backup{none}, list...), func(b backup) string {
+							if b.path == "" {
+								return a.tr.RestoreBackup()
+							}
+							return a.fmt(b.day, "yMMMEd")
+						}).Label(a.tr.RestoreBackup()).Changed() && chosen.path != "" {
+							if err := a.restoreBackup(chosen); err != nil {
+								a.toast = err.Error()
+							}
+						}
+					})
+				}
 				a.formRow(c, a.tr.SettingsBackup(), func() {
 					if a.iconLabel(c, a.btn(c, "", btnSecondary), iconDownload, a.tr.ExportBackup()).Clicked() {
 						a.exportBackup()

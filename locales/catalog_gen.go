@@ -2356,6 +2356,46 @@ func (msgs Messages) ImportBackup() string {
 	return Catalog.Format(msgs.locale, "importBackup", nil)
 }
 
+// AutoBackups says "Automatic backups"
+// in the language the app shows.
+func AutoBackups() string { return In(i18n.Locale()).AutoBackups() }
+
+// AutoBackups says "Automatic backups"
+// in the language of msgs.
+func (msgs Messages) AutoBackups() string {
+	return Catalog.Format(msgs.locale, "autoBackups", nil)
+}
+
+// AutoBackupsHint says "{n, plural, one {A copy every day, the last day kept} other {A copy every day, the last # days kept}}"
+// in the language the app shows.
+func AutoBackupsHint(n int) string { return In(i18n.Locale()).AutoBackupsHint(n) }
+
+// AutoBackupsHint says "{n, plural, one {A copy every day, the last day kept} other {A copy every day, the last # days kept}}"
+// in the language of msgs.
+func (msgs Messages) AutoBackupsHint(n int) string {
+	return Catalog.Format(msgs.locale, "autoBackupsHint", map[string]any{"n": n})
+}
+
+// RestoreBackup says "Restore…"
+// in the language the app shows.
+func RestoreBackup() string { return In(i18n.Locale()).RestoreBackup() }
+
+// RestoreBackup says "Restore…"
+// in the language of msgs.
+func (msgs Messages) RestoreBackup() string {
+	return Catalog.Format(msgs.locale, "restoreBackup", nil)
+}
+
+// Restored says "Backup restored"
+// in the language the app shows.
+func Restored() string { return In(i18n.Locale()).Restored() }
+
+// Restored says "Backup restored"
+// in the language of msgs.
+func (msgs Messages) Restored() string {
+	return Catalog.Format(msgs.locale, "restored", nil)
+}
+
 // ImportConfirm says "Replace all data with this backup?"
 // in the language the app shows.
 func ImportConfirm() string { return In(i18n.Locale()).ImportConfirm() }

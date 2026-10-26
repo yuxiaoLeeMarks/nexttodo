@@ -90,7 +90,8 @@ type app struct {
 	dirOpen bool
 	askDir  bool
 
-	undo []*undoStep // deletions to undo, the last last
+	undo     []*undoStep // deletions to undo, the last last
+	restored *undoStep   // a backup restored, to say so with Undo
 
 	// Search.
 	searchOpen  bool
@@ -169,6 +170,9 @@ func (a *app) flush() {
 		return
 	}
 	a.dirty = false
+	if err := backupDaily(a.path, b, a.now()); err != nil {
+		log.Printf("backing up: %v", err)
+	}
 }
 
 // loadData reads the data at path; a first launch gets the sample data.
@@ -386,6 +390,10 @@ func (a *app) view(c *ui.Context) {
 	if a.toast != "" {
 		c.Toast(a.toast)
 		a.toast = ""
+	}
+	if step := a.restored; step != nil {
+		a.restored = nil
+		c.ToastAction(a.tr.Restored(), a.tr.Undo(), func() { a.restore(step) })
 	}
 	a.undoShortcut(c)
 	if c.Shortcut(ui.Cmd, ui.KeyF) {

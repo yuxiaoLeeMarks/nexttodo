@@ -243,6 +243,40 @@ func TestSaveAndLoad(t *testing.T) {
 	}
 }
 
+func TestBackups(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "data.json")
+	for i := range 16 {
+		if err := backupDaily(path, []byte(`{}`), addDays(monday, -i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	list := backups(path)
+	if len(list) != keepBackups || !sameDay(list[0].day, monday) || !sameDay(list[keepBackups-1].day, addDays(monday, 1-keepBackups)) {
+		t.Fatalf("%d backups, from %v to %v", len(list), list[0].day, list[len(list)-1].day)
+	}
+	// Saving makes today's backup; restoring an older one brings its data
+	// back, and Undo the data of now.
+	a := newApp(sampleData(monday, "en"), path)
+	a.now = func() time.Time { return monday.AddDate(0, 0, 1) }
+	a.changed()
+	list = backups(path)
+	if !sameDay(list[0].day, a.now()) {
+		t.Fatal("saving made no backup of the day")
+	}
+	n := len(a.data.Tasks)
+	a.data.Tasks = nil
+	if err := a.restoreBackup(list[0]); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.data.Tasks) != n {
+		t.Errorf("restored %d of %d tasks", len(a.data.Tasks), n)
+	}
+	a.restore(a.restored)
+	if len(a.data.Tasks) != 0 {
+		t.Error("Undo did not bring back the data before the restore")
+	}
+}
+
 func TestMyDay(t *testing.T) {
 	a := testApp("en")
 	n := 0
