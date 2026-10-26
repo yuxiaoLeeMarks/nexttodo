@@ -618,11 +618,15 @@ func (a *app) readWhen(draft *string, line string, first time.Weekday, reads int
 // whenText writes what a line says of its time: Tomorrow · 3:00 – 4:00 PM.
 func (a *app) whenText(w when) string {
 	var parts []string
-	if !w.day.IsZero() {
-		if n := daysBetween(a.now(), w.day); n == 0 || n == 1 {
+	on := w.day
+	if w.clock {
+		on = day(w.start(a.now())) // 9:00 said in the evening is tomorrow's
+	}
+	if !on.IsZero() && (!w.day.IsZero() || !sameDay(on, a.now())) {
+		if n := daysBetween(a.now(), on); n == 0 || n == 1 {
 			parts = append(parts, a.tr.DueIn(n))
 		} else {
-			parts = append(parts, a.fmt(w.day, "MMMEd"))
+			parts = append(parts, a.fmt(on, "MMMEd"))
 		}
 	}
 	switch {

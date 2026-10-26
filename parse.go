@@ -22,13 +22,17 @@ type when struct {
 // said reports whether the line says anything of its time.
 func (w when) said() bool { return !w.day.IsZero() || w.clock || w.minutes > 0 }
 
-// start returns when the line says a thing starts, on its day or today.
+// start returns when the line says a thing starts: on its day, or at the
+// time's next coming, today or tomorrow.
 func (w when) start(now time.Time) time.Time {
-	d := w.day
-	if d.IsZero() {
-		d = day(now)
+	if !w.day.IsZero() {
+		return at(w.day, w.hour, w.minute)
 	}
-	return at(d, w.hour, w.minute)
+	t := at(now, w.hour, w.minute)
+	if t.Before(now) {
+		t = addDays(at(now, 0, 0), 1).Add(time.Duration(w.hour*60+w.minute) * time.Minute)
+	}
+	return t
 }
 
 // rule finds one way of saying a time: apply reads a match into w, or
@@ -49,15 +53,17 @@ const (
 type parseState struct {
 	now     time.Time
 	first   time.Weekday
+	reads   int  // what the line is read for: a task's times need saying plainly
 	evening bool // "tonight", "今晚": a bare hour is in the evening
 }
 
 // The words joining a time to the rest, which go with it.
 const (
 	onEN = `(?:\b(?:on|by|due)\s+)?`
-	atEN = `(?:\b(?:at|from)\s+)?`
-	// A time in Chinese: 下午3点半, 15:30, 三点.
-	timeZH = `(上午|早上|早晨|中午|下午|傍晚|晚上|凌晨)?\s*(\d{1,2}|[一二两三四五六七八九十]{1,3})(?:[:：](\d{2})|点(?:(半)|(\d{1,2})分?|钟)?)`
+	atEN = `(?:\b(?:at|from|by)\s+)?`
+	// A time in Chinese: 下午3点半, 15:30, 三点钟. Its groups: the part of
+	// the day, the hour, minutes after a colon, 半, minutes after 点, 钟.
+	timeZH = `(上午|早上|早晨|中午|下午|傍晚|晚上|凌晨)?\s*(\d{1,2}|[一二两三四五六七八九十]{1,3})(?:[:：](\d{2})|点(?:(半)|(\d{1,2})分?|(钟))?)`
 )
 
 var weekdaysEN = map[string]time.Weekday{
@@ -75,7 +81,22 @@ var monthsEN = map[string]time.Month{
 	"jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
 }
 
-const monthNames = `(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)`
+const (
+	weekdayNames = `(monday|mon|tuesday|tues|tue|wednesday|wed|thursday|thurs|thur|thu|friday|fri|saturday|sunday)`
+	monthNames   = `(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)`
+	// After a day, "may" is a verb: "Reviewer 2 may object".
+	monthNamesAfter = `(jan|january|feb|february|mar|march|apr|april|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)`
+	yearEN          = `(?:,?\s+(\d{4}))?`
+)
+
+// year reads a year said, of four digits or two, or 0 for none.
+func year(s string) int {
+	n := atoi(s)
+	if n > 0 && n < 100 {
+		n += 2000
+	}
+	return n
+}
 
 // rules are tried in order, ranges before the times they hold.
 var rules = []rule{
@@ -83,14 +104,20 @@ var rules = []rule{
 	{regexp.MustCompile(`(?i)` + onEN + `\b(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
 		return w.setDate(atoi(m[1]), atoi(m[2]), atoi(m[3]), s.now)
 	}},
-	{regexp.MustCompile(`(?i)` + onEN + `\b` + monthNames + `\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
-		return w.setDate(0, int(monthsEN[strings.ToLower(m[1][:3])]), atoi(m[2]), s.now)
+	{regexp.MustCompile(`(\d{4})年(\d{1,2})月(\d{1,2})[日号]?`), ruleDay, func(m []string, w *when, s *parseState) bool {
+		return w.setDate(atoi(m[1]), atoi(m[2]), atoi(m[3]), s.now)
 	}},
-	{regexp.MustCompile(`(?i)` + onEN + `\b(\d{1,2})(?:st|nd|rd|th)?\s+` + monthNames + `\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
-		return w.setDate(0, int(monthsEN[strings.ToLower(m[2][:3])]), atoi(m[1]), s.now)
+	{regexp.MustCompile(`(?i)` + onEN + `\b` + monthNames + `\.?\s+(\d{1,2})(?:st|nd|rd|th)?` + yearEN + `\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
+		return w.setDate(year(m[3]), int(monthsEN[strings.ToLower(m[1][:3])]), atoi(m[2]), s.now)
 	}},
-	{regexp.MustCompile(`(?i)` + onEN + `\b(\d{1,2})/(\d{1,2})\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
-		return w.setDate(0, atoi(m[1]), atoi(m[2]), s.now)
+	{regexp.MustCompile(`(?i)` + onEN + `\b(\d{1,2})(?:st|nd|rd|th)?\s+` + monthNamesAfter + yearEN + `\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
+		return w.setDate(year(m[3]), int(monthsEN[strings.ToLower(m[2][:3])]), atoi(m[1]), s.now)
+	}},
+	{regexp.MustCompile(`(?i)` + onEN + `\b(\d{1,2})/(\d{1,2})(?:/(\d{4}|\d{2}))?\b(\s+of\b)?`), ruleDay, func(m []string, w *when, s *parseState) bool {
+		if m[4] != "" {
+			return false // 1/3 of the book
+		}
+		return w.setDate(year(m[3]), atoi(m[1]), atoi(m[2]), s.now)
 	}},
 	{regexp.MustCompile(`(\d{1,2})月(\d{1,2})[日号]?`), ruleDay, func(m []string, w *when, s *parseState) bool {
 		return w.setDate(0, atoi(m[1]), atoi(m[2]), s.now)
@@ -112,13 +139,27 @@ var rules = []rule{
 		s.evening = strings.HasSuffix(m[1], "晚")
 		return true
 	}},
-	{regexp.MustCompile(`(?i)` + onEN + `\b(?:(next|this)\s+)?(monday|mon|tuesday|tues|tue|wednesday|wed|thursday|thurs|thur|thu|friday|fri|saturday|sunday)\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
+	// Friday next week, next week on Friday.
+	{regexp.MustCompile(`(?i)` + onEN + `\b` + weekdayNames + `\s+next\s+week\b|\bnext\s+week\s+(?:on\s+)?` + weekdayNames + `\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
+		name := m[1] + m[2]
+		w.day = weekday(s, weekdaysEN[strings.ToLower(name[:3])], "next")
+		return true
+	}},
+	{regexp.MustCompile(`(?i)` + onEN + `\b(?:(next|this)\s+)?` + weekdayNames + `\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
 		w.day = weekday(s, weekdaysEN[strings.ToLower(m[2][:3])], strings.ToLower(m[1]))
 		return true
 	}},
 	{regexp.MustCompile(`(下下|下个?|本|这个?)?(?:周|星期|礼拜)([一二三四五六日天])`), ruleDay, func(m []string, w *when, s *parseState) bool {
-		which := map[string]string{"下下": "next2", "下": "next", "下个": "next", "本": "this", "这": "this", "这个": "this"}[m[1]]
-		w.day = weekday(s, weekdaysZH[m[2]], which)
+		w.day = weekday(s, weekdaysZH[m[2]], map[string]string{"下下": "next2", "下": "next", "下个": "next"}[m[1]])
+		return true
+	}},
+	// The weekend: its Saturday.
+	{regexp.MustCompile(`(?i)` + onEN + `\b(?:(next|this)\s+)?weekend\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
+		w.day = weekend(s, strings.ToLower(m[1]))
+		return true
+	}},
+	{regexp.MustCompile(`(下下|下个?|本|这个?)?(?:周末|週末)`), ruleDay, func(m []string, w *when, s *parseState) bool {
+		w.day = weekend(s, map[string]string{"下下": "next2", "下": "next", "下个": "next"}[m[1]])
 		return true
 	}},
 	{regexp.MustCompile(`(?i)\bin\s+(\d+|a|one|two|three)\s+(days?|weeks?)\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
@@ -154,38 +195,65 @@ var rules = []rule{
 				p1 = "am"
 			}
 		}
+		if p1 == "" && m[2] != "" && len(m[1]) == 2 {
+			p1 = "24h" // 09:00, 23:00
+		}
+		if p2 == "" && m[5] != "" && len(m[4]) == 2 {
+			p2 = "24h"
+		}
 		return w.setRange(atoi(m[1]), atoi(m[2]), p1, atoi(m[4]), atoi(m[5]), p2, s)
 	}},
-	{regexp.MustCompile(timeZH + `\s*(?:到|至|-|–|—|~)\s*` + timeZH), ruleClock, func(m []string, w *when, s *parseState) bool {
-		h1, m1, ok1 := clockZH(m[1:6])
-		p2 := m[6]
-		if p2 == "" {
-			p2 = m[1] // 下午3点到5点
+	{regexp.MustCompile(`(第)?` + timeZH + `\s*(?:到|至|-|–|—|~)\s*` + timeZH), ruleClock, func(m []string, w *when, s *parseState) bool {
+		if m[1] != "" || !timeZHSaid(m[2:8]) {
+			return false
 		}
-		h2, m2, ok2 := clockZH(append([]string{p2}, m[7:11]...))
+		h1, m1, ok1 := clockZH(m[2:8])
+		p2 := m[8]
+		if p2 == "" {
+			p2 = m[2] // 下午3点到5点
+		}
+		h2, m2, ok2 := clockZH(append([]string{p2}, m[9:14]...))
 		if !ok1 || !ok2 {
 			return false
 		}
-		return w.setRange(h1, m1, zhPeriod(m[1]), h2, m2, zhPeriod(p2), s)
+		return w.setRange(h1, m1, zhPeriod(m[2]), h2, m2, zhPeriod(p2), s)
 	}},
 	{regexp.MustCompile(`(?i)` + atEN + `\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b`), ruleClock, func(m []string, w *when, s *parseState) bool {
 		return w.setClock(atoi(m[1]), atoi(m[2]), strings.ToLower(m[3]), s)
 	}},
-	{regexp.MustCompile(`(?i)` + atEN + `\b(\d{1,2}):(\d{2})\b`), ruleClock, func(m []string, w *when, s *parseState) bool {
-		return w.setClock(atoi(m[1]), atoi(m[2]), "", s)
+	{regexp.MustCompile(`(?i)(\b(?:at|from|by)\s+)?\b(\d{1,2}):(\d{2})\b`), ruleClock, func(m []string, w *when, s *parseState) bool {
+		// A task's 1:50 is a ratio, unless it says at; 09:00 is a time.
+		if len(m[2]) == 2 {
+			return w.setClock(atoi(m[2]), atoi(m[3]), "24h", s)
+		}
+		return (m[1] != "" || s.reads == readSpan) && w.setClock(atoi(m[2]), atoi(m[3]), "", s)
 	}},
-	{regexp.MustCompile(`(?i)\bat\s+(\d{1,2})\b`), ruleClock, func(m []string, w *when, s *parseState) bool {
+	{regexp.MustCompile(`(?i)\b(?:at|by)\s+(\d{1,2})\b`), ruleClock, func(m []string, w *when, s *parseState) bool {
 		return w.setClock(atoi(m[1]), 0, "", s)
 	}},
 	{regexp.MustCompile(`(?i)` + atEN + `\b(noon|midnight)\b`), ruleClock, func(m []string, w *when, s *parseState) bool {
 		if strings.ToLower(m[1]) == "noon" {
 			return w.setClock(12, 0, "pm", s)
 		}
-		return w.setClock(0, 0, "", s)
+		w.clock, w.hour, w.minute = true, 24, 0 // tonight's
+		return true
 	}},
-	{regexp.MustCompile(timeZH), ruleClock, func(m []string, w *when, s *parseState) bool {
-		h, min, ok := clockZH(m[1:6])
-		return ok && w.setClock(h, min, zhPeriod(m[1]), s)
+	{regexp.MustCompile(`(第)?` + timeZH + `(之前|以前|前)?`), ruleClock, func(m []string, w *when, s *parseState) bool {
+		if m[1] != "" || !timeZHSaid(m[2:8]) {
+			return false // 第2点意见, 一点
+		}
+		h, min, ok := clockZH(m[2:8])
+		period := zhPeriod(m[2])
+		if m[4] != "" && period == "" {
+			// 15:30 as the English rule reads it: a task's 1:50 is a ratio.
+			if len(m[3]) == 1 && s.reads != readSpan {
+				return false
+			}
+			if len(m[3]) == 2 {
+				period = "24h"
+			}
+		}
+		return ok && w.setClock(h, min, period, s)
 	}},
 
 	// How long.
@@ -236,7 +304,7 @@ const (
 // parseWhen reads what line says of a day and, as reads says, of a time
 // of day and how long. A line that is nothing but a time is a title.
 func parseWhen(line string, now time.Time, first time.Weekday, reads int) when {
-	s := &parseState{now: now, first: first}
+	s := &parseState{now: now, first: first, reads: reads}
 	w := when{}
 	done := map[int]bool{}
 	text := line
@@ -299,11 +367,11 @@ func (w *when) setDate(y, m, d int, now time.Time) bool {
 	return true
 }
 
-// weekday returns the day wd: the coming one, or of this week, the next
-// or the one after, as which says.
+// weekday returns the day wd: the coming one, today too ("this" Friday
+// is no other), or of the next week or the one after, as which says.
 func weekday(s *parseState, wd time.Weekday, which string) time.Time {
 	today := day(s.now)
-	if which == "" {
+	if which != "next" && which != "next2" {
 		return addDays(today, (int(wd)-int(today.Weekday())+7)%7)
 	}
 	d := addDays(weekStart(today, s.first), (int(wd)-int(s.first)+7)%7)
@@ -316,10 +384,23 @@ func weekday(s *parseState, wd time.Weekday, which string) time.Time {
 	return d
 }
 
-// hour24 reads h in the period said: "pm", "am" or "" for none, when an
-// hour from 1 to 6 is in the afternoon, as meetings are, or the evening
-// said earlier.
+// weekend returns the Saturday of the coming weekend, today's if it is
+// one, or of the next week's or the one after, as which says.
+func weekend(s *parseState, which string) time.Time {
+	if today := day(s.now); today.Weekday() == time.Sunday && which != "next" && which != "next2" {
+		return today
+	}
+	return weekday(s, time.Saturday, which)
+}
+
+// hour24 reads h in the period said: "pm", "am", "24h" as written,
+// "morning", "noon", "evening", or "" for none, when an hour from 1 to 6
+// is in the afternoon, as meetings are, unless the evening was said. An
+// evening's 12 is midnight and its small hours are after it, 24 and on.
 func hour24(h int, period string, s *parseState) int {
+	if period == "" && s.evening {
+		period = "evening"
+	}
 	switch period {
 	case "pm":
 		if h < 12 {
@@ -333,9 +414,18 @@ func hour24(h int, period string, s *parseState) int {
 		if h < 11 {
 			h += 12
 		}
-	case "morning": // 上午12点 is noon
+	case "evening":
+		switch {
+		case h == 12:
+			h = 24
+		case h <= 5:
+			h += 24
+		case h < 12:
+			h += 12
+		}
+	case "morning", "24h": // 上午12点 is noon
 	default:
-		if h >= 1 && h <= 6 || s.evening && h < 12 {
+		if h >= 1 && h <= 6 {
 			h += 12
 		}
 	}
@@ -343,25 +433,30 @@ func hour24(h int, period string, s *parseState) int {
 }
 
 func (w *when) setClock(h, m int, period string, s *parseState) bool {
-	if h > 23 || m > 59 || period != "" && (h > 12 || h == 0) {
+	if h > 23 || m > 59 || period != "" && period != "24h" && (h > 12 || h == 0) {
 		return false
 	}
 	w.clock, w.hour, w.minute = true, hour24(h, period, s), m
 	return true
 }
 
+// setRange sets the time from h1:m1 to h2:m2, over midnight if it goes.
 func (w *when) setRange(h1, m1 int, p1 string, h2, m2 int, p2 string, s *parseState) bool {
 	if !w.setClock(h1, m1, p1, s) {
 		return false
 	}
-	end := h2*60 + m2
-	if h2 <= 23 && m2 <= 59 {
-		end = hour24(h2, p2, s)*60 + m2
-		if p2 == "" && end <= w.hour*60+w.minute && h2 < 12 {
+	if h2 > 23 || m2 > 59 {
+		return true
+	}
+	start, end := w.hour*60+w.minute, hour24(h2, p2, s)*60+m2
+	if end <= start {
+		if p2 == "" && h2 < 12 && end+12*60 > start {
 			end += 12 * 60 // 10:00-1:00
+		} else {
+			end += 24 * 60 // 10pm-2am
 		}
 	}
-	if n := end - (w.hour*60 + w.minute); n > 0 && n < 24*60 {
+	if n := end - start; n > 0 && n < 24*60 {
 		w.minutes = n
 	}
 	return true
@@ -375,6 +470,14 @@ func (w *when) setLength(n int) bool {
 		w.minutes = n
 	}
 	return true
+}
+
+// timeZHSaid reports whether a Chinese time, as timeZH groups it, is one:
+// an hour in Chinese numerals needs its part of the day or more than 点,
+// as 下午三点 or 三点半, for 一点 and 两点 are "a little" and "two points".
+func timeZHSaid(g []string) bool {
+	_, err := strconv.Atoi(g[1])
+	return err == nil || g[0] != "" || g[2] != "" || g[3] != "" || g[4] != "" || g[5] != ""
 }
 
 // clockZH reads a Chinese time's period, hour and minutes, as timeZH
@@ -394,8 +497,10 @@ func clockZH(g []string) (h, m int, ok bool) {
 
 func zhPeriod(p string) string {
 	switch p {
-	case "下午", "傍晚", "晚上":
+	case "下午", "傍晚":
 		return "pm"
+	case "晚上":
+		return "evening"
 	case "中午":
 		return "noon"
 	case "上午", "早上", "早晨":
