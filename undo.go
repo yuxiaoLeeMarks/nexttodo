@@ -78,47 +78,120 @@ func (a *app) restore(step *undoStep) {
 }
 
 // unchange undoes, in the list cur, what a change did to the list before
-// to make after: what it removed comes back where it was, what it changed
-// goes back, and what it added goes, each unless changed since.
+// to make after: what it removed comes back where it was, what it added
+// goes unless changed since, and what it changed goes back field by field,
+// but for the fields changed since.
 func unchange[T any](cur, before, after []*T, id func(*T) string) []*T {
-	same := func(x, y *T) bool {
-		bx, _ := json.Marshal(x)
-		by, _ := json.Marshal(y)
-		return bytes.Equal(bx, by)
+	enc := func(x *T) []byte {
+		b, _ := json.Marshal(x)
+		return b
 	}
-	index := func(list []*T) map[string]int {
-		m := make(map[string]int, len(list))
-		for i, x := range list {
-			m[id(x)] = i
-		}
-		return m
+	was, is := map[string]*T{}, map[string]*T{}
+	for _, x := range before {
+		was[id(x)] = x
 	}
-	was, is := index(before), index(after)
+	for _, x := range after {
+		is[id(x)] = x
+	}
 	cur = slices.DeleteFunc(cur, func(x *T) bool {
-		j, added := is[id(x)]
+		f, added := is[id(x)]
 		_, old := was[id(x)]
-		return added && !old && same(x, after[j])
+		return added && !old && bytes.Equal(enc(x), enc(f))
 	})
-	for i, b := range before {
-		here := index(cur)
-		j, kept := is[id(b)]
-		k, ok := here[id(b)]
+	here := map[string]bool{}
+	for i, x := range cur {
+		here[id(x)] = true
+		if b, f := was[id(x)], is[id(x)]; b != nil && f != nil {
+			if eb, ef := enc(b), enc(f); !bytes.Equal(eb, ef) {
+				cur[i] = unchangeFields(x, enc(x), eb, ef)
+			}
+		}
+	}
+	// What it removed comes back after what it followed, which may come
+	// back too.
+	follow := map[string][]*T{} // by what each follows, "" the start
+	last := ""
+	for _, b := range before {
+		k := id(b)
+		if _, kept := is[k]; !kept && !here[k] {
+			follow[last] = append(follow[last], b)
+			last = k
+		} else if here[k] {
+			last = k
+		}
+	}
+	out := make([]*T, 0, len(cur)+len(follow))
+	var put func(k string)
+	put = func(k string) {
+		for _, b := range follow[k] {
+			out = append(out, b)
+			put(id(b))
+		}
+	}
+	put("")
+	for _, x := range cur {
+		out = append(out, x)
+		put(id(x))
+	}
+	return out
+}
+
+// unchangeFields undoes in x, as JSON c, what a change made of b to make
+// f: a field it changed goes back unless changed since, and a list it
+// changed, as the days a series skips, loses what it added and gets back
+// what it removed.
+func unchangeFields[T any](x *T, c, b, f []byte) *T {
+	var cm, bm, fm map[string]json.RawMessage
+	if json.Unmarshal(c, &cm) != nil || json.Unmarshal(b, &bm) != nil || json.Unmarshal(f, &fm) != nil {
+		return x
+	}
+	keys := map[string]bool{}
+	for k := range bm {
+		keys[k] = true
+	}
+	for k := range fm {
+		keys[k] = true
+	}
+	for k := range keys {
+		bv, fv, cv := bm[k], fm[k], cm[k]
+		var bl, fl, cl []json.RawMessage
 		switch {
-		case !kept && !ok:
-			// Back after the one it followed.
-			at := 0
-			for p := i - 1; p >= 0; p-- {
-				if k, ok := here[id(before[p])]; ok {
-					at = k + 1
-					break
+		case bytes.Equal(bv, fv):
+		case bytes.Equal(cv, fv):
+			if bv == nil {
+				delete(cm, k)
+			} else {
+				cm[k] = bv
+			}
+		case list(bv, &bl) && list(fv, &fl) && list(cv, &cl):
+			in := func(l []json.RawMessage, v json.RawMessage) bool {
+				return slices.ContainsFunc(l, func(w json.RawMessage) bool { return bytes.Equal(v, w) })
+			}
+			cl = slices.DeleteFunc(cl, func(v json.RawMessage) bool { return in(fl, v) && !in(bl, v) })
+			for _, v := range bl {
+				if !in(fl, v) && !in(cl, v) {
+					cl = append(cl, v)
 				}
 			}
-			cur = slices.Insert(cur, at, b)
-		case kept && ok && !same(b, after[j]) && same(cur[k], after[j]):
-			cur[k] = b
+			if len(cl) == 0 {
+				delete(cm, k)
+			} else {
+				cm[k], _ = json.Marshal(cl)
+			}
 		}
 	}
-	return cur
+	m, err := json.Marshal(cm)
+	y := new(T)
+	if err != nil || json.Unmarshal(m, y) != nil {
+		return x
+	}
+	*x = *y // in place, for what holds it
+	return x
+}
+
+// list reads v, a JSON list or nothing, into l.
+func list(v json.RawMessage, l *[]json.RawMessage) bool {
+	return v == nil || json.Unmarshal(v, l) == nil
 }
 
 // deleted says that something went, with Undo to bring it back.

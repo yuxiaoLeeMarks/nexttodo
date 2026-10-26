@@ -357,3 +357,51 @@ func TestScheduleKeys(t *testing.T) {
 		t.Errorf("⌘T went to %v", a.schedAnchor)
 	}
 }
+
+// Undo puts back a field the deletion changed, though the thing changed
+// since in another; and the days a series skips, one by one.
+func TestUndoFieldByField(t *testing.T) {
+	a := testApp("en")
+	pr := a.data.Projects[0]
+	x := a.data.projectTasks(pr.ID)[0]
+	step := a.remember()
+	a.data.deleteProject(pr.ID)
+	a.settle(step)
+	x.setDone(true, monday)
+	a.restore(step)
+	if x = a.data.task(x.ID); x.Project != pr.ID || !x.Done {
+		t.Errorf("task after undo: project %q, done %v", x.Project, x.Done)
+	}
+
+	// Delete one occurrence, drag another, undo the first.
+	var series *Event
+	for _, e := range a.data.Events {
+		if e.repeating() {
+			series = e
+			break
+		}
+	}
+	occ := series.occurrences(series.Start, addDays(series.Start, 60))
+	step = a.remember()
+	a.data.skip(occ[1])
+	a.settle(step)
+	a.moveToDay(occ[2], addDays(occ[2].Start, 1))
+	a.restore(step)
+	if series.skipped(occ[1].Start) || !series.skipped(occ[2].Start) {
+		t.Errorf("series skips %v", series.Skip)
+	}
+}
+
+// Undoing the erase of many events is quick.
+func TestUndoMany(t *testing.T) {
+	a := testApp("en")
+	for i := range 10000 {
+		a.data.Events = append(a.data.Events, &Event{ID: "e" + itoa(i), Title: "x", Start: monday, End: monday.Add(time.Hour)})
+	}
+	a.replaceData(newData(), "Erased")
+	begin := time.Now()
+	a.restore(a.replaced)
+	if took := time.Since(begin); len(a.data.Events) < 10000 || took > 300*time.Millisecond {
+		t.Errorf("%d events back in %v", len(a.data.Events), took)
+	}
+}
