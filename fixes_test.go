@@ -307,3 +307,33 @@ func TestTimeline(t *testing.T) {
 		t.Errorf("%d ticks from March 2020 to 2030, want each January", n)
 	}
 }
+
+// A task dragged into the hours of the week blocks an hour for it.
+func TestTimeBlock(t *testing.T) {
+	a := testApp("en")
+	a.page = PageSchedule
+	a.schedScroll.Y, a.schedScrolled = 0, true
+	tt := newTester(t, a, "en")
+	task := taskTitled(a, "Quantize the encoder to INT4 and measure WER")
+	from, ok := tt.Find(task.Title)
+	sync, ok2 := tt.Find("Hangxin weekly sync") // on Tuesday at 10:00
+	if !ok || !ok2 {
+		t.Fatalf("no chip for the task: %q", tt.Texts())
+	}
+	// Down into Tuesday's hours, at noon.
+	x, y := from.X+from.W/2, from.Y+from.H/2
+	drag(tt, x, y, 0, sync.Y+2*hourHeight+4-y)
+	var block *Event
+	for _, e := range a.data.Events {
+		if e.Title == task.Title {
+			block = e
+		}
+	}
+	if block == nil || block.Kind != KindFocus || block.Project != task.Project || !sameDay(block.Start, task.Due) ||
+		block.Start.Hour() != 12 || block.End.Sub(block.Start) != time.Hour {
+		t.Fatalf("block %+v", block)
+	}
+	if task.Done || task.Due.IsZero() {
+		t.Error("the task changed")
+	}
+}

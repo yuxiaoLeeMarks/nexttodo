@@ -514,9 +514,31 @@ func (a *app) dayColumn(c *ui.Context, i int, d time.Time, events []*Event, now 
 		a.newEvent(from, "")
 		a.evt.end = to
 	}
+	// A task or an all-day event dragged down from above into the hours
+	// takes an hour there: for a task, an hour blocked to work on it.
+	var block time.Time
+	var blockTitle string
+	if v, over := ui.DragOver[dated](col); over {
+		if _, y, ok := col.PointerPosition(); ok {
+			block, blockTitle = blockStart(d, y), titleOf(v)
+		}
+	}
+	if v, ok := ui.Drop[dated](col); ok {
+		if _, y, ok := col.PointerPosition(); ok {
+			a.timeBlock(v, blockStart(d, y))
+		}
+	}
 	col.Children(func() {
 		for _, pl := range layoutDay(events, d) {
 			a.eventBlock(c, pl, d)
+		}
+		if !block.IsZero() {
+			top := float32(block.Sub(d).Minutes()) / 60 * hourHeight
+			ui.Column(c).Absolute().Top(top+1).Left(2).Right(2).Height(hourHeight-2).Padding(3, 7).Gap(1).Radius(5).PassThrough().
+				Background(a.p.accent.Alpha(0.16)).Border(1, a.p.accent.Alpha(0.6)).Children(func() {
+				ui.Text(c, orUntitled(blockTitle, a.tr.Untitled())).FontSize(11).FontWeight(600).TextColor(a.ink(a.p.accent)).SingleLine()
+				ui.Text(c, a.clock(block)+" – "+a.clock(block.Add(time.Hour))).FontSize(10.5).FontFeatures("tnum").TextColor(a.ink(a.p.accent))
+			})
 		}
 		if sketching {
 			top := float32(from.Sub(d).Minutes()) / 60 * hourHeight
@@ -632,6 +654,38 @@ type dated interface{ dated() }
 
 func (*Event) dated() {}
 func (*Task) dated()  {}
+
+// blockStart is the quarter hour of the day d at y in its column, where a
+// block of an hour dropped there starts.
+func blockStart(d time.Time, y float32) time.Time {
+	m := int(y/hourHeight*60) / snapMinutes * snapMinutes
+	return d.Add(time.Duration(max(0, min(m, 23*60))) * time.Minute)
+}
+
+func titleOf(v dated) string {
+	switch v := v.(type) {
+	case *Event:
+		return v.Title
+	case *Task:
+		return v.Title
+	}
+	return ""
+}
+
+// timeBlock gives an hour from start to what was dropped in the hours: a
+// task gets an event of focus on it, of its project; an all-day event
+// becomes that hour, an occurrence of a series alone.
+func (a *app) timeBlock(v dated, start time.Time) {
+	switch v := v.(type) {
+	case *Task:
+		a.data.Events = append(a.data.Events, &Event{ID: newID(), Title: v.Title, Kind: KindFocus, Project: v.Project,
+			Start: start, End: start.Add(time.Hour)})
+	case *Event:
+		e := a.data.detach(v)
+		e.AllDay, e.Start, e.End = false, start, start.Add(time.Hour)
+	}
+	a.changed()
+}
 
 // dropDay makes cell take events and tasks dropped on it, for the day d:
 // an event moves there keeping its times, a task falls due then. (An
