@@ -864,6 +864,16 @@ func (msgs Messages) Clear() string {
 	return Catalog.Format(msgs.locale, "clear", nil)
 }
 
+// AddAsTyped says "Add as typed, without the date"
+// in the language the app shows.
+func AddAsTyped() string { return In(i18n.Locale()).AddAsTyped() }
+
+// AddAsTyped says "Add as typed, without the date"
+// in the language of msgs.
+func (msgs Messages) AddAsTyped() string {
+	return Catalog.Format(msgs.locale, "addAsTyped", nil)
+}
+
 // Delete says "Delete"
 // in the language the app shows.
 func Delete() string { return In(i18n.Locale()).Delete() }

@@ -570,8 +570,21 @@ func (a *app) dateField(c *ui.Context, key string, date *time.Time) {
 // quickAdd is a row for adding something: a plus and a field. add gets the
 // trimmed text on Return; handle, if not nil, is bound to the field.
 func (a *app) quickAdd(c *ui.Context, draft *string, placeholder string, handle *ui.Handle, add func(string)) ui.Element {
+	return a.addRow(c, draft, placeholder, handle, nil, add)
+}
+
+// quickAddTask is quickAdd for a task, reading its due day from the line,
+// "tomorrow" or "周五", which a chip shows as it is typed.
+func (a *app) quickAddTask(c *ui.Context, draft *string, placeholder string, handle *ui.Handle, add func(when)) ui.Element {
+	first := a.firstWeekday(c)
+	return a.addRow(c, draft, placeholder, handle, func() {
+		a.whenChip(c, draft, a.readWhen(draft, *draft, first, false))
+	}, func(s string) { add(a.readWhen(draft, s, first, false)) })
+}
+
+func (a *app) addRow(c *ui.Context, draft *string, placeholder string, handle *ui.Handle, after func(), add func(string)) ui.Element {
 	p := &a.p
-	row := ui.Row(c).MinHeight(42).Padding(0, 14).Gap(10).AlignItems(ui.Center).Shrink(0)
+	row := ui.Row(c).MinHeight(42).Padding(0, 10, 0, 14).Gap(10).AlignItems(ui.Center).Shrink(0)
 	row.Children(func() {
 		ui.Icon(c, iconPlus).Size(14, 14).TextColor(p.accent)
 		in := ui.TextInputBase(c, draft).Placeholder(placeholder).Label(placeholder).Grow(1).FontSize(13).TextColor(p.fg)
@@ -583,9 +596,74 @@ func (a *app) quickAdd(c *ui.Context, draft *string, placeholder string, handle 
 				add(s)
 			}
 			*draft = ""
+			delete(a.literal, draft)
+		}
+		if after != nil {
+			after()
 		}
 	})
 	return row
+}
+
+// readWhen reads what line, typed in the field of draft, says of its time,
+// unless the field takes it as typed.
+func (a *app) readWhen(draft *string, line string, first time.Weekday, times bool) when {
+	if a.literal[draft] {
+		return when{title: strings.TrimSpace(line)}
+	}
+	return parseWhen(line, a.now(), first, times)
+}
+
+// whenText writes what a line says of its time: Tomorrow · 3:00 – 4:00 PM.
+func (a *app) whenText(w when) string {
+	var parts []string
+	if !w.day.IsZero() {
+		if n := daysBetween(a.now(), w.day); n == 0 || n == 1 {
+			parts = append(parts, a.tr.DueIn(n))
+		} else {
+			parts = append(parts, a.fmt(w.day, "MMMEd"))
+		}
+	}
+	switch {
+	case w.clock && w.minutes > 0:
+		s := w.start(a.now())
+		parts = append(parts, a.clock(s)+" – "+a.clock(s.Add(time.Duration(w.minutes)*time.Minute)))
+	case w.clock:
+		parts = append(parts, a.clock(w.start(a.now())))
+	case w.minutes > 0:
+		parts = append(parts, a.length(w.minutes))
+	}
+	return strings.Join(parts, " · ")
+}
+
+// length writes a number of minutes as hours, or minutes.
+func (a *app) length(n int) string {
+	if n%60 == 0 {
+		return a.tr.HoursShort(n / 60)
+	}
+	return a.tr.MinutesShort(n)
+}
+
+// whenChip shows what the line of draft says of its time, w, with a × to
+// add the line as typed.
+func (a *app) whenChip(c *ui.Context, draft *string, w when) {
+	if !w.said() {
+		return
+	}
+	p := &a.p
+	ui.Row(c.Key("when")).Height(22).Gap(5).Padding(0, 3, 0, 8).Radius(999).AlignItems(ui.Center).Shrink(0).
+		Background(p.accentSoft).Transition(popMotion).Children(func() {
+		ui.Icon(c, iconCalendar).Size(12, 12).TextColor(p.accent)
+		ui.Text(c, a.whenText(w)).FontSize(12).FontWeight(500).TextColor(p.accent).SingleLine()
+		x := ui.ButtonBase(c.Key("whenAsTyped")).Size(16, 16).Radius(8).Center().FocusRing(false).Label(a.tr.AddAsTyped())
+		if x.Hovered() {
+			x.Background(p.accent.Alpha(0.14))
+		}
+		x.Children(func() { ui.Icon(c, iconClose).Size(8, 8).TextColor(p.accent) })
+		if x.Clicked() {
+			a.literal[draft] = true
+		}
+	})
 }
 
 // modal shows a sheet over the dimmed window.

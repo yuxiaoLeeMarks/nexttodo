@@ -798,6 +798,7 @@ func TestSnapshots(t *testing.T) {
 		{"search", func(a *app) { a.page, a.searchOpen, a.searchQuery = PageTasks, true, "re" }, 1280, 820},
 		{"planned", func(a *app) { a.page, a.taskList = PageTasks, listPlanned }, 1280, 820},
 		{"panel", nil, 340, 480},
+		{"quickparse", func(a *app) { a.page, a.taskDraft = PageTasks, "Write the rebuttal fri" }, 1280, 820},
 	}
 	only := os.Getenv("NT_PAGE")
 	for _, lang := range []string{"en", "zh-Hans"} {

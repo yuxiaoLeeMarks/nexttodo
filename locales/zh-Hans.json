@@ -91,6 +91,7 @@
 
   "setDate": "添加日期",
   "clear": "清除",
+  "addAsTyped": "按原文添加，不识别日期",
   "delete": "删除",
   "cancel": "取消",
   "save": "保存",

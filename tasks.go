@@ -206,8 +206,11 @@ func (a *app) tasksPage(c *ui.Context) {
 			groups := a.taskGroups(tasks, a.firstWeekday(c))
 			a.list(c, func() {
 				if a.taskList != listDone {
-					a.quickAdd(c, &a.taskDraft, a.tr.TaskAddPlaceholder(), &a.taskAdd, func(title string) {
-						t := a.addTask(title, a.taskFilter, a.taskList)
+					a.quickAddTask(c, &a.taskDraft, a.tr.TaskAddPlaceholder(), &a.taskAdd, func(w when) {
+						t := a.addTask(w.title, a.taskFilter, a.taskList)
+						if !w.day.IsZero() {
+							t.Due = w.day
+						}
 						if a.taskSel != "" {
 							a.taskSel = t.ID
 						}

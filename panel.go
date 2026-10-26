@@ -1,7 +1,7 @@
 package main
 
 import (
-	"strings"
+	"slices"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -27,22 +27,36 @@ func nextHalfHour(t time.Time) time.Time {
 	return s.Add(30 * time.Minute)
 }
 
-// quickAddNow adds what the panel's field says.
-func (a *app) quickAddNow() {
+// quickWhen reads what the panel's field says of its time: an event's day
+// and hours, or a task's due day.
+func (a *app) quickWhen(first time.Weekday) when {
 	q := &a.quick
-	title := strings.TrimSpace(q.title)
-	if title == "" {
+	return a.readWhen(&q.title, q.title, first, q.mode == 1)
+}
+
+// quickAddNow adds what the panel's field says: a task to My Day, or an
+// event at the time the panel shows, which the line may have set, on the
+// day the line names.
+func (a *app) quickAddNow(first time.Weekday) {
+	q := &a.quick
+	w := a.quickWhen(first)
+	if w.title == "" {
 		return
 	}
 	if q.mode == 0 {
-		a.addTask(title, "", listMyDay)
+		a.addTask(w.title, "", listMyDay).Due = w.day
 	} else {
-		start := at(a.now(), q.start.Hour(), q.start.Minute())
-		a.data.Events = append(a.data.Events, &Event{ID: newID(), Title: title, Kind: KindMeeting,
+		// The panel's time is on its day, tomorrow's after 23:30.
+		start := q.start
+		if !w.day.IsZero() {
+			start = at(w.day, q.start.Hour(), q.start.Minute())
+		}
+		a.data.Events = append(a.data.Events, &Event{ID: newID(), Title: w.title, Kind: KindMeeting,
 			Start: start, End: start.Add(time.Duration(q.minutes) * time.Minute)})
 		a.changed()
 	}
-	q.title, q.added = "", title
+	q.title, q.added = "", w.title
+	delete(a.literal, &q.title)
 }
 
 // panelView is the menu bar's panel, as magpie's: what is left of today and
@@ -52,6 +66,7 @@ func (a *app) panelView(c *ui.Context) {
 	p := &a.p
 	q := &a.quick
 	now := a.now()
+	first := a.firstWeekday(c)
 	c.Root().Background(ui.Transparent)
 	box := ui.Column(c).Fill()
 	if c.Vibrancy() {
@@ -76,7 +91,9 @@ func (a *app) panelView(c *ui.Context) {
 					q.field.Focus()
 				}
 				ui.Spacer(c)
-				if q.added != "" {
+				if w := a.quickWhen(first); w.said() {
+					a.whenChip(c, &q.title, w)
+				} else if q.added != "" {
 					ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
 						ui.Icon(c, iconCheck).Size(12, 12).TextColor(p.green)
 						ui.Text(c, a.tr.PanelAdded()).FontSize(12).TextColor(p.green)
@@ -91,21 +108,30 @@ func (a *app) panelView(c *ui.Context) {
 				Radius(7).Padding(5, 9)
 			if in.Changed() {
 				q.added = ""
+				// The time the line says shows in the pickers, to change.
+				if w := a.quickWhen(first); q.mode == 1 {
+					if w.clock {
+						q.start = w.start(now)
+					}
+					if w.minutes > 0 {
+						q.minutes = w.minutes
+					}
+				}
 			}
 			if in.Submitted() {
-				a.quickAddNow()
+				a.quickAddNow(first)
 			}
 			if q.mode == 1 {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Icon(c, iconClock).Size(13, 13).TextColor(p.muted)
 					ui.TimeInput(c, &q.start).Label(a.tr.FieldStarts())
 					ui.Spacer(c)
-					selectOf(a, c, "quickMinutes", &q.minutes, []int{30, 60, 90, 120, 180}, func(n int) string {
-						if n%60 == 0 {
-							return a.tr.HoursShort(n / 60)
-						}
-						return a.tr.MinutesShort(n)
-					}).Label(a.tr.Duration())
+					lengths := []int{30, 60, 90, 120, 180}
+					if !slices.Contains(lengths, q.minutes) {
+						lengths = append(lengths, q.minutes)
+						slices.Sort(lengths)
+					}
+					selectOf(a, c, "quickMinutes", &q.minutes, lengths, a.length).Label(a.tr.Duration())
 				})
 			}
 		})

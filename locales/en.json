@@ -97,6 +97,7 @@
 
   "setDate": "Add date",
   "clear": "Clear",
+  "addAsTyped": "Add as typed, without the date",
   "delete": "Delete",
   "cancel": "Cancel",
   "save": "Save",

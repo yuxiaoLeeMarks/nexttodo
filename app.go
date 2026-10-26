@@ -107,6 +107,9 @@ type app struct {
 	// The menu bar's panel.
 	quick quickDraft
 
+	// literal holds the fields whose line is added as typed, its time unread.
+	literal map[*string]bool
+
 	// Alerts.
 	alerted   map[string]bool // events alerted, by ID and start
 	alertedTo time.Time       // alerts up to this time have been looked at
@@ -120,7 +123,7 @@ type app struct {
 }
 
 func newApp(d *Data, path string) *app {
-	a := &app{data: d, path: path, now: time.Now, alerted: map[string]bool{}}
+	a := &app{data: d, path: path, now: time.Now, alerted: map[string]bool{}, literal: map[*string]bool{}}
 	a.schedAnchor = day(a.now())
 	a.alertedTo = a.now().Add(-time.Minute)
 	a.quick = quickDraft{minutes: 60}
