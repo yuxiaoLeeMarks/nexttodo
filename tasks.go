@@ -145,6 +145,19 @@ func (a *app) listName(list int) string {
 }
 
 // addTask adds a task titled title, placed by where it was added.
+// addTaskWhen adds a task as addTask does, due on the day w names and
+// reminding at its time.
+func (a *app) addTaskWhen(w when, project string, list int) *Task {
+	t := a.addTask(w.title, project, list)
+	if !w.day.IsZero() {
+		t.Due = w.day
+	}
+	if w.clock {
+		t.Remind = w.start(a.now())
+	}
+	return t
+}
+
 func (a *app) addTask(title, project string, list int) *Task {
 	now := a.now()
 	t := &Task{ID: newID(), Title: strings.TrimSpace(title), Project: project, Created: now}
@@ -207,10 +220,7 @@ func (a *app) tasksPage(c *ui.Context) {
 			a.list(c, func() {
 				if a.taskList != listDone {
 					a.quickAddTask(c, &a.taskDraft, a.tr.TaskAddPlaceholder(), &a.taskAdd, func(w when) {
-						t := a.addTask(w.title, a.taskFilter, a.taskList)
-						if !w.day.IsZero() {
-							t.Due = w.day
-						}
+						t := a.addTaskWhen(w, a.taskFilter, a.taskList)
 						if a.taskSel != "" {
 							a.taskSel = t.ID
 						}
@@ -358,6 +368,9 @@ func (a *app) taskRow(c *ui.Context, t *Task, where int) {
 				}
 				item(iconCalendar, when, col)
 			}
+			if !t.Remind.IsZero() && !t.Done {
+				item(iconBell, a.remindText(t.Remind), p.muted)
+			}
 			if strings.TrimSpace(t.Notes) != "" {
 				item(iconNote, "", p.faint)
 			}
@@ -409,6 +422,45 @@ func (a *app) taskRow(c *ui.Context, t *Task, where int) {
 	}
 }
 
+// remindText writes when a reminder goes: its time today, or its day and
+// time.
+func (a *app) remindText(t time.Time) string {
+	if n := daysBetween(a.now(), t); n != 0 {
+		if n == 1 {
+			return a.tr.DueIn(1) + " " + a.clock(t)
+		}
+		return a.fmt(t, "MMMd") + " " + a.clock(t)
+	}
+	return a.clock(t)
+}
+
+// remindField sets the day and the time a task reminds of itself.
+func (a *app) remindField(c *ui.Context, t *Task) {
+	ui.Row(c.Key("remind")).Gap(2).AlignItems(ui.Center).Shrink(0).Children(func() {
+		if t.Remind.IsZero() {
+			if a.btn(c, a.tr.SetTime(), btnSecondary).Clicked() {
+				// On its day at nine, or in the next half hour.
+				t.Remind = nextHalfHour(a.now())
+				if t.Due.After(a.now()) {
+					t.Remind = at(t.Due, 9, 0)
+				}
+				a.changed()
+			}
+			return
+		}
+		if ui.DateInput(c, &t.Remind).Label(a.tr.FieldRemind()).Width(112).Changed() {
+			a.changed()
+		}
+		if ui.TimeInput(c, &t.Remind).Label(a.tr.FieldRemind()).Changed() {
+			a.changed()
+		}
+		if a.iconBtn(c, iconClose, a.tr.Clear()).Clicked() {
+			t.Remind = time.Time{}
+			a.changed()
+		}
+	})
+}
+
 // taskDetail edits the chosen task beside the list, its fields in rows as
 // System Settings shows them.
 func (a *app) taskDetail(c *ui.Context, t *Task) {
@@ -437,6 +489,7 @@ func (a *app) taskDetail(c *ui.Context, t *Task) {
 			})
 			ui.Column(c).Dividers(1, p.line2).Gap(1).Margin(4, 0, 0, 0).Children(func() {
 				a.formRow(c, a.tr.FieldDue(), func() { a.dateField(c, "due", &t.Due) })
+				a.formRow(c, a.tr.FieldRemind(), func() { a.remindField(c, t) })
 				a.formRow(c, a.tr.FieldPriority(), func() {
 					if selectOf(a, c, "priority", &t.Priority, []int{0, 1, 2, 3}, a.priorityName).Label(a.tr.FieldPriority()).Changed() {
 						a.changed()

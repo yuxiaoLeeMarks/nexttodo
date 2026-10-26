@@ -231,3 +231,52 @@ func TestEventEndDay(t *testing.T) {
 		t.Errorf("conference %v – %v", e.Start, e.End)
 	}
 }
+
+// A task reminds of itself at its time, once, and a time typed with it
+// sets that time.
+func TestTaskReminder(t *testing.T) {
+	a := testApp("en")
+	a.page = PageTasks
+	tt := newTester(t, a, "en")
+	tt.Click("Add a task")
+	tt.Type("Call Lin tomorrow 3pm")
+	tt.Key(0, ui.KeyEnter)
+	x := taskTitled(a, "Call Lin")
+	tomorrow := addDays(day(monday), 1)
+	if x == nil || !x.Due.Equal(tomorrow) || !x.Remind.Equal(at(tomorrow, 15, 0)) {
+		t.Fatalf("task %+v", x)
+	}
+	a.alertedTo = at(tomorrow, 14, 59)
+	got := a.dueAlerts(at(tomorrow, 15, 0))
+	found := false
+	for _, al := range got {
+		found = found || al.id == "task:"+x.ID && al.title == "Call Lin"
+	}
+	if !found {
+		t.Fatalf("no reminder: %+v", got)
+	}
+	if again := a.dueAlerts(at(tomorrow, 15, 1)); len(again) != 0 {
+		t.Errorf("reminded twice: %+v", again)
+	}
+	// Done, it reminds no more.
+	x.Remind = at(tomorrow, 16, 0)
+	x.setDone(true, monday)
+	if got := a.dueAlerts(at(tomorrow, 16, 0)); len(got) != 0 {
+		t.Errorf("a done task reminded: %+v", got)
+	}
+	// The detail sets a reminder, which the row shows.
+	x.setDone(false, monday)
+	x.Remind = time.Time{}
+	a.taskList, a.taskSel = listAll, x.ID
+	tt.Frame()
+	if err := tt.Click("Add time"); err != nil {
+		t.Fatal(err)
+	}
+	if !x.Remind.Equal(at(tomorrow, 9, 0)) {
+		t.Errorf("reminds %v, want at nine on its day", x.Remind)
+	}
+	tt.Frame()
+	if !tt.HasText("Tomorrow " + a.clock(x.Remind)) {
+		t.Errorf("the row does not show the reminder: %q", tt.Texts())
+	}
+}

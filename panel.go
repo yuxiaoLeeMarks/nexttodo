@@ -31,7 +31,16 @@ func nextHalfHour(t time.Time) time.Time {
 // and hours, or a task's due day.
 func (a *app) quickWhen(first time.Weekday) when {
 	q := &a.quick
-	return a.readWhen(&q.title, q.title, first, q.mode == 1)
+	return a.readWhen(&q.title, q.title, first, a.quickReads())
+}
+
+// quickReads is what the panel's line is read for: an event's time and
+// length, or a task's reminder.
+func (a *app) quickReads() int {
+	if a.quick.mode == 1 {
+		return readSpan
+	}
+	return readClock
 }
 
 // quickAddNow adds what the panel's field says: a task to My Day, or an
@@ -44,7 +53,7 @@ func (a *app) quickAddNow(first time.Weekday) {
 		return
 	}
 	if q.mode == 0 {
-		a.addTask(w.title, "", listMyDay).Due = w.day
+		a.addTaskWhen(w, "", listMyDay)
 	} else {
 		// The panel's time is on its day, tomorrow's after 23:30.
 		start := q.start
@@ -92,7 +101,7 @@ func (a *app) panelView(c *ui.Context) {
 				}
 				ui.Spacer(c)
 				if w := a.quickWhen(first); w.said() {
-					a.whenChip(c, &q.title, w)
+					a.whenChip(c, &q.title, w, a.quickReads())
 				} else if q.added != "" {
 					ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
 						ui.Icon(c, iconCheck).Size(12, 12).TextColor(p.green)

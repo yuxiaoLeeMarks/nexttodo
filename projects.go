@@ -378,7 +378,7 @@ func (a *app) projectTasks(c *ui.Context, pr *Project) {
 	a.section(c, a.tr.ProjectTasks(), a.tr.TasksProgress(done, total), nil)
 	a.list(c, func() {
 		a.quickAddTask(c, &a.projTaskDraft, a.tr.ProjectAddTask(), nil, func(w when) {
-			a.addTask(w.title, pr.ID, listAll).Due = w.day
+			a.addTaskWhen(w, pr.ID, listAll)
 		})
 		for _, t := range tasks {
 			a.taskRow(c, t, rowInProject)

@@ -226,15 +226,22 @@ var rules = []rule{
 	}},
 }
 
-// parseWhen reads what line says of a day and, when times, of a time of
-// day and how long. A line that is nothing but a time is a title.
-func parseWhen(line string, now time.Time, first time.Weekday, times bool) when {
+// What a line is read for.
+const (
+	readDay   = iota // a day: a task's due day
+	readClock        // and a time of day: a task's reminder
+	readSpan         // and how long: an event
+)
+
+// parseWhen reads what line says of a day and, as reads says, of a time
+// of day and how long. A line that is nothing but a time is a title.
+func parseWhen(line string, now time.Time, first time.Weekday, reads int) when {
 	s := &parseState{now: now, first: first}
 	w := when{}
 	done := map[int]bool{}
 	text := line
 	for _, r := range rules {
-		if done[r.kind] || r.kind != ruleDay && !times {
+		if done[r.kind] || r.kind == ruleClock && reads < readClock || r.kind == ruleLength && reads < readSpan {
 			continue
 		}
 		for _, loc := range r.re.FindAllStringSubmatchIndex(text, -1) {

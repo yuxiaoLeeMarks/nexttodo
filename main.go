@@ -30,12 +30,17 @@ func main() {
 	a := newApp(newData(), path)
 	a.live = true
 
-	// A click on an event's alert opens the event, also one of an earlier
+	// A click on an alert opens its event or task, also one of an earlier
 	// run that launched the app again.
 	mygo.App.OnNotificationClick(func(id string) {
 		if ev, ok := strings.CutPrefix(id, "event:"); ok {
 			a.showMain()
 			a.openEvent(ev)
+			a.redraw()
+		}
+		if t, ok := strings.CutPrefix(id, "task:"); ok {
+			a.showMain()
+			a.openTask(t)
 			a.redraw()
 		}
 	})
@@ -283,7 +288,7 @@ func (a *app) watchAlerts() {
 			a.updateBadge() // as days turn
 		})
 		for _, al := range due {
-			n := mygo.NewNotification(mygo.NotificationOptions{ID: al.id, Title: al.title, Subtitle: al.subtitle, Body: al.body, Group: "events"})
+			n := mygo.NewNotification(mygo.NotificationOptions{ID: al.id, Title: al.title, Subtitle: al.subtitle, Body: al.body, Group: al.group})
 			if err := n.Show(); err != nil {
 				log.Println("alert:", err)
 			}

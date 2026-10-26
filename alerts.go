@@ -2,12 +2,14 @@ package main
 
 import (
 	"strconv"
+	"strings"
 	"time"
 )
 
 // alert is a notification due for an event.
 type alert struct {
-	id       string // "event:" and the event's ID, which a click on it opens
+	id       string // "event:" and the event's key, or "task:" and the task's ID, which a click on it opens
+	group    string
 	title    string
 	subtitle string
 	body     string
@@ -62,9 +64,36 @@ func (a *app) dueAlerts(now time.Time) []alert {
 		}
 		out = append(out, alert{
 			id:       "event:" + e.key(),
+			group:    "events",
 			title:    orUntitled(e.Title, a.tr.Untitled()),
 			subtitle: a.tr.AlertStartsIn(max(int(e.Start.Sub(now).Minutes()+0.5), 0)),
 			body:     body,
+		})
+	}
+	// The tasks' reminders, once each, which a task done or put away with
+	// its project does without.
+	for _, t := range a.data.Tasks {
+		if t.Done || t.Remind.IsZero() || !t.Remind.After(from) || t.Remind.After(now) || a.data.shelved(t) {
+			continue
+		}
+		key := "task:" + t.ID + "@" + strconv.FormatInt(t.Remind.Unix(), 10)
+		if a.alerted[key] {
+			continue
+		}
+		a.alerted[key] = true
+		var body []string
+		if t.Project != "" {
+			body = append(body, a.projectName(t.Project))
+		}
+		if !t.Due.IsZero() {
+			body = append(body, a.relDay(t.Due))
+		}
+		out = append(out, alert{
+			id:       "task:" + t.ID,
+			group:    "tasks",
+			title:    orUntitled(t.Title, a.tr.Untitled()),
+			subtitle: a.tr.Reminder(),
+			body:     strings.Join(body, " · "),
 		})
 	}
 	return out

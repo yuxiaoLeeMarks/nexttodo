@@ -604,6 +604,26 @@ func (msgs Messages) FieldDue() string {
 	return Catalog.Format(msgs.locale, "fieldDue", nil)
 }
 
+// FieldRemind says "Reminder"
+// in the language the app shows.
+func FieldRemind() string { return In(i18n.Locale()).FieldRemind() }
+
+// FieldRemind says "Reminder"
+// in the language of msgs.
+func (msgs Messages) FieldRemind() string {
+	return Catalog.Format(msgs.locale, "fieldRemind", nil)
+}
+
+// Reminder says "Reminder"
+// in the language the app shows.
+func Reminder() string { return In(i18n.Locale()).Reminder() }
+
+// Reminder says "Reminder"
+// in the language of msgs.
+func (msgs Messages) Reminder() string {
+	return Catalog.Format(msgs.locale, "reminder", nil)
+}
+
 // FieldPriority says "Priority"
 // in the language the app shows.
 func FieldPriority() string { return In(i18n.Locale()).FieldPriority() }
@@ -842,6 +862,16 @@ func SetDate() string { return In(i18n.Locale()).SetDate() }
 // in the language of msgs.
 func (msgs Messages) SetDate() string {
 	return Catalog.Format(msgs.locale, "setDate", nil)
+}
+
+// SetTime says "Add time"
+// in the language the app shows.
+func SetTime() string { return In(i18n.Locale()).SetTime() }
+
+// SetTime says "Add time"
+// in the language of msgs.
+func (msgs Messages) SetTime() string {
+	return Catalog.Format(msgs.locale, "setTime", nil)
 }
 
 // Clear says "Clear"

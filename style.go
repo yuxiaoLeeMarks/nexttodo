@@ -573,13 +573,14 @@ func (a *app) quickAdd(c *ui.Context, draft *string, placeholder string, handle 
 	return a.addRow(c, draft, placeholder, handle, nil, add)
 }
 
-// quickAddTask is quickAdd for a task, reading its due day from the line,
-// "tomorrow" or "周五", which a chip shows as it is typed.
+// quickAddTask is quickAdd for a task, reading its due day and the time
+// to remind of it from the line, "tomorrow 3pm" or "周五", which a chip
+// shows as it is typed.
 func (a *app) quickAddTask(c *ui.Context, draft *string, placeholder string, handle *ui.Handle, add func(when)) ui.Element {
 	first := a.firstWeekday(c)
 	return a.addRow(c, draft, placeholder, handle, func() {
-		a.whenChip(c, draft, a.readWhen(draft, *draft, first, false))
-	}, func(s string) { add(a.readWhen(draft, s, first, false)) })
+		a.whenChip(c, draft, a.readWhen(draft, *draft, first, readClock), readClock)
+	}, func(s string) { add(a.readWhen(draft, s, first, readClock)) })
 }
 
 func (a *app) addRow(c *ui.Context, draft *string, placeholder string, handle *ui.Handle, after func(), add func(string)) ui.Element {
@@ -607,11 +608,11 @@ func (a *app) addRow(c *ui.Context, draft *string, placeholder string, handle *u
 
 // readWhen reads what line, typed in the field of draft, says of its time,
 // unless the field takes it as typed.
-func (a *app) readWhen(draft *string, line string, first time.Weekday, times bool) when {
+func (a *app) readWhen(draft *string, line string, first time.Weekday, reads int) when {
 	if a.literal[draft] {
 		return when{title: strings.TrimSpace(line)}
 	}
-	return parseWhen(line, a.now(), first, times)
+	return parseWhen(line, a.now(), first, reads)
 }
 
 // whenText writes what a line says of its time: Tomorrow · 3:00 – 4:00 PM.
@@ -645,15 +646,19 @@ func (a *app) length(n int) string {
 }
 
 // whenChip shows what the line of draft says of its time, w, with a × to
-// add the line as typed.
-func (a *app) whenChip(c *ui.Context, draft *string, w when) {
+// add the line as typed: a bell for a task's reminder.
+func (a *app) whenChip(c *ui.Context, draft *string, w when, reads int) {
 	if !w.said() {
 		return
 	}
 	p := &a.p
+	icon := iconCalendar
+	if w.clock && reads == readClock {
+		icon = iconBell
+	}
 	ui.Row(c.Key("when")).Height(22).Gap(5).Padding(0, 3, 0, 8).Radius(999).AlignItems(ui.Center).Shrink(0).
 		Background(p.accentSoft).Transition(popMotion).Children(func() {
-		ui.Icon(c, iconCalendar).Size(12, 12).TextColor(p.accent)
+		ui.Icon(c, icon).Size(12, 12).TextColor(p.accent)
 		ui.Text(c, a.whenText(w)).FontSize(12).FontWeight(500).TextColor(p.accent).SingleLine()
 		x := ui.ButtonBase(c.Key("whenAsTyped")).Size(16, 16).Radius(8).Center().FocusRing(false).Label(a.tr.AddAsTyped())
 		if x.Hovered() {

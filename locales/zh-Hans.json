@@ -63,6 +63,8 @@
   "fieldTitle": "标题",
   "fieldNotes": "备注",
   "fieldDue": "截止日期",
+  "fieldRemind": "提醒我",
+  "reminder": "待办提醒",
   "fieldPriority": "优先级",
   "fieldProject": "项目",
   "fieldStarred": "重要",
@@ -89,6 +91,7 @@
   "priorityHigh": "高",
 
   "setDate": "添加日期",
+  "setTime": "添加时间",
   "clear": "清除",
   "addAsTyped": "按原文添加，不识别日期",
   "delete": "删除",

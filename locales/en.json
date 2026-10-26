@@ -69,6 +69,8 @@
   "fieldTitle": "Title",
   "fieldNotes": "Notes",
   "fieldDue": "Due date",
+  "fieldRemind": "Reminder",
+  "reminder": "Reminder",
   "fieldPriority": "Priority",
   "fieldProject": "Project",
   "fieldStarred": "Important",
@@ -95,6 +97,7 @@
   "priorityHigh": "High",
 
   "setDate": "Add date",
+  "setTime": "Add time",
   "clear": "Clear",
   "addAsTyped": "Add as typed, without the date",
   "delete": "Delete",
