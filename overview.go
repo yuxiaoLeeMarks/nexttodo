@@ -280,7 +280,7 @@ func (a *app) eventRow(c *ui.Context, e *Event) {
 			a.softChip(c, a.tr.HappeningNow(), p.green)
 		}
 	})
-	a.eventMenu(row, e)
+	a.eventMenu(c, row, e)
 	if row.Clicked() {
 		a.editEvent(e)
 	}

@@ -514,16 +514,6 @@ func (msgs Messages) TaskCompletedOn(date string) string {
 	return Catalog.Format(msgs.locale, "taskCompletedOn", map[string]any{"date": date})
 }
 
-// TaskDeleteConfirm says "Delete this task?"
-// in the language the app shows.
-func TaskDeleteConfirm() string { return In(i18n.Locale()).TaskDeleteConfirm() }
-
-// TaskDeleteConfirm says "Delete this task?"
-// in the language of msgs.
-func (msgs Messages) TaskDeleteConfirm() string {
-	return Catalog.Format(msgs.locale, "taskDeleteConfirm", nil)
-}
-
 // FilterAllProjects says "All projects"
 // in the language the app shows.
 func FilterAllProjects() string { return In(i18n.Locale()).FilterAllProjects() }
@@ -1032,16 +1022,6 @@ func EventLocationPlaceholder() string { return In(i18n.Locale()).EventLocationP
 // in the language of msgs.
 func (msgs Messages) EventLocationPlaceholder() string {
 	return Catalog.Format(msgs.locale, "eventLocationPlaceholder", nil)
-}
-
-// EventDeleteConfirm says "Delete this event?"
-// in the language the app shows.
-func EventDeleteConfirm() string { return In(i18n.Locale()).EventDeleteConfirm() }
-
-// EventDeleteConfirm says "Delete this event?"
-// in the language of msgs.
-func (msgs Messages) EventDeleteConfirm() string {
-	return Catalog.Format(msgs.locale, "eventDeleteConfirm", nil)
 }
 
 // MoreEvents says "+{n} more"
@@ -1682,6 +1662,16 @@ func ArchivedToast(title string) string { return In(i18n.Locale()).ArchivedToast
 // in the language of msgs.
 func (msgs Messages) ArchivedToast(title string) string {
 	return Catalog.Format(msgs.locale, "archivedToast", map[string]any{"title": title})
+}
+
+// DeletedToast says "Deleted “{title}”"
+// in the language the app shows.
+func DeletedToast(title string) string { return In(i18n.Locale()).DeletedToast(title) }
+
+// DeletedToast says "Deleted “{title}”"
+// in the language of msgs.
+func (msgs Messages) DeletedToast(title string) string {
+	return Catalog.Format(msgs.locale, "deletedToast", map[string]any{"title": title})
 }
 
 // Undo says "Undo"

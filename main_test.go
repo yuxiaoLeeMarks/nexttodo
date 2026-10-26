@@ -331,6 +331,39 @@ func TestAddAndFinishTask(t *testing.T) {
 	}
 }
 
+func TestUndoDelete(t *testing.T) {
+	a := testApp("en")
+	a.page = PageTasks
+	tt := newTester(t, a, "en")
+	n := len(a.data.Tasks)
+	tt.Click("Sign the data-sharing agreement")
+	if err := tt.Click("Delete"); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.data.Tasks) != n-1 || a.taskSel != "" {
+		t.Fatalf("tasks %d after deleting one of %d", len(a.data.Tasks), n)
+	}
+	if err := tt.Click("Undo"); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.data.Tasks) != n {
+		t.Fatalf("Undo brought back %d of %d tasks", len(a.data.Tasks), n)
+	}
+	// An event deleted from its dialog comes back with ⌘Z.
+	a.page = PageSchedule
+	e := eventTitled(a, "GPU cluster: alignment runs")
+	a.editEvent(e)
+	tt.Frame()
+	tt.Click("Delete")
+	if eventTitled(a, e.Title) != nil || a.evtOpen {
+		t.Fatal("the event was not deleted")
+	}
+	tt.Key(ui.Cmd, ui.KeyZ)
+	if eventTitled(a, e.Title) == nil {
+		t.Error("⌘Z did not bring the event back")
+	}
+}
+
 func TestCreateEvent(t *testing.T) {
 	a := testApp("en")
 	a.page = PageSchedule

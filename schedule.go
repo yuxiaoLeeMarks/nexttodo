@@ -520,7 +520,7 @@ func (a *app) eventBlock(c *ui.Context, pl placed, d time.Time) {
 			a.dragged(e)
 		}
 	}
-	a.eventMenu(b, e)
+	a.eventMenu(c, b, e)
 	if b.Clicked() && !ended && !dragging {
 		a.editEvent(e)
 	}
@@ -555,7 +555,7 @@ func (a *app) dropDay(cell ui.Element, d time.Time) {
 	}
 }
 
-func (a *app) eventMenu(b ui.Element, e *Event) {
+func (a *app) eventMenu(c *ui.Context, b ui.Element, e *Event) {
 	b.ContextMenu(func(m *ui.Menu) {
 		if m.Item(a.tr.Edit()).Chosen() {
 			a.editEvent(e)
@@ -563,18 +563,15 @@ func (a *app) eventMenu(b ui.Element, e *Event) {
 		m.Separator()
 		if e.series != nil {
 			if m.Item(a.tr.DeleteThisEvent()).Chosen() {
-				a.data.skip(e)
-				a.changed()
+				a.deleteEvent(c, e, false)
 			}
 			if m.Item(a.tr.DeleteAllEvents()).Chosen() {
-				a.data.deleteEvent(e.ID)
-				a.changed()
+				a.deleteEvent(c, e, true)
 			}
 			return
 		}
 		if m.Item(a.tr.Delete()).Chosen() {
-			a.data.deleteEvent(e.ID)
-			a.changed()
+			a.deleteEvent(c, e, true)
 		}
 	})
 }
@@ -602,7 +599,7 @@ func (a *app) eventChip(c *ui.Context, e *Event, withTime bool) {
 		}
 		ui.Text(c, orUntitled(e.Title, a.tr.Untitled())).FontSize(11.5).TextColor(p.fg).SingleLine().MinWidth(0)
 	})
-	a.eventMenu(b, e)
+	a.eventMenu(c, b, e)
 	if b.Clicked() {
 		a.editEvent(e)
 	}
@@ -808,7 +805,12 @@ func (a *app) eventDialog(c *ui.Context) {
 		}
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			if d.id != "" && a.btn(c, a.tr.Delete(), btnDanger).Clicked() {
-				a.askEvent = true
+				if e := a.data.event(d.id); e != nil && d.occ.IsZero() {
+					a.evtOpen = false
+					a.deleteEvent(c, e, true)
+				} else {
+					a.askEvent = true
+				}
 			}
 			ui.Spacer(c)
 			if a.btn(c, a.tr.Cancel(), btnSecondary).Clicked() {
@@ -828,24 +830,11 @@ func (a *app) eventDialog(c *ui.Context) {
 	})
 	if !d.occ.IsZero() {
 		// A repeating event: this occurrence, or all of them.
-		switch ui.AlertDialog(c, &a.askEvent, a.tr.EventDeleteRepeat(), orUntitled(d.title, a.tr.Untitled()),
-			a.tr.Cancel(), a.tr.DeleteAllEvents(), a.tr.DeleteThisEvent()) {
-		case 1:
-			a.data.deleteEvent(d.id)
+		choice := ui.AlertDialog(c, &a.askEvent, a.tr.EventDeleteRepeat(), orUntitled(d.title, a.tr.Untitled()),
+			a.tr.Cancel(), a.tr.DeleteAllEvents(), a.tr.DeleteThisEvent())
+		if e := a.data.event(d.id); e != nil && choice >= 1 {
 			a.evtOpen = false
-			a.changed()
-		case 2:
-			if e := a.data.event(d.id); e != nil {
-				a.data.skip(&Event{Start: d.occ, series: e})
-			}
-			a.evtOpen = false
-			a.changed()
+			a.deleteEvent(c, &Event{ID: e.ID, Title: e.Title, Start: d.occ, series: e}, choice == 1)
 		}
-		return
-	}
-	if ui.AlertDialog(c, &a.askEvent, a.tr.EventDeleteConfirm(), orUntitled(d.title, a.tr.Untitled()), a.tr.Cancel(), a.tr.Delete()) == 1 {
-		a.data.deleteEvent(d.id)
-		a.evtOpen = false
-		a.changed()
 	}
 }

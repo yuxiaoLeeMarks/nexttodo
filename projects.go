@@ -302,9 +302,11 @@ func (a *app) projectPage(c *ui.Context) {
 	pr := a.data.project(a.projOpen)
 	if ui.AlertDialog(c, &a.askProject, a.tr.ProjectDeleteConfirm(orUntitled(pr.Title, a.tr.Untitled())), a.tr.ProjectDeleteDetail(),
 		a.tr.Cancel(), a.tr.Delete()) == 1 {
+		step := a.remember()
 		a.data.deleteProject(pr.ID)
 		a.projOpen = ""
 		a.changed()
+		a.deleted(c, step, pr.Title)
 		return
 	}
 	if c.Shortcut(0, ui.KeyEscape) {

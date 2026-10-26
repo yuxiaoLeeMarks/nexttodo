@@ -174,13 +174,6 @@ func (a *app) tasksPage(c *ui.Context) {
 			a.taskDetail(c, sel)
 		}
 	})
-	if sel != nil {
-		if ui.AlertDialog(c, &a.askTask, a.tr.TaskDeleteConfirm(), orUntitled(sel.Title, a.tr.Untitled()), a.tr.Cancel(), a.tr.Delete()) == 1 {
-			a.data.deleteTask(sel.ID)
-			a.taskSel = ""
-			a.changed()
-		}
-	}
 	if c.Shortcut(0, ui.KeyEscape) {
 		a.taskSel = ""
 	}
@@ -288,11 +281,7 @@ func (a *app) taskRow(c *ui.Context, t *Task, where int) {
 		}
 		m.Separator()
 		if m.Item(a.tr.Delete()).Chosen() {
-			if !inTasks {
-				a.openTask(t.ID)
-			}
-			a.taskSel = t.ID
-			a.askTask = true
+			a.deleteTask(c, t)
 		}
 	})
 	if row.Clicked() {
@@ -374,7 +363,7 @@ func (a *app) taskDetail(c *ui.Context, t *Task) {
 			}
 			a.muted(c, s).FontSize(11.5).Grow(1).SingleLine()
 			if a.iconBtn(c, iconTrash, a.tr.Delete()).Clicked() {
-				a.askTask = true
+				a.deleteTask(c, t)
 			}
 		})
 	})

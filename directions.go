@@ -189,7 +189,9 @@ func (a *app) directionDialog(c *ui.Context) {
 	})
 	if ui.AlertDialog(c, &a.askDir, a.tr.DirectionDeleteConfirm(orUntitled(d.title, a.tr.Untitled())), a.tr.DirectionDeleteDetail(),
 		a.tr.Cancel(), a.tr.Delete()) == 1 {
+		step := a.remember()
 		a.data.deleteDirection(d.id)
+		a.deleted(c, step, d.title)
 		a.dirOpen = false
 		a.changed()
 	}

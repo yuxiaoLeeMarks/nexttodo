@@ -56,7 +56,6 @@ type app struct {
 	taskSel    string
 	taskDraft  string
 	taskAdd    ui.Handle // the field adding tasks, which New Task focuses
-	askTask    bool      // asking whether to delete taskSel
 
 	// Schedule.
 	schedAnchor   time.Time // a day of the week or month shown
@@ -89,6 +88,8 @@ type app struct {
 	dir     dirDraft
 	dirOpen bool
 	askDir  bool
+
+	undo []*undoStep // deletions to undo, the last last
 
 	// Settings.
 	askErase   bool
@@ -378,6 +379,7 @@ func (a *app) view(c *ui.Context) {
 		c.Toast(a.toast)
 		a.toast = ""
 	}
+	a.undoShortcut(c)
 	ui.Column(c).Fill().Children(func() {
 		a.header(c)
 		ui.Column(c).Grow(1).MinHeight(0).Children(func() {

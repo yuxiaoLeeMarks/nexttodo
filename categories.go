@@ -46,8 +46,10 @@ func (a *app) categoriesSheet(c *ui.Context) {
 		n := a.projectsIn(k.ID)
 		if ui.AlertDialog(c, &open, a.tr.CategoryDeleteConfirm(orUntitled(k.Name, a.tr.Untitled())), a.tr.CategoryDeleteDetail(n),
 			a.tr.Cancel(), a.tr.Delete()) == 1 {
+			step := a.remember()
 			a.data.deleteCategory(k.ID)
 			a.changed()
+			a.deleted(c, step, k.Name)
 		}
 		if !open {
 			a.askCat = ""
