@@ -1,0 +1,9 @@
+{
+  "name": "NextTodo",
+  "identifier": "dev.nexttodo.app",
+  "version": "0.2.0",
+  "copyright": "© 2026 NextTodo",
+  "out": "build",
+  "i18n": { "dir": "locales", "source": "en" },
+  "linux": { "webview": false }
+}

@@ -1,0 +1,510 @@
+package main
+
+import (
+	"image/png"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/egoist/mygo/ui"
+
+	"nexttodo/locales"
+)
+
+// monday is the morning the tests run in: Monday, 26 October 2026.
+var monday = time.Date(2026, 10, 26, 10, 20, 0, 0, time.Local)
+
+func testApp(lang string) *app {
+	a := newApp(sampleData(monday, lang), "")
+	a.now = func() time.Time { return monday }
+	a.schedAnchor = day(monday)
+	a.alertedTo = monday.Add(-time.Minute)
+	return a
+}
+
+func newTester(t *testing.T, a *app, lang string) *ui.Tester {
+	t.Helper()
+	tt := ui.NewTester(a.view, 1280, 820)
+	tt.SetLocale(lang)
+	tt.Frame()
+	return tt
+}
+
+func eventTitled(a *app, title string) *Event {
+	for _, e := range a.data.Events {
+		if e.Title == title {
+			return e
+		}
+	}
+	return nil
+}
+
+func TestWeekStart(t *testing.T) {
+	if got := weekStart(monday.Add(48*time.Hour), time.Monday); !sameDay(got, monday) {
+		t.Errorf("week of Wednesday starts %v", got)
+	}
+	if got := weekStart(monday, time.Sunday); got.Weekday() != time.Sunday || daysBetween(got, monday) != 1 {
+		t.Errorf("Sunday week of Monday starts %v", got)
+	}
+	if n := daysBetween(monday, monday.Add(-30*time.Hour)); n != -1 {
+		t.Errorf("days to yesterday, before 10 am: %d", n)
+	}
+}
+
+func TestSortTasks(t *testing.T) {
+	d := day(monday)
+	ts := []*Task{
+		{ID: "done", Done: true},
+		{ID: "undated"},
+		{ID: "later", Due: addDays(d, 3)},
+		{ID: "soon-low", Due: d, Priority: 1},
+		{ID: "soon-high", Due: d, Priority: 3},
+	}
+	sortTasks(ts)
+	var ids []string
+	for _, x := range ts {
+		ids = append(ids, x.ID)
+	}
+	if got := strings.Join(ids, " "); got != "soon-high soon-low later undated done" {
+		t.Errorf("order %s", got)
+	}
+}
+
+func TestLayoutDay(t *testing.T) {
+	d := day(monday)
+	ev := func(id string, h0, m0, h1, m1 int) *Event {
+		return &Event{ID: id, Start: at(d, h0, m0), End: at(d, h1, m1)}
+	}
+	ps := layoutDay([]*Event{ev("a", 9, 0, 11, 0), ev("b", 10, 0, 12, 0), ev("c", 10, 30, 11, 30), ev("d", 13, 0, 14, 0)}, d)
+	lanes := map[string][2]int{}
+	for _, p := range ps {
+		lanes[p.e.ID] = [2]int{p.lane, p.lanes}
+	}
+	want := map[string][2]int{"a": {0, 3}, "b": {1, 3}, "c": {2, 3}, "d": {0, 1}}
+	for id, w := range want {
+		if lanes[id] != w {
+			t.Errorf("%s: lane %v, want %v", id, lanes[id], w)
+		}
+	}
+}
+
+func TestBackupRoundTrip(t *testing.T) {
+	d := sampleData(monday, "en")
+	ten := 10
+	d.Events[0].Alert = &ten
+	b, err := d.encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := decodeData(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(back.Projects) != len(d.Projects) || len(back.Tasks) != len(d.Tasks) || len(back.Events) != len(d.Events) {
+		t.Errorf("round trip lost data: %d/%d projects", len(back.Projects), len(d.Projects))
+	}
+	if back.Events[0].Alert == nil || *back.Events[0].Alert != 10 || back.Prefs.AlertMinutes != 10 {
+		t.Error("alerts were not kept")
+	}
+	if _, err := decodeData([]byte(`{"format":"other"}`)); err == nil {
+		t.Error("a file of another app decoded")
+	}
+	if d, _ := decodeData([]byte(`{"format":"nexttodo"}`)); d.Prefs.AlertMinutes != 10 || d.Prefs.WeekStart != -1 {
+		t.Errorf("an old file's settings %+v", d.Prefs)
+	}
+}
+
+func TestSaveAndLoad(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "data.json")
+	d := loadData(path, monday, "zh-Hans")
+	if len(d.Projects) == 0 {
+		t.Fatal("a first launch has no sample data")
+	}
+	a := newApp(d, path)
+	a.data.Tasks = append(a.data.Tasks, &Task{ID: "x", Title: "written"})
+	a.changed()
+	if again := loadData(path, monday, "en"); again.task("x") == nil {
+		t.Error("the change was not saved")
+	}
+}
+
+func TestMyDay(t *testing.T) {
+	a := testApp("en")
+	n := 0
+	for _, x := range a.tasksIn(listMyDay) {
+		if !x.Done {
+			n++
+		}
+	}
+	if n != a.myDayOpen() {
+		t.Errorf("My Day lists %d open tasks, counts %d", n, a.myDayOpen())
+	}
+	for _, x := range a.data.Tasks {
+		if !x.Done && !x.Due.IsZero() && !day(x.Due).After(day(monday)) && !a.inList(x, listMyDay) {
+			t.Errorf("%q is due but not in My Day", x.Title)
+		}
+	}
+}
+
+func TestAlerts(t *testing.T) {
+	a := testApp("en")
+	a.useTestLanguage("en")
+	start := at(monday, 11, 0)
+	ev := &Event{ID: "talk", Title: "Talk", Start: start, End: start.Add(time.Hour), Location: "Hall"}
+	quiet := &Event{ID: "quiet", Title: "Quiet", Start: start, End: start.Add(time.Hour), Alert: new(int)}
+	*quiet.Alert = alertNone
+	a.data.Events = []*Event{ev, quiet, {ID: "allday", AllDay: true, Start: day(monday), End: addDays(day(monday), 1)}}
+	a.alertedTo = at(monday, 10, 40)
+
+	if got := a.dueAlerts(at(monday, 10, 49)); len(got) != 0 {
+		t.Fatalf("alerts before their time: %+v", got)
+	}
+	got := a.dueAlerts(at(monday, 10, 50))
+	if len(got) != 1 || got[0].id != "event:talk" || got[0].subtitle != "Starts in 10 minutes" || !strings.Contains(got[0].body, "Hall") {
+		t.Fatalf("alerts at 10:50: %+v", got)
+	}
+	if again := a.dueAlerts(at(monday, 10, 52)); len(again) != 0 {
+		t.Errorf("the alert came twice: %+v", again)
+	}
+	// Moved to later, it alerts again before its new time.
+	ev.Start, ev.End = at(monday, 12, 0), at(monday, 13, 0)
+	if got := a.dueAlerts(at(monday, 11, 50)); len(got) != 1 {
+		t.Errorf("a moved event did not alert: %+v", got)
+	}
+	// Alerts of a while ago, as after a sleep, still come while the event
+	// has not ended.
+	a.data.Prefs.AlertMinutes = 0
+	late := &Event{ID: "late", Title: "Late", Start: at(monday, 12, 30), End: at(monday, 14, 0)}
+	a.data.Events = append(a.data.Events, late)
+	if got := a.dueAlerts(at(monday, 13, 0)); len(got) != 1 || got[0].id != "event:late" {
+		t.Errorf("an alert missed while asleep: %+v", got)
+	}
+}
+
+func TestAddAndFinishTask(t *testing.T) {
+	a := testApp("en")
+	a.page = PageTasks
+	tt := newTester(t, a, "en")
+	if err := tt.Click("Add a task"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Type("Write the rebuttal")
+	tt.Key(0, ui.KeyEnter)
+	var added *Task
+	for _, x := range a.data.Tasks {
+		if x.Title == "Write the rebuttal" {
+			added = x
+		}
+	}
+	if added == nil {
+		t.Fatalf("no task added; texts %q", tt.Texts())
+	}
+	if !added.inMyDay(monday) || !tt.HasText("Write the rebuttal") {
+		t.Error("a task added to My Day is not in it")
+	}
+	if err := tt.Click("Write the rebuttal"); err != nil {
+		t.Fatal(err)
+	}
+	if a.taskSel != added.ID {
+		t.Fatal("a click did not choose the task")
+	}
+	if err := tt.Click("Mark as done"); err != nil {
+		t.Fatal(err)
+	}
+	if !added.Done {
+		t.Error("the task is not done")
+	}
+}
+
+func TestCreateEvent(t *testing.T) {
+	a := testApp("en")
+	a.page = PageSchedule
+	tt := newTester(t, a, "en")
+	n := len(a.data.Events)
+	if err := tt.Click("New event"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.evtOpen {
+		t.Fatal("the event dialog did not open")
+	}
+	tt.Type("Thesis defense")
+	if err := tt.Click("Create"); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.data.Events) != n+1 || a.evtOpen {
+		t.Fatalf("events %d, dialog open %v", len(a.data.Events), a.evtOpen)
+	}
+	if e := a.data.Events[n]; e.Title != "Thesis defense" || !e.End.After(e.Start) || e.Alert != nil {
+		t.Errorf("event %+v", e)
+	}
+	if !tt.HasText("Thesis defense") {
+		t.Error("the week does not show the new event")
+	}
+}
+
+// drag presses at (x, y), moves by (dx, dy) in steps, and lets go.
+func drag(tt *ui.Tester, x, y, dx, dy float32) {
+	tt.Press(x, y)
+	for i := 1; i <= 6; i++ {
+		tt.Move(x+dx*float32(i)/6, y+dy*float32(i)/6)
+	}
+	tt.Release(x+dx, y+dy)
+	tt.Frame()
+}
+
+func TestDragEvent(t *testing.T) {
+	a := testApp("en")
+	a.page = PageSchedule
+	tt := newTester(t, a, "en")
+	e := eventTitled(a, "Group meeting")
+	start, end := e.Start, e.End
+	r, ok := tt.Find("Group meeting")
+	if !ok {
+		t.Fatal("no Group meeting in the week")
+	}
+	// An hour down, and a day to the right.
+	drag(tt, r.X+r.W/2, r.Y+8, a.colW, hourHeight)
+	if want := addDays(start, 1).Add(time.Hour); !e.Start.Equal(want) || !e.End.Equal(addDays(end, 1).Add(time.Hour)) {
+		t.Fatalf("moved to %v – %v, want %v", e.Start, e.End, want)
+	}
+	if a.evtOpen {
+		t.Error("the drag opened the event as a click")
+	}
+	// Its bottom edge, dragged down half an hour, makes it end later.
+	start, end = e.Start, e.End
+	r, _ = tt.Find("Group meeting")
+	edge := r.Y + float32(end.Sub(start).Minutes())/60*hourHeight - 7
+	drag(tt, r.X+r.W/2, edge, 0, hourHeight/2)
+	if !e.Start.Equal(start) || !e.End.Equal(end.Add(30*time.Minute)) {
+		t.Errorf("resized to %v – %v, want it to end at %v", e.Start, e.End, end.Add(30*time.Minute))
+	}
+	// A click still opens it.
+	r, _ = tt.Find("Group meeting")
+	tt.ClickAt(r.X+r.W/2, r.Y+8)
+	if !a.evtOpen || a.evt.id != e.ID {
+		t.Error("a click did not open the event")
+	}
+}
+
+func TestDropOnDay(t *testing.T) {
+	a := testApp("en")
+	a.page, a.schedMode = PageSchedule, 1
+	tt := newTester(t, a, "en")
+	e := eventTitled(a, "Faculty retreat")
+	from, ok := tt.Find("Faculty retreat")
+	to, ok2 := tt.Find("Oct 14, 2026")
+	if !ok || !ok2 {
+		t.Fatal("no chip or day to drop on")
+	}
+	drag(tt, from.X+from.W/2, from.Y+from.H/2, to.X+to.W/2-(from.X+from.W/2), to.Y+to.H/2-(from.Y+from.H/2))
+	if !sameDay(e.Start, at(monday, 0, 0).AddDate(0, 0, -12)) {
+		t.Errorf("dropped on Oct 14, the retreat is on %v", e.Start)
+	}
+}
+
+func TestMonth(t *testing.T) {
+	a := testApp("en")
+	a.page, a.schedMode = PageSchedule, 1
+	tt := newTester(t, a, "en")
+	tt.Click("Oct 14, 2026")
+	tt.Click("Oct 14, 2026")
+	if !a.evtOpen || !sameDay(a.evt.date, addDays(monday, -12)) || a.evt.start.Hour() != 9 {
+		t.Fatalf("double click: dialog %v, date %v", a.evtOpen, a.evt.date)
+	}
+	a.evtOpen = false
+	tt.Frame()
+	if err := tt.Click("October 30, 2026"); err != nil {
+		t.Fatal(err)
+	}
+	if a.schedMode != 0 || !sameDay(a.schedAnchor, addDays(monday, 4)) {
+		t.Errorf("mode %d, anchor %v", a.schedMode, a.schedAnchor)
+	}
+}
+
+func TestNewProject(t *testing.T) {
+	a := testApp("en")
+	a.page = PageProjects
+	tt := newTester(t, a, "en")
+	if !tt.HasText("Weakly supervised cross-modal alignment") {
+		t.Fatal("the projects are not listed")
+	}
+	if err := tt.Click("New project"); err != nil {
+		t.Fatal(err)
+	}
+	if a.projOpen == "" {
+		t.Fatal("the new project did not open")
+	}
+	tt.Type("Protein folding")
+	if p := a.data.project(a.projOpen); p == nil || p.Title != "Protein folding" {
+		t.Fatalf("project %+v", p)
+	}
+	tt.Click("Add a task to this project")
+	tt.Type("Gather the structures")
+	tt.Key(0, ui.KeyEnter)
+	if done, total := a.data.progress(a.projOpen); total != 1 || done != 0 {
+		t.Errorf("progress %d/%d", done, total)
+	}
+}
+
+func TestPages(t *testing.T) {
+	a := testApp("en")
+	tt := newTester(t, a, "en")
+	for _, pg := range []string{"Tasks", "Schedule", "Projects", "Directions", "Overview"} {
+		if err := tt.Click(pg); err != nil {
+			t.Fatal(err)
+		}
+		if a.navLabel(a.page) != pg {
+			t.Errorf("clicked %s, shows %s", pg, a.navLabel(a.page))
+		}
+	}
+	tt.Click("Settings")
+	if a.page != PageSettings {
+		t.Error("the settings did not open")
+	}
+}
+
+func TestPanel(t *testing.T) {
+	a := testApp("en")
+	tt := ui.NewTester(a.panelView, 340, 480)
+	tt.SetLocale("en")
+	tt.Frame()
+	if !tt.HasText("Group meeting") || !tt.HasText("Book flights for the December workshop") {
+		t.Fatalf("the panel does not show today: %q", tt.Texts())
+	}
+	tt.Click("Add a task to My Day")
+	tt.Type("Call the lab")
+	tt.Key(0, ui.KeyEnter)
+	var task *Task
+	for _, x := range a.data.Tasks {
+		if x.Title == "Call the lab" {
+			task = x
+		}
+	}
+	if task == nil || !task.inMyDay(monday) || !tt.HasText("Added") {
+		t.Fatalf("no task added to My Day: %+v", task)
+	}
+	tt.Click("Event")
+	a.quick.start = at(monday, 15, 0)
+	a.quick.minutes = 90
+	tt.Click("Add an event today")
+	tt.Type("Coffee with Ada")
+	tt.Key(0, ui.KeyEnter)
+	e := eventTitled(a, "Coffee with Ada")
+	if e == nil || !e.Start.Equal(at(monday, 15, 0)) || e.End.Sub(e.Start) != 90*time.Minute {
+		t.Fatalf("event %+v", e)
+	}
+}
+
+func TestChinese(t *testing.T) {
+	a := testApp("zh-Hans")
+	tt := newTester(t, a, "zh-Hans")
+	for _, s := range []string{"总览", "早上好", "今日", "即将截止", "进行中的项目"} {
+		if !tt.HasText(s) {
+			t.Errorf("no %q in %q", s, tt.Texts())
+		}
+	}
+	tt.Click("项目")
+	if !tt.HasText("纵向课题") || !tt.HasText("横向课题") {
+		t.Error("the categories are not in Chinese")
+	}
+}
+
+// useTestLanguage sets the language as a build would, for code outside it.
+func (a *app) useTestLanguage(lang string) {
+	a.lang, a.locale, a.tr = lang, lang, locales.In(lang)
+}
+
+// TestSnapshots writes a picture of every page, in both appearances and
+// languages, to $NT_SNAPSHOTS.
+func TestSnapshots(t *testing.T) {
+	dir := os.Getenv("NT_SNAPSHOTS")
+	if dir == "" {
+		t.Skip("NT_SNAPSHOTS is not set")
+	}
+	os.MkdirAll(dir, 0o755)
+	type shot struct {
+		name string
+		set  func(a *app)
+		w, h int
+	}
+	shots := []shot{
+		{"overview", func(a *app) { a.page = PageOverview }, 1280, 820},
+		{"tasks", func(a *app) {
+			a.page = PageTasks
+			for _, x := range a.data.Tasks {
+				if x.Priority == 3 && !x.Done {
+					a.taskSel = x.ID
+					break
+				}
+			}
+		}, 1280, 820},
+		{"schedule", func(a *app) { a.page = PageSchedule }, 1280, 820},
+		{"month", func(a *app) { a.page, a.schedMode = PageSchedule, 1 }, 1280, 820},
+		{"projects", func(a *app) { a.page = PageProjects }, 1280, 820},
+		{"project", func(a *app) { a.openProject(a.data.Projects[0].ID) }, 1280, 820},
+		{"directions", func(a *app) { a.page = PageDirections }, 1280, 820},
+		{"settings", func(a *app) { a.page = PageSettings }, 1280, 900},
+		{"event", func(a *app) { a.page = PageSchedule; a.editEvent(a.data.Events[1]) }, 1280, 820},
+		{"panel", nil, 340, 480},
+	}
+	only := os.Getenv("NT_PAGE")
+	for _, lang := range []string{"en", "zh-Hans"} {
+		for _, dark := range []bool{false, true} {
+			for _, s := range shots {
+				if only != "" && !strings.Contains(only, s.name) {
+					continue
+				}
+				a := testApp(lang)
+				view := a.view
+				if s.set == nil {
+					view = a.panelView
+					a.quick.start = at(monday, 11, 0)
+				} else {
+					s.set(a)
+				}
+				tt := ui.NewTester(view, s.w, s.h)
+				tt.SetLocale(lang)
+				tt.SetScale(2)
+				tt.SetDark(dark)
+				tt.Frame()
+				tt.Advance(time.Second)
+				mode := "light"
+				if dark {
+					mode = "dark"
+				}
+				f, err := os.Create(filepath.Join(dir, s.name+"-"+lang+"-"+mode+".png"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				png.Encode(f, tt.Image())
+				f.Close()
+			}
+		}
+	}
+}
+
+// TestIcon draws the app icon into resources/icon.png when NT_ICON is set,
+// on macOS's icon grid: an 824-pixel body in 1024, with its shadow.
+func TestIcon(t *testing.T) {
+	if os.Getenv("NT_ICON") == "" {
+		t.Skip("NT_ICON is not set")
+	}
+	img := ui.Render(func(c *ui.Context) {
+		c.Root().Background(ui.Transparent)
+		ui.Box(c).Fill().Draw(func(p *ui.Painter, r ui.Rect) {
+			body := ui.Rect{X: 100, Y: 100, W: 824, H: 824}
+			p.Shadow(body, 185, 0, 10, 24, 0, ui.RGBA(0, 0, 40, 0.3))
+			drawAppIcon(p, body)
+		})
+	}, 1024, 1024, 1)
+	f, err := os.Create("resources/icon.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := png.Encode(f, img); err != nil {
+		t.Fatal(err)
+	}
+}
