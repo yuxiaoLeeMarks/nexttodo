@@ -516,9 +516,14 @@ func (a *app) pageSwitch(c *ui.Context) ui.Element {
 	return track
 }
 
-// navigate shows a page; the pages keep their own state.
+// navigate shows a page; the pages keep their own state. The next launch
+// opens on it too.
 func (a *app) navigate(p Page) {
 	a.page = p
+	if a.data.Prefs.Page != int(p) {
+		a.data.Prefs.Page = int(p)
+		a.dirty = true
+	}
 	if p == PageProjects {
 		a.projOpen = ""
 	}

@@ -39,6 +39,9 @@ func main() {
 		// A first launch writes the sample data in the language the app
 		// shows.
 		a.data = loadData(a.path, time.Now(), mygo.App.Locale())
+		if pg := Page(a.data.Prefs.Page); pg >= PageOverview && pg <= PageSettings {
+			a.page = pg
+		}
 		mygo.Theme.SetSource(themeSource(a.data.Prefs.Appearance))
 		mygo.App.SetMenu(a.menu())
 		a.setMenuBar(!a.data.Prefs.HideMenuBar)

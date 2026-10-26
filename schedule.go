@@ -411,7 +411,11 @@ func (a *app) weekView(c *ui.Context, start time.Time) {
 	})
 	// The hours.
 	if !a.schedScrolled {
+		// To the time now, in the week holding it, else to the morning.
 		a.schedScroll.Y = 7.5 * hourHeight
+		if !now.Before(start) && now.Before(addDays(start, 7)) {
+			a.schedScroll.Y = max(0, float32(now.Hour())+float32(now.Minute())/60-1.5) * hourHeight
+		}
 		a.schedScrolled = true
 	}
 	ui.Scroll(c).TrackScroll(&a.schedScroll).Grow(1).Children(func() {
@@ -763,7 +767,14 @@ func (a *app) monthView(c *ui.Context, first time.Weekday) {
 					}
 				}
 				if more > 0 {
-					a.muted(c, a.tr.MoreEvents(more)).FontSize(10.5).Padding(0, 5)
+					m := ui.ButtonBase(c.Key("more")).Radius(4).Padding(1, 5).AlignSelf(ui.Start).FocusRing(false)
+					if m.Hovered() {
+						m.Background(p.pill)
+					}
+					m.Children(func() { ui.Text(c, a.tr.MoreEvents(more)).FontSize(10.5).TextColor(p.muted) })
+					if m.Clicked() {
+						a.schedAnchor, a.schedMode, a.schedScrolled = d, 0, false
+					}
 				}
 			})
 			if cell.DoubleClicked() {

@@ -55,6 +55,60 @@ func (a *app) tasksIn(list int) []*Task {
 	return out
 }
 
+// taskGroup is a part of a list of tasks under a title: the tasks due on
+// a day, or done on one.
+type taskGroup struct {
+	title string
+	late  bool
+	tasks []*Task
+}
+
+// taskGroups sorts the tasks of the list shown by day, as Reminders does
+// its scheduled ones: Planned by when they are due, Completed by when they
+// were done. Other lists are one group without a title.
+func (a *app) taskGroups(tasks []*Task, first time.Weekday) []taskGroup {
+	today := day(a.now())
+	var groups []taskGroup
+	put := func(title string, late bool, t *Task) {
+		if len(groups) == 0 || groups[len(groups)-1].title != title {
+			groups = append(groups, taskGroup{title: title, late: late})
+		}
+		groups[len(groups)-1].tasks = append(groups[len(groups)-1].tasks, t)
+	}
+	switch a.taskList {
+	case listPlanned:
+		weekEnd := addDays(weekStart(today, first), 7)
+		for _, t := range tasks {
+			switch n := daysBetween(today, t.Due); {
+			case n < 0:
+				put(a.tr.StatOverdue(), true, t)
+			case n == 0:
+				put(a.tr.Today(), false, t)
+			case n == 1:
+				put(a.tr.DueIn(1), false, t)
+			case day(t.Due).Before(weekEnd):
+				put(a.tr.ThisWeek(), false, t)
+			default:
+				put(a.tr.Later(), false, t)
+			}
+		}
+	case listDone:
+		for _, t := range tasks {
+			switch n := daysBetween(t.DoneAt, today); {
+			case n <= 0:
+				put(a.tr.Today(), false, t)
+			case n == 1:
+				put(a.tr.Yesterday(), false, t)
+			default:
+				put(a.tr.Earlier(), false, t)
+			}
+		}
+	default:
+		groups = []taskGroup{{tasks: tasks}}
+	}
+	return groups
+}
+
 func (a *app) openCount(ts []*Task) int {
 	n := 0
 	for _, t := range ts {
@@ -149,6 +203,7 @@ func (a *app) tasksPage(c *ui.Context) {
 	})
 	ui.Row(c).Grow(1).MinHeight(0).Padding(0, 18, 18).Gap(14).AlignItems(ui.Stretch).Children(func() {
 		ui.Scroll(c).Grow(1).MinWidth(0).Children(func() {
+			groups := a.taskGroups(tasks, a.firstWeekday(c))
 			a.list(c, func() {
 				if a.taskList != listDone {
 					a.quickAdd(c, &a.taskDraft, a.tr.TaskAddPlaceholder(), &a.taskAdd, func(title string) {
@@ -166,10 +221,32 @@ func (a *app) tasksPage(c *ui.Context) {
 					}
 					return
 				}
-				for _, t := range tasks {
-					a.taskRow(c, t, rowInTasks)
+				if len(groups) == 1 && groups[0].title == "" {
+					for _, t := range tasks {
+						a.taskRow(c, t, rowInTasks)
+					}
 				}
 			})
+			// Planned and Completed go by day, a list for each.
+			if len(groups) > 1 || len(groups) == 1 && groups[0].title != "" {
+				for _, g := range groups {
+					ui.Column(c.Key("group:" + g.title)).Children(func() {
+						col := a.p.muted
+						if g.late {
+							col = a.p.red
+						}
+						ui.Row(c).Padding(16, 4, 7).Gap(8).AlignItems(ui.Center).Children(func() {
+							ui.Text(c, g.title).FontSize(13).FontWeight(600).TextColor(col)
+							ui.Text(c, itoa(len(g.tasks))).FontSize(12).TextColor(a.p.faint)
+						})
+						a.list(c, func() {
+							for _, t := range g.tasks {
+								a.taskRow(c, t, rowInTasks)
+							}
+						})
+					})
+				}
+			}
 		})
 		if sel != nil {
 			a.taskDetail(c, sel)

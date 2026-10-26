@@ -796,6 +796,7 @@ func TestSnapshots(t *testing.T) {
 			a.sketch = sketch{day: addDays(day(monday), 2), y0: 12.6 * hourHeight, y: 14.4 * hourHeight}
 		}, 1280, 820},
 		{"search", func(a *app) { a.page, a.searchOpen, a.searchQuery = PageTasks, true, "re" }, 1280, 820},
+		{"planned", func(a *app) { a.page, a.taskList = PageTasks, listPlanned }, 1280, 820},
 		{"panel", nil, 340, 480},
 	}
 	only := os.Getenv("NT_PAGE")

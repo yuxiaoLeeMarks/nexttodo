@@ -944,6 +944,36 @@ func (msgs Messages) Today() string {
 	return Catalog.Format(msgs.locale, "today", nil)
 }
 
+// Later says "Later"
+// in the language the app shows.
+func Later() string { return In(i18n.Locale()).Later() }
+
+// Later says "Later"
+// in the language of msgs.
+func (msgs Messages) Later() string {
+	return Catalog.Format(msgs.locale, "later", nil)
+}
+
+// Earlier says "Earlier"
+// in the language the app shows.
+func Earlier() string { return In(i18n.Locale()).Earlier() }
+
+// Earlier says "Earlier"
+// in the language of msgs.
+func (msgs Messages) Earlier() string {
+	return Catalog.Format(msgs.locale, "earlier", nil)
+}
+
+// Yesterday says "Yesterday"
+// in the language the app shows.
+func Yesterday() string { return In(i18n.Locale()).Yesterday() }
+
+// Yesterday says "Yesterday"
+// in the language of msgs.
+func (msgs Messages) Yesterday() string {
+	return Catalog.Format(msgs.locale, "yesterday", nil)
+}
+
 // Previous says "Previous"
 // in the language the app shows.
 func Previous() string { return In(i18n.Locale()).Previous() }
