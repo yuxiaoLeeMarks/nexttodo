@@ -190,3 +190,44 @@ func TestBadStatus(t *testing.T) {
 		t.Errorf("status %d", d.Projects[0].Status)
 	}
 }
+
+// The dialog ends an event on another day, and says when it ends.
+func TestEventEndDay(t *testing.T) {
+	a := testApp("en")
+	a.newEvent(at(monday, 9, 0), "")
+	a.evt.title = "Retreat"
+	if !a.evt.endDay().Equal(day(monday)) {
+		t.Fatalf("a new event ends %v", a.evt.endDay())
+	}
+	a.evt.setEndDay(addDays(day(monday), 2))
+	a.evt.end = at(a.evt.end, 17, 0)
+	a.saveEvent()
+	e := eventTitled(a, "Retreat")
+	if !e.End.Equal(at(addDays(monday, 2), 17, 0)) {
+		t.Fatalf("ends %v", e.End)
+	}
+	// Moved to another day, it keeps its days.
+	a.editEvent(e)
+	if !a.evt.endDay().Equal(addDays(day(monday), 2)) {
+		t.Fatalf("the dialog ends it %v", a.evt.endDay())
+	}
+	a.evt.date = addDays(a.evt.date, 1)
+	if !a.evt.endDay().Equal(addDays(day(monday), 3)) {
+		t.Errorf("moved, the dialog ends it %v", a.evt.endDay())
+	}
+	a.saveEvent()
+	if !e.Start.Equal(at(addDays(monday, 1), 9, 0)) || !e.End.Equal(at(addDays(monday, 3), 17, 0)) {
+		t.Errorf("moved: %v – %v", e.Start, e.End)
+	}
+	// All day, over three days.
+	a.newEvent(at(monday, 9, 0), "")
+	a.evt.title, a.evt.allDay = "Conference", true
+	a.evt.setEndDay(addDays(day(monday), 2))
+	if !a.evt.endDay().Equal(addDays(day(monday), 2)) {
+		t.Errorf("all day, the dialog ends it %v", a.evt.endDay())
+	}
+	a.saveEvent()
+	if e := eventTitled(a, "Conference"); !e.Start.Equal(day(monday)) || !e.End.Equal(addDays(day(monday), 3)) {
+		t.Errorf("conference %v – %v", e.Start, e.End)
+	}
+}

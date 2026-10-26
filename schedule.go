@@ -37,6 +37,29 @@ type eventDraft struct {
 	all int
 }
 
+// endDay returns the day the draft ends on: an all-day event's last day.
+func (d *eventDraft) endDay() time.Time {
+	span := daysBetween(d.start, d.end)
+	if d.allDay && d.end.Equal(day(d.end)) {
+		span--
+	}
+	return addDays(d.date, max(span, 0))
+}
+
+// setEndDay ends the draft on the day t, at the time it ends, keeping it
+// from ending before it starts.
+func (d *eventDraft) setEndDay(t time.Time) {
+	span := max(daysBetween(d.date, t), 0)
+	if d.allDay {
+		d.end = addDays(day(d.start), span+1)
+		return
+	}
+	d.end = at(addDays(day(d.start), span), d.end.Hour(), d.end.Minute())
+	if !d.end.After(d.start) {
+		d.end = d.start.Add(time.Hour)
+	}
+}
+
 // alertDefault, in a draft, follows the settings.
 const alertDefault = -2
 
@@ -844,7 +867,6 @@ func (a *app) eventDialog(c *ui.Context) {
 			}
 		})
 		ui.Column(c).Background(p.card2).Border(1, p.line2).Radius(10).Dividers(1, p.line2).Gap(1).Children(func() {
-			a.formRow(c, a.tr.FieldDate(), func() { ui.DateInput(c, &d.date).Label(a.tr.FieldDate()).Width(140) })
 			a.formRow(c, a.tr.FieldAllDay(), func() {
 				// An all-day event made timed starts at nine, for an hour.
 				if ui.Switch(c, &d.allDay).Label(a.tr.FieldAllDay()).Changed() && !d.allDay && d.start.Equal(day(d.start)) {
@@ -852,13 +874,27 @@ func (a *app) eventDialog(c *ui.Context) {
 					d.end = d.start.Add(time.Hour)
 				}
 			})
-			if !d.allDay {
-				a.formRow(c, a.tr.FieldStarts(), func() {
-					if ui.TimeInput(c, &d.start).Label(a.tr.FieldStarts()).Changed() && !d.end.After(d.start) {
+			// Starts and ends, each on its day, as in Calendar.
+			a.formRow(c, a.tr.FieldStarts(), func() {
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.DateInput(c, &d.date).Label(a.tr.FieldStartDate()).Width(140)
+					if !d.allDay && ui.TimeInput(c, &d.start).Label(a.tr.FieldStarts()).Changed() && !d.end.After(d.start) {
 						d.end = d.start.Add(time.Hour)
 					}
 				})
-				a.formRow(c, a.tr.FieldEnds(), func() { ui.TimeInput(c, &d.end).Label(a.tr.FieldEnds()) })
+			})
+			a.formRow(c, a.tr.FieldEnds(), func() {
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					end := d.endDay()
+					if ui.DateInput(c, &end).Label(a.tr.FieldEndDate()).Width(140).Changed() {
+						d.setEndDay(end)
+					}
+					if !d.allDay {
+						ui.TimeInput(c, &d.end).Label(a.tr.FieldEnds())
+					}
+				})
+			})
+			if !d.allDay {
 				a.formRow(c, a.tr.FieldAlert(), func() {
 					selectOf(a, c, "alert", &d.alert, alertChoices, a.alertName).Label(a.tr.FieldAlert())
 				})

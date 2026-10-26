@@ -644,16 +644,6 @@ func (msgs Messages) FieldMyDay() string {
 	return Catalog.Format(msgs.locale, "fieldMyDay", nil)
 }
 
-// FieldDate says "Date"
-// in the language the app shows.
-func FieldDate() string { return In(i18n.Locale()).FieldDate() }
-
-// FieldDate says "Date"
-// in the language of msgs.
-func (msgs Messages) FieldDate() string {
-	return Catalog.Format(msgs.locale, "fieldDate", nil)
-}
-
 // FieldStarts says "Starts"
 // in the language the app shows.
 func FieldStarts() string { return In(i18n.Locale()).FieldStarts() }
