@@ -55,6 +55,14 @@ func (a *app) settingsPage(c *ui.Context) {
 						}
 					}
 				})
+				a.formRowHint(c, a.tr.SettingsOpenAtLogin(), a.tr.SettingsOpenAtLoginHint(), func() {
+					on := a.live && mygo.App.OpenAtLogin()
+					if ui.Switch(c, &on).Label(a.tr.SettingsOpenAtLogin()).Disabled(!a.live).Changed() {
+						if err := mygo.App.SetOpenAtLogin(on); err != nil {
+							a.toast = err.Error()
+						}
+					}
+				})
 				a.formRow(c, a.tr.SettingsWeekStart(), func() {
 					if selectOf(a, c, "weekStart", &prefs.WeekStart, []int{-1, 1, 0}, func(n int) string {
 						switch n {
@@ -86,6 +94,13 @@ func (a *app) settingsPage(c *ui.Context) {
 						a.changed()
 					}
 				})
+				a.formRowHint(c, a.tr.SettingsBadge(), a.tr.SettingsBadgeHint(), func() {
+					on := !prefs.NoBadge
+					if ui.Switch(c, &on).Label(a.tr.SettingsBadge()).Changed() {
+						prefs.NoBadge = !on
+						a.changed()
+					}
+				})
 				a.formRowHint(c, a.tr.TestNotification(), a.orNote(a.notifyNote), func() {
 					if a.iconLabel(c, a.btn(c, "", btnSecondary), iconBell, a.tr.TestNotification()).Clicked() {
 						a.testNotification()
@@ -101,6 +116,14 @@ func (a *app) settingsPage(c *ui.Context) {
 						prefs.HideMenuBar = !show
 						a.changed()
 						a.setMenuBar(show)
+					}
+				})
+				a.formRowHint(c, a.tr.SettingsHotkey(), a.tr.SettingsHotkeyHint("⌃⌥Space"), func() {
+					on := !prefs.NoHotkey
+					if ui.Switch(c, &on).Label(a.tr.SettingsHotkey()).Changed() {
+						prefs.NoHotkey = !on
+						a.changed()
+						a.setHotkey(on)
 					}
 				})
 			})

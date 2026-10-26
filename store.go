@@ -161,6 +161,8 @@ type Prefs struct {
 	WeekStart    int    `json:"weekStart"`            // -1 the region's, 0 Sunday, 1 Monday
 	AlertMinutes int    `json:"alertMinutes"`         // the default alert, or alertNone
 	HideMenuBar  bool   `json:"hideMenuBar,omitempty"`
+	NoBadge      bool   `json:"noBadge,omitempty"`  // no count on the Dock icon
+	NoHotkey     bool   `json:"noHotkey,omitempty"` // no global shortcut for the panel
 }
 
 // Data is everything the app keeps, as written to disk and to backups.

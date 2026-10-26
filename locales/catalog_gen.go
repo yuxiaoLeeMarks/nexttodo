@@ -2096,6 +2096,66 @@ func (msgs Messages) AppearanceDark() string {
 	return Catalog.Format(msgs.locale, "appearanceDark", nil)
 }
 
+// SettingsOpenAtLogin says "Open at login"
+// in the language the app shows.
+func SettingsOpenAtLogin() string { return In(i18n.Locale()).SettingsOpenAtLogin() }
+
+// SettingsOpenAtLogin says "Open at login"
+// in the language of msgs.
+func (msgs Messages) SettingsOpenAtLogin() string {
+	return Catalog.Format(msgs.locale, "settingsOpenAtLogin", nil)
+}
+
+// SettingsOpenAtLoginHint says "So that alerts come before you open it, from the menu bar"
+// in the language the app shows.
+func SettingsOpenAtLoginHint() string { return In(i18n.Locale()).SettingsOpenAtLoginHint() }
+
+// SettingsOpenAtLoginHint says "So that alerts come before you open it, from the menu bar"
+// in the language of msgs.
+func (msgs Messages) SettingsOpenAtLoginHint() string {
+	return Catalog.Format(msgs.locale, "settingsOpenAtLoginHint", nil)
+}
+
+// SettingsBadge says "Badge the app icon"
+// in the language the app shows.
+func SettingsBadge() string { return In(i18n.Locale()).SettingsBadge() }
+
+// SettingsBadge says "Badge the app icon"
+// in the language of msgs.
+func (msgs Messages) SettingsBadge() string {
+	return Catalog.Format(msgs.locale, "settingsBadge", nil)
+}
+
+// SettingsBadgeHint says "With the count of tasks due today or late"
+// in the language the app shows.
+func SettingsBadgeHint() string { return In(i18n.Locale()).SettingsBadgeHint() }
+
+// SettingsBadgeHint says "With the count of tasks due today or late"
+// in the language of msgs.
+func (msgs Messages) SettingsBadgeHint() string {
+	return Catalog.Format(msgs.locale, "settingsBadgeHint", nil)
+}
+
+// SettingsHotkey says "Quick add shortcut"
+// in the language the app shows.
+func SettingsHotkey() string { return In(i18n.Locale()).SettingsHotkey() }
+
+// SettingsHotkey says "Quick add shortcut"
+// in the language of msgs.
+func (msgs Messages) SettingsHotkey() string {
+	return Catalog.Format(msgs.locale, "settingsHotkey", nil)
+}
+
+// SettingsHotkeyHint says "{keys} opens the menu bar panel from any app"
+// in the language the app shows.
+func SettingsHotkeyHint(keys string) string { return In(i18n.Locale()).SettingsHotkeyHint(keys) }
+
+// SettingsHotkeyHint says "{keys} opens the menu bar panel from any app"
+// in the language of msgs.
+func (msgs Messages) SettingsHotkeyHint(keys string) string {
+	return Catalog.Format(msgs.locale, "settingsHotkeyHint", map[string]any{"keys": keys})
+}
+
 // SettingsWeekStart says "Week starts on"
 // in the language the app shows.
 func SettingsWeekStart() string { return In(i18n.Locale()).SettingsWeekStart() }

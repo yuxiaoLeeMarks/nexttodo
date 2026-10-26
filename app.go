@@ -38,6 +38,7 @@ type app struct {
 	live  bool // running as the app, not under tests
 	// quitting lets the windows close for good.
 	quitting bool
+	badge    int // the count on the Dock icon
 	now      func() time.Time
 
 	// Set at the start of every build.
@@ -121,6 +122,7 @@ func newApp(d *Data, path string) *app {
 func (a *app) changed() {
 	a.dirty = true
 	a.redraw()
+	a.updateBadge()
 	if a.path == "" {
 		return
 	}

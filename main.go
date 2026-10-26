@@ -41,8 +41,13 @@ func main() {
 		a.data = loadData(a.path, time.Now(), mygo.App.Locale())
 		mygo.Theme.SetSource(themeSource(a.data.Prefs.Appearance))
 		mygo.App.SetMenu(a.menu())
-		a.openMain()
 		a.setMenuBar(!a.data.Prefs.HideMenuBar)
+		// Opened at login, it waits in the menu bar for the day's alerts.
+		if !mygo.App.WasOpenedAtLogin() || a.tray == nil {
+			a.openMain()
+		}
+		a.setHotkey(!a.data.Prefs.NoHotkey)
+		a.updateBadge()
 		go a.watchAlerts()
 		a.captureForCheck()
 	})
@@ -187,6 +192,57 @@ func (a *app) ensurePanel() *mygo.Window {
 	return panel
 }
 
+// hotkey opens the menu bar's panel from anywhere.
+const hotkey = "Ctrl+Alt+Space"
+
+func (a *app) setHotkey(on bool) {
+	if !a.live {
+		return
+	}
+	if !on {
+		mygo.GlobalShortcut.Unregister(hotkey)
+		return
+	}
+	if mygo.GlobalShortcut.IsRegistered(hotkey) {
+		return
+	}
+	err := mygo.GlobalShortcut.Register(hotkey, func() {
+		if a.tray == nil {
+			a.showMain()
+			a.startTask()
+			return
+		}
+		if a.panel == nil || !a.panel.IsVisible() {
+			a.togglePanel()
+		}
+		mygo.App.Focus()
+	})
+	if err != nil {
+		log.Println("shortcut:", err)
+	}
+}
+
+// updateBadge counts on the Dock icon the tasks due today or late, unless
+// the settings say not to.
+func (a *app) updateBadge() {
+	if !a.live {
+		return
+	}
+	n := 0
+	if !a.data.Prefs.NoBadge {
+		today := day(a.now())
+		for _, t := range a.data.Tasks {
+			if !t.Done && !t.Due.IsZero() && !day(t.Due).After(today) && !a.data.shelved(t) {
+				n++
+			}
+		}
+	}
+	if n != a.badge {
+		a.badge = n
+		mygo.App.SetBadgeCount(n)
+	}
+}
+
 // togglePanel shows the menu bar's panel below the icon, or hides it.
 func (a *app) togglePanel() {
 	panel := a.ensurePanel()
@@ -217,6 +273,7 @@ func (a *app) watchAlerts() {
 		mygo.RunOnMain(func() {
 			a.useAppLanguage()
 			due = a.dueAlerts(time.Now())
+			a.updateBadge() // as days turn
 		})
 		for _, al := range due {
 			n := mygo.NewNotification(mygo.NotificationOptions{ID: al.id, Title: al.title, Subtitle: al.subtitle, Body: al.body, Group: "events"})
