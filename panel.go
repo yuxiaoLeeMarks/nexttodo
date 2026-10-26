@@ -54,7 +54,10 @@ func (a *app) panelView(c *ui.Context) {
 	now := a.now()
 	c.Root().Background(ui.Transparent)
 	box := ui.Column(c).Fill()
-	if !c.Vibrancy() {
+	if c.Vibrancy() {
+		// magpie's panel is the window's gray, thinly, over the material.
+		box.Background(p.bg.Alpha(0.72))
+	} else {
 		box.Background(p.bg).Radius(12).Border(1, p.line)
 	}
 	box.Padding(12, 12, 8).Gap(10).Children(func() {
@@ -150,8 +153,8 @@ func (a *app) panelView(c *ui.Context) {
 			}
 		})
 	})
-	if c.Shortcut(0, ui.KeyEscape) && a.panel != nil {
-		a.panel.Close()
+	if c.Shortcut(0, ui.KeyEscape) {
+		a.hidePanel()
 	}
 }
 

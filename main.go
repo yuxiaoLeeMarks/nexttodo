@@ -63,7 +63,10 @@ func main() {
 			a.showMain()
 		}
 	})
-	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { a.flush() })
+	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {
+		a.quitting = true
+		a.flush()
+	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}
@@ -92,11 +95,9 @@ func (a *app) openMain() {
 }
 
 // showMain brings the main window to the front, opening it again if it
-// was closed, and closes the menu bar's panel.
+// was closed, and hides the menu bar's panel.
 func (a *app) showMain() {
-	if a.panel != nil {
-		a.panel.Close()
-	}
+	a.hidePanel()
 	if a.win == nil || a.win.IsDestroyed() {
 		a.openMain()
 	} else {
@@ -113,7 +114,8 @@ func (a *app) setMenuBar(show bool) {
 	}
 	if !show {
 		if a.panel != nil {
-			a.panel.Close()
+			a.panel.Destroy()
+			a.panel = nil
 		}
 		if a.tray != nil {
 			a.tray.Destroy()
@@ -130,11 +132,10 @@ func (a *app) setMenuBar(show bool) {
 		return
 	}
 	a.tray = tray
+	a.ensurePanel()
 	tray.OnClick(a.togglePanel)
 	tray.OnRightClick(func() {
-		if a.panel != nil {
-			a.panel.Close()
-		}
+		a.hidePanel()
 		// The menu for this popup only, so that clicks keep opening the
 		// panel.
 		tray.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
@@ -147,30 +148,63 @@ func (a *app) setMenuBar(show bool) {
 	})
 }
 
-// togglePanel opens the menu bar's panel below the icon, or closes it.
-func (a *app) togglePanel() {
-	if a.panel != nil {
-		a.panel.Close()
-		return
+const panelWidth, panelHeight = 340, 480
+
+// ensurePanel makes the menu bar's panel once, hidden: as magpie's, a
+// panel on a frosted material with rounded corners, which opening and
+// closing only show and hide, so it opens at once, already laid out.
+func (a *app) ensurePanel() *mygo.Window {
+	if a.panel != nil && !a.panel.IsDestroyed() {
+		return a.panel
 	}
-	a.quick.start, a.quick.added = nextHalfHour(a.now()), ""
-	a.panel = mygo.NewFlyout(mygo.FlyoutOptions{
-		Tray:      a.tray,
-		Placement: mygo.PlacementBottom,
-		Gap:       4,
-		Width:     340,
-		Height:    480,
-		Focusable: true,
-		Shadow:    true,
-		Popover:   true,
-		Content:   ui.View(a.panelView),
+	panel := mygo.NewFlyout(mygo.FlyoutOptions{
+		Tray:         a.tray,
+		Placement:    mygo.PlacementBottom,
+		Gap:          6,
+		Width:        panelWidth,
+		Height:       panelHeight,
+		Focusable:    true,
+		Shadow:       true,
+		Vibrancy:     mygo.VibrancyPopover,
+		CornerRadius: 12,
+		Hidden:       true,
+		Content:      ui.View(a.panelView),
 	})
-	panel := a.panel
+	// A click elsewhere, Escape or the icon closes it: it hides instead,
+	// unless the app is quitting.
+	panel.OnClose(func(e *mygo.CloseEvent) {
+		if !a.quitting {
+			e.PreventDefault()
+			panel.Hide()
+		}
+	})
 	panel.OnClosed(func() {
 		if a.panel == panel {
 			a.panel = nil
 		}
 	})
+	a.panel = panel
+	return panel
+}
+
+// togglePanel shows the menu bar's panel below the icon, or hides it.
+func (a *app) togglePanel() {
+	panel := a.ensurePanel()
+	if panel.IsVisible() {
+		panel.Hide()
+		return
+	}
+	a.quick.start, a.quick.added = nextHalfHour(a.now()), ""
+	panel.SetSize(panelWidth, panelHeight) // under the icon, wherever it is now
+	panel.Show()
+	panel.Focus()
+	a.quick.field.Focus()
+}
+
+func (a *app) hidePanel() {
+	if a.panel != nil && !a.panel.IsDestroyed() {
+		a.panel.Hide()
+	}
 }
 
 // watchAlerts sends the alerts of events as they fall due, for as long as
@@ -258,7 +292,12 @@ func (a *app) captureForCheck() {
 	go func() {
 		time.Sleep(2 * time.Second)
 		var wins = map[string]*mygo.Window{}
-		mygo.RunOnMain(func() { wins["main"], wins["panel"] = a.win, a.panel })
+		mygo.RunOnMain(func() {
+			wins["main"] = a.win
+			if a.panel != nil && a.panel.IsVisible() {
+				wins["panel"] = a.panel
+			}
+		})
 		for name, w := range wins {
 			if w == nil {
 				continue

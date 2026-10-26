@@ -36,7 +36,9 @@ type app struct {
 	panel *mygo.Window // the menu bar's panel while it shows
 	tray  *mygo.Tray
 	live  bool // running as the app, not under tests
-	now   func() time.Time
+	// quitting lets the windows close for good.
+	quitting bool
+	now      func() time.Time
 
 	// Set at the start of every build.
 	p      palette
