@@ -66,6 +66,7 @@ type app struct {
 	evtOpen       bool
 	askEvent      bool
 	drag          eventDrag
+	sketch        sketch
 	colW          float32 // the width of a day in the week, as last painted
 
 	// Projects.

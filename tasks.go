@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -174,8 +175,35 @@ func (a *app) tasksPage(c *ui.Context) {
 			a.taskDetail(c, sel)
 		}
 	})
+	a.taskKeys(c, tasks, sel)
+}
+
+// taskKeys moves the choice of a task with the arrows, and does to it what
+// its menu does: ⌘K marks it done or not, Delete deletes it. A text field
+// with the focus takes the keys it edits with first.
+func (a *app) taskKeys(c *ui.Context, tasks []*Task, sel *Task) {
 	if c.Shortcut(0, ui.KeyEscape) {
 		a.taskSel = ""
+	}
+	i := slices.Index(tasks, sel)
+	switch {
+	case c.Shortcut(0, ui.KeyDown) && len(tasks) > 0:
+		a.taskSel = tasks[min(i+1, len(tasks)-1)].ID
+	case c.Shortcut(0, ui.KeyUp) && len(tasks) > 0:
+		a.taskSel = tasks[max(i-1, 0)].ID
+	case sel == nil:
+	case c.Shortcut(ui.Cmd, ui.KeyK):
+		sel.setDone(!sel.Done, a.now())
+		a.changed()
+	case c.Shortcut(0, ui.KeyBackspace) || c.Shortcut(0, ui.KeyDelete):
+		next := ""
+		if i+1 < len(tasks) {
+			next = tasks[i+1].ID
+		} else if i > 0 {
+			next = tasks[i-1].ID
+		}
+		a.deleteTask(c, sel)
+		a.taskSel = next
 	}
 }
 
@@ -264,7 +292,7 @@ func (a *app) taskRow(c *ui.Context, t *Task, where int) {
 		if t.Done {
 			label = a.tr.MarkOpen()
 		}
-		if m.Item(label).Chosen() {
+		if m.Item(label).Shortcut(ui.Cmd, ui.KeyK).Chosen() {
 			t.setDone(!t.Done, a.now())
 			a.changed()
 		}
@@ -280,18 +308,15 @@ func (a *app) taskRow(c *ui.Context, t *Task, where int) {
 			a.changed()
 		}
 		m.Separator()
-		if m.Item(a.tr.Delete()).Chosen() {
+		if m.Item(a.tr.Delete()).Shortcut(0, ui.KeyBackspace).Chosen() {
 			a.deleteTask(c, t)
 		}
 	})
 	if row.Clicked() {
-		switch {
-		case !inTasks:
-			a.openTask(t.ID)
-		case a.taskSel == t.ID:
-			a.taskSel = ""
-		default:
+		if inTasks {
 			a.taskSel = t.ID
+		} else {
+			a.openTask(t.ID)
 		}
 	}
 }

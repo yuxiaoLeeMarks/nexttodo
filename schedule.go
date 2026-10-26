@@ -231,6 +231,31 @@ func (a *app) nextSlot() time.Time {
 	return t.Add(30 * time.Minute)
 }
 
+// sketch is a new event being drawn by a drag down a day's empty hours,
+// from where the pointer pressed to where it is.
+type sketch struct {
+	day   time.Time
+	y0, y float32
+}
+
+// sketchRange returns the times the sketch of the day d covers, in steps
+// of snapMinutes, at least one long, and whether there is one.
+func (a *app) sketchRange(d time.Time) (from, to time.Time, ok bool) {
+	s := a.sketch
+	if !sameDay(s.day, d) || abs(s.y-s.y0) < 6 {
+		return time.Time{}, time.Time{}, false
+	}
+	step := func(y float32) time.Time {
+		n := int(math.Round(float64(y) / hourHeight * 60 / snapMinutes))
+		return d.Add(time.Duration(max(0, min(n*snapMinutes, 24*60))) * time.Minute)
+	}
+	from, to = step(min(s.y0, s.y)), step(max(s.y0, s.y))
+	if !to.After(from) {
+		to = from.Add(snapMinutes * time.Minute)
+	}
+	return from, to, true
+}
+
 // placed is an event's part in one day, in the lane it takes among those
 // it overlaps.
 type placed struct {
@@ -428,9 +453,32 @@ func (a *app) dayColumn(c *ui.Context, i int, d time.Time, events []*Event, now 
 			a.newEvent(at(d, min(half/2, 23), (half%2)*30), "")
 		}
 	}
+	// A drag down empty hours sketches a new event over them, as Calendar
+	// does, which the dialog opens on as the pointer lets go.
+	if _, dy, ok := col.Dragged(); ok && dy != 0 && a.drag.id == "" {
+		_, y, _ := col.PointerPosition()
+		if !sameDay(a.sketch.day, d) {
+			a.sketch = sketch{day: d, y0: y - dy}
+		}
+		a.sketch.y = y
+	}
+	from, to, sketching := a.sketchRange(d)
+	if _, _, ended := col.DragEnded(); ended && sketching {
+		a.sketch = sketch{}
+		a.newEvent(from, "")
+		a.evt.end = to
+	}
 	col.Children(func() {
 		for _, pl := range layoutDay(events, d) {
 			a.eventBlock(c, pl, d)
+		}
+		if sketching {
+			top := float32(from.Sub(d).Minutes()) / 60 * hourHeight
+			h := float32(to.Sub(from).Minutes()) / 60 * hourHeight
+			ui.Column(c).Absolute().Top(top+1).Left(2).Right(2).Height(h-2).Padding(3, 7).Radius(5).PassThrough().
+				Background(p.accent.Alpha(0.16)).Border(1, p.accent.Alpha(0.6)).Children(func() {
+				ui.Text(c, a.clock(from)+" – "+a.clock(to)).FontSize(10.5).FontWeight(500).FontFeatures("tnum").TextColor(a.ink(p.accent))
+			})
 		}
 		if today {
 			y := float32(now.Sub(d).Minutes()) / 60 * hourHeight

@@ -496,6 +496,44 @@ func TestEditOccurrence(t *testing.T) {
 	}
 }
 
+func TestSketchEvent(t *testing.T) {
+	a := testApp("en")
+	a.page = PageSchedule
+	tt := newTester(t, a, "en")
+	// Tuesday's column, where the Hangxin sync starts at 10:00, an hour
+	// tall: 13:00 is three hours below its top.
+	r, _ := tt.Find("Hangxin weekly sync")
+	top := r.Y - 4 + 3*hourHeight
+	drag(tt, r.X+r.W/2, top+4, 0, 2*hourHeight)
+	if !a.evtOpen || !a.evt.start.Equal(at(addDays(monday, 1), 13, 0)) || !a.evt.end.Equal(at(addDays(monday, 1), 15, 0)) {
+		t.Fatalf("sketched %v – %v, dialog %v", a.evt.start, a.evt.end, a.evtOpen)
+	}
+}
+
+func TestTaskKeys(t *testing.T) {
+	a := testApp("en")
+	a.page = PageTasks
+	tt := newTester(t, a, "en")
+	tasks := a.tasksIn(listMyDay)
+	tt.Key(0, ui.KeyDown)
+	if a.taskSel != tasks[0].ID {
+		t.Fatalf("Down chose %q", a.taskSel)
+	}
+	tt.Key(0, ui.KeyDown)
+	if a.taskSel != tasks[1].ID {
+		t.Fatalf("Down again chose %q", a.taskSel)
+	}
+	tt.Key(ui.Cmd, ui.KeyK)
+	if !tasks[1].Done {
+		t.Error("⌘K did not mark the task done")
+	}
+	tt.Key(ui.Cmd, ui.KeyK)
+	tt.Key(0, ui.KeyBackspace)
+	if a.data.task(tasks[1].ID) != nil || a.taskSel != tasks[2].ID {
+		t.Errorf("Delete: task left %v, chosen %q", a.data.task(tasks[1].ID) != nil, a.taskSel)
+	}
+}
+
 func TestDragOccurrence(t *testing.T) {
 	a := testApp("en")
 	a.page = PageSchedule
@@ -690,6 +728,10 @@ func TestSnapshots(t *testing.T) {
 			a.page = PageSchedule
 			a.editEvent(a.data.eventsBetween(day(monday), addDays(day(monday), 1))[0])
 		}, 1280, 900},
+		{"sketch", func(a *app) {
+			a.page = PageSchedule
+			a.sketch = sketch{day: addDays(day(monday), 2), y0: 12.6 * hourHeight, y: 14.4 * hourHeight}
+		}, 1280, 820},
 		{"panel", nil, 340, 480},
 	}
 	only := os.Getenv("NT_PAGE")
