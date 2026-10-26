@@ -337,3 +337,23 @@ func TestTimeBlock(t *testing.T) {
 		t.Error("the task changed")
 	}
 }
+
+// ⌘←, ⌘→ and ⌘T move the schedule, as in Calendar.
+func TestScheduleKeys(t *testing.T) {
+	a := testApp("en")
+	a.page = PageSchedule
+	tt := newTester(t, a, "en")
+	tt.Key(ui.Cmd, ui.KeyRight)
+	if !sameDay(a.schedAnchor, addDays(monday, 7)) {
+		t.Fatalf("⌘→ went to %v", a.schedAnchor)
+	}
+	tt.Key(ui.Cmd, ui.KeyLeft)
+	tt.Key(ui.Cmd, ui.KeyLeft)
+	if !sameDay(a.schedAnchor, addDays(monday, -7)) {
+		t.Fatalf("⌘← went to %v", a.schedAnchor)
+	}
+	tt.Key(ui.Cmd, ui.KeyT)
+	if !sameDay(a.schedAnchor, monday) {
+		t.Errorf("⌘T went to %v", a.schedAnchor)
+	}
+}

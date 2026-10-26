@@ -222,14 +222,15 @@ func (a *app) schedulePage(c *ui.Context) {
 			ui.Text(c, sub).FontSize(13).TextColor(p.muted).SingleLine().Margin(0, 0, 0, 4)
 		}
 		ui.Spacer(c)
-		if a.iconBtn(c, iconChevronLeft, a.tr.Previous()).Clicked() {
+		// The arrows and Today, also with ⌘←, ⌘→ and ⌘T, as in Calendar.
+		if a.iconBtn(c, iconChevronLeft, a.tr.Previous()+"  ⌘←").Clicked() || c.Shortcut(ui.Cmd, ui.KeyLeft) {
 			a.shiftSchedule(-1)
 		}
-		if a.btn(c, a.tr.Today(), btnSecondary).Clicked() {
+		if a.btn(c, a.tr.Today(), btnSecondary).Tooltip("⌘T").Clicked() || c.Shortcut(ui.Cmd, ui.KeyT) {
 			a.schedAnchor = day(a.now())
 			a.schedScrolled = false
 		}
-		if a.iconBtn(c, iconChevronRight, a.tr.Next()).Clicked() {
+		if a.iconBtn(c, iconChevronRight, a.tr.Next()+"  ⌘→").Clicked() || c.Shortcut(ui.Cmd, ui.KeyRight) {
 			a.shiftSchedule(1)
 		}
 		ui.Box(c).Width(6)
