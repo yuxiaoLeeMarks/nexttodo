@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -162,6 +163,14 @@ func (a *app) settingsPage(c *ui.Context) {
 						}
 					})
 				}
+				a.formRowHint(c, a.tr.SettingsCalendar(), a.tr.SettingsCalendarHint(), func() {
+					if a.iconLabel(c, a.btn(c, "", btnSecondary), iconDownload, a.tr.ExportBackup()).Clicked() {
+						a.exportCalendar()
+					}
+					if a.iconLabel(c, a.btn(c, "", btnSecondary), iconUpload, a.tr.ImportBackup()).Clicked() {
+						a.importCalendar()
+					}
+				})
 				a.formRow(c, a.tr.SettingsBackup(), func() {
 					if a.iconLabel(c, a.btn(c, "", btnSecondary), iconDownload, a.tr.ExportBackup()).Clicked() {
 						a.exportBackup()
@@ -304,6 +313,75 @@ func (a *app) exportBackup() {
 			}
 		})
 	}()
+}
+
+// exportCalendar asks where to save the events as a calendar file, and
+// saves them.
+func (a *app) exportCalendar() {
+	if a.win == nil {
+		return
+	}
+	b := writeICS(a.data.Events, a.now())
+	win, done := a.win, a.tr.CalendarExported()
+	go func() {
+		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
+			Parent:      win,
+			DefaultPath: "NextTodo.ics",
+			Filters:     []mygo.FileFilter{{Name: "iCalendar", Extensions: []string{"ics"}}},
+		})
+		if err != nil || path == "" {
+			return
+		}
+		err = os.WriteFile(path, b, 0o644)
+		win.Update(func() {
+			if err != nil {
+				a.toast = err.Error()
+			} else {
+				a.toast = done + " · " + filepath.Base(path)
+			}
+		})
+	}()
+}
+
+// importCalendar asks for a calendar file and adds its events, changing
+// those it added before, with Undo.
+func (a *app) importCalendar() {
+	if a.win == nil {
+		return
+	}
+	win, failed := a.win, a.tr.CalendarFailed()
+	go func() {
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
+			Parent:  win,
+			Filters: []mygo.FileFilter{{Name: "iCalendar", Extensions: []string{"ics", "ical", "ifb", "icalendar"}}},
+		})
+		if err != nil || len(paths) == 0 {
+			return
+		}
+		b, err := os.ReadFile(paths[0])
+		var got icsImport
+		if err == nil {
+			got, err = readICS(b, time.Local)
+		}
+		if err != nil {
+			mygo.Dialog.Error(failed, err.Error())
+			return
+		}
+		win.Update(func() { a.addCalendar(got) })
+	}()
+}
+
+// addCalendar adds the events of a calendar file, and says how many.
+func (a *app) addCalendar(got icsImport) {
+	step := a.remember()
+	added, changed := a.data.importEvents(got.events)
+	a.settle(step)
+	a.changed()
+	msg := a.tr.CalendarImported(added + changed)
+	if got.simple > 0 {
+		msg += " · " + a.tr.CalendarSimplified(got.simple)
+	}
+	a.replaced, a.replacedMsg = step, msg
 }
 
 // importBackup asks for a backup and, once the user agrees, replaces the

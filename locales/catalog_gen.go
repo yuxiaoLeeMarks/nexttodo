@@ -2446,6 +2446,86 @@ func (msgs Messages) ImportBackup() string {
 	return Catalog.Format(msgs.locale, "importBackup", nil)
 }
 
+// SettingsCalendar says "Calendar"
+// in the language the app shows.
+func SettingsCalendar() string { return In(i18n.Locale()).SettingsCalendar() }
+
+// SettingsCalendar says "Calendar"
+// in the language of msgs.
+func (msgs Messages) SettingsCalendar() string {
+	return Catalog.Format(msgs.locale, "settingsCalendar", nil)
+}
+
+// SettingsCalendarHint says "Events to and from Calendar, Google or Outlook, as .ics"
+// in the language the app shows.
+func SettingsCalendarHint() string { return In(i18n.Locale()).SettingsCalendarHint() }
+
+// SettingsCalendarHint says "Events to and from Calendar, Google or Outlook, as .ics"
+// in the language of msgs.
+func (msgs Messages) SettingsCalendarHint() string {
+	return Catalog.Format(msgs.locale, "settingsCalendarHint", nil)
+}
+
+// CalendarImported says "{n, plural, one {# event imported} other {# events imported}}"
+// in the language the app shows.
+func CalendarImported(n int) string { return In(i18n.Locale()).CalendarImported(n) }
+
+// CalendarImported says "{n, plural, one {# event imported} other {# events imported}}"
+// in the language of msgs.
+func (msgs Messages) CalendarImported(n int) string {
+	return Catalog.Format(msgs.locale, "calendarImported", map[string]any{"n": n})
+}
+
+// CalendarSimplified says "{n, plural, one {# repeating event kept its first time only} other {# repeating events kept their first time only}}"
+// in the language the app shows.
+func CalendarSimplified(n int) string { return In(i18n.Locale()).CalendarSimplified(n) }
+
+// CalendarSimplified says "{n, plural, one {# repeating event kept its first time only} other {# repeating events kept their first time only}}"
+// in the language of msgs.
+func (msgs Messages) CalendarSimplified(n int) string {
+	return Catalog.Format(msgs.locale, "calendarSimplified", map[string]any{"n": n})
+}
+
+// CalendarFailed says "Could not import the calendar"
+// in the language the app shows.
+func CalendarFailed() string { return In(i18n.Locale()).CalendarFailed() }
+
+// CalendarFailed says "Could not import the calendar"
+// in the language of msgs.
+func (msgs Messages) CalendarFailed() string {
+	return Catalog.Format(msgs.locale, "calendarFailed", nil)
+}
+
+// CalendarExported says "Calendar exported"
+// in the language the app shows.
+func CalendarExported() string { return In(i18n.Locale()).CalendarExported() }
+
+// CalendarExported says "Calendar exported"
+// in the language of msgs.
+func (msgs Messages) CalendarExported() string {
+	return Catalog.Format(msgs.locale, "calendarExported", nil)
+}
+
+// MenuImportCalendar says "Import Calendar (.ics)…"
+// in the language the app shows.
+func MenuImportCalendar() string { return In(i18n.Locale()).MenuImportCalendar() }
+
+// MenuImportCalendar says "Import Calendar (.ics)…"
+// in the language of msgs.
+func (msgs Messages) MenuImportCalendar() string {
+	return Catalog.Format(msgs.locale, "menuImportCalendar", nil)
+}
+
+// MenuExportCalendar says "Export Calendar (.ics)…"
+// in the language the app shows.
+func MenuExportCalendar() string { return In(i18n.Locale()).MenuExportCalendar() }
+
+// MenuExportCalendar says "Export Calendar (.ics)…"
+// in the language of msgs.
+func (msgs Messages) MenuExportCalendar() string {
+	return Catalog.Format(msgs.locale, "menuExportCalendar", nil)
+}
+
 // AutoBackups says "Automatic backups"
 // in the language the app shows.
 func AutoBackups() string { return In(i18n.Locale()).AutoBackups() }

@@ -148,6 +148,9 @@ type Event struct {
 	Repeat Repeat      `json:"repeat,omitempty"`
 	Until  time.Time   `json:"until,omitzero"`
 	Skip   []time.Time `json:"skip,omitempty"`
+	// UID names an event imported from a calendar file there, which
+	// importing it again changes.
+	UID string `json:"uid,omitempty"`
 
 	series *Event // the event an occurrence repeats
 }
