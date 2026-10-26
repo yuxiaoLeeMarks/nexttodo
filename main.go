@@ -23,7 +23,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	a := newApp(newData(), filepath.Join(dir, "data.json"))
+	path := filepath.Join(dir, "data.json")
+	if p := os.Getenv("NEXTTODO_DATA"); p != "" {
+		path = p // another file, to try the app on
+	}
+	a := newApp(newData(), path)
 	a.live = true
 
 	// A click on an event's alert opens the event, also one of an earlier

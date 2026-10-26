@@ -13,6 +13,10 @@
 - Drag down empty hours to sketch a new event, as in Calendar.
 - The week opens at the time now; a month's "+2 more" opens that day.
 
+**Adding**
+
+- Type the day and the time with the title, as in Fantastical: "Write the rebuttal fri" adds a task due Friday; in the menu bar, "Coffee with Ada tomorrow 3-4:30pm" or "明天下午3点到5点 组会" adds the event then. A chip shows what was understood; its × adds the line as typed.
+
 **Tasks**
 
 - Planned is grouped as Reminders' Scheduled list: overdue, today, tomorrow, this week, later. Completed by day.
@@ -21,11 +25,19 @@
 **Everywhere**
 
 - Search everything with ⌘F: tasks, events, projects (their journals too) and directions.
-- Deleting no longer asks first: Undo in a toast, or ⌘Z.
-- The data is copied every day, the last fourteen days kept; restore any of them from Settings.
+- Deleting no longer asks first: Undo in a toast, or ⌘Z, which brings back what went and keeps what you did since. Restoring a backup, importing and erasing can be undone too.
+- The data is copied as each day begins, the last fourteen days kept; restore any of them from Settings.
 - Open at login, a Dock badge for what is due, and ⌃⌥Space for the menu bar panel from any app.
 - The menu bar panel opens at once: made once, frosted, as magpie's.
 - Segmented controls slide, pages rise into place, sheets and popovers grow in.
+
+**Fixed**
+
+- Events over midnight or over several days keep their end when edited.
+- Moving a whole series moves its skipped days and its end with it.
+- Repeating all-day events no longer spill into the next day over a change of clocks.
+- An event made within its alert's lead alerts at once.
+- An event added from the menu bar after 23:30 goes to tomorrow.
 
 ## 0.2.0
 
