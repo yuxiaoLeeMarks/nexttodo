@@ -2,6 +2,25 @@ package main
 
 import "github.com/egoist/mygo/ui"
 
+// categoryIcons are the icons a category can take, by name.
+var categoryIcons = []struct {
+	name string
+	icon *ui.SVG
+}{
+	{"flask", iconFlask}, {"building", iconBuilding}, {"bulb", iconBulb}, {"book", iconBook},
+	{"folder", iconFolder}, {"people", iconPeople}, {"globe", iconGlobe}, {"award", iconAward},
+	{"code", iconCode}, {"heart", iconHeart}, {"briefcase", iconBriefcase}, {"compass", iconCompass},
+}
+
+func categoryIcon(name string) *ui.SVG {
+	for _, i := range categoryIcons {
+		if i.name == name {
+			return i.icon
+		}
+	}
+	return iconFolder
+}
+
 // icon makes a line icon on a 16-unit grid, drawn in the color of text, in
 // the manner of SF Symbols.
 func icon(shapes string) *ui.SVG {
@@ -42,6 +61,15 @@ var (
 	iconUpload        = icon(`<path d="M8 10.4V2.8M4.8 6L8 2.8 11.2 6M3 13.5h10"/>`)
 	iconBell          = icon(`<path d="M4 11.3V7.2a4 4 0 0 1 8 0v4.1l1.2 1.3H2.8zM6.6 14h2.8"/>`)
 	iconEdit          = icon(`<path d="M10.4 3l2.6 2.6-7.4 7.4H3v-2.6z"/>`)
+	iconPeople        = icon(`<circle cx="6" cy="5.6" r="2.3"/><path d="M1.8 13.4c.4-2.3 2.1-3.6 4.2-3.6s3.8 1.3 4.2 3.6M10.6 3.4a2.3 2.3 0 0 1 0 4.4M12.2 9.9c1 .5 1.7 1.6 2 3.5"/>`)
+	iconGlobe         = icon(`<circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c1.7 1.7 2.5 3.7 2.5 6S9.7 12.3 8 14C6.3 12.3 5.5 10.3 5.5 8S6.3 3.7 8 2z"/>`)
+	iconAward         = icon(`<circle cx="8" cy="6.2" r="4"/><path d="M5.6 9.4L4.6 14l3.4-1.8 3.4 1.8-1-4.6"/>`)
+	iconCode          = icon(`<path d="M5.6 4.6L2.2 8l3.4 3.4M10.4 4.6L13.8 8l-3.4 3.4M9 3l-2 10"/>`)
+	iconHeart         = icon(`<path d="M8 13.6S2 10.1 2 6.1A3.2 3.2 0 0 1 8 4.6a3.2 3.2 0 0 1 6 1.5c0 4-6 7.5-6 7.5z"/>`)
+	iconBriefcase     = icon(`<rect x="2" y="4.8" width="12" height="8.6" rx="1.8"/><path d="M5.8 4.8V3.6c0-.6.5-1.1 1.1-1.1h2.2c.6 0 1.1.5 1.1 1.1v1.2M2 8.6h12"/>`)
+	iconArchive       = icon(`<rect x="2" y="2.8" width="12" height="3.4" rx="1"/><path d="M3 6.2v6.4c0 .6.5 1.1 1.1 1.1h7.8c.6 0 1.1-.5 1.1-1.1V6.2M6.4 9h3.2"/>`)
+	iconGrip          = filled(`<circle cx="6" cy="4" r="1"/><circle cx="10" cy="4" r="1"/><circle cx="6" cy="8" r="1"/><circle cx="10" cy="8" r="1"/><circle cx="6" cy="12" r="1"/><circle cx="10" cy="12" r="1"/>`)
+	iconTag           = icon(`<path d="M2.4 8.6V3.2c0-.5.4-.8.8-.8h5.4l5 5c.4.4.4 1 0 1.4l-4.6 4.6c-.4.4-1 .4-1.4 0z"/><circle cx="5.4" cy="5.4" r="1"/>`)
 	// iconLogo is the app's mark: a page of a calendar with a check, as the
 	// title bar and the menu bar show it.
 	iconLogo = icon(`<rect x="2" y="2.8" width="12" height="11.2" rx="2.6"/><path d="M2 6.2h12M5.4 9.6l1.8 1.8 3.4-3.6"/>`)

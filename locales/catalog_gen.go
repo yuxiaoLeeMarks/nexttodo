@@ -1364,6 +1364,126 @@ func (msgs Messages) StatusDone() string {
 	return Catalog.Format(msgs.locale, "statusDone", nil)
 }
 
+// CategoriesTitle says "Project categories"
+// in the language the app shows.
+func CategoriesTitle() string { return In(i18n.Locale()).CategoriesTitle() }
+
+// CategoriesTitle says "Project categories"
+// in the language of msgs.
+func (msgs Messages) CategoriesTitle() string {
+	return Catalog.Format(msgs.locale, "categoriesTitle", nil)
+}
+
+// CategoriesIntro says "Sort projects your way: by how they are funded, by who they are for, or any way that suits you. Drag to reorder."
+// in the language the app shows.
+func CategoriesIntro() string { return In(i18n.Locale()).CategoriesIntro() }
+
+// CategoriesIntro says "Sort projects your way: by how they are funded, by who they are for, or any way that suits you. Drag to reorder."
+// in the language of msgs.
+func (msgs Messages) CategoriesIntro() string {
+	return Catalog.Format(msgs.locale, "categoriesIntro", nil)
+}
+
+// CategoriesCount says "{n, plural, =0 {No categories} one {# category} other {# categories}}"
+// in the language the app shows.
+func CategoriesCount(n int) string { return In(i18n.Locale()).CategoriesCount(n) }
+
+// CategoriesCount says "{n, plural, =0 {No categories} one {# category} other {# categories}}"
+// in the language of msgs.
+func (msgs Messages) CategoriesCount(n int) string {
+	return Catalog.Format(msgs.locale, "categoriesCount", map[string]any{"n": n})
+}
+
+// EditCategories says "Edit categories"
+// in the language the app shows.
+func EditCategories() string { return In(i18n.Locale()).EditCategories() }
+
+// EditCategories says "Edit categories"
+// in the language of msgs.
+func (msgs Messages) EditCategories() string {
+	return Catalog.Format(msgs.locale, "editCategories", nil)
+}
+
+// CategoryNew says "New category"
+// in the language the app shows.
+func CategoryNew() string { return In(i18n.Locale()).CategoryNew() }
+
+// CategoryNew says "New category"
+// in the language of msgs.
+func (msgs Messages) CategoryNew() string {
+	return Catalog.Format(msgs.locale, "categoryNew", nil)
+}
+
+// CategoryNamePlaceholder says "Name"
+// in the language the app shows.
+func CategoryNamePlaceholder() string { return In(i18n.Locale()).CategoryNamePlaceholder() }
+
+// CategoryNamePlaceholder says "Name"
+// in the language of msgs.
+func (msgs Messages) CategoryNamePlaceholder() string {
+	return Catalog.Format(msgs.locale, "categoryNamePlaceholder", nil)
+}
+
+// CategoryNotePlaceholder says "Description"
+// in the language the app shows.
+func CategoryNotePlaceholder() string { return In(i18n.Locale()).CategoryNotePlaceholder() }
+
+// CategoryNotePlaceholder says "Description"
+// in the language of msgs.
+func (msgs Messages) CategoryNotePlaceholder() string {
+	return Catalog.Format(msgs.locale, "categoryNotePlaceholder", nil)
+}
+
+// CategoryLook says "Color and icon"
+// in the language the app shows.
+func CategoryLook() string { return In(i18n.Locale()).CategoryLook() }
+
+// CategoryLook says "Color and icon"
+// in the language of msgs.
+func (msgs Messages) CategoryLook() string {
+	return Catalog.Format(msgs.locale, "categoryLook", nil)
+}
+
+// CategoryDeleteConfirm says "Delete “{name}”?"
+// in the language the app shows.
+func CategoryDeleteConfirm(name string) string { return In(i18n.Locale()).CategoryDeleteConfirm(name) }
+
+// CategoryDeleteConfirm says "Delete “{name}”?"
+// in the language of msgs.
+func (msgs Messages) CategoryDeleteConfirm(name string) string {
+	return Catalog.Format(msgs.locale, "categoryDeleteConfirm", map[string]any{"name": name})
+}
+
+// CategoryDeleteDetail says "{n, plural, one {Its project stays, uncategorized.} other {Its # projects stay, uncategorized.}}"
+// in the language the app shows.
+func CategoryDeleteDetail(n int) string { return In(i18n.Locale()).CategoryDeleteDetail(n) }
+
+// CategoryDeleteDetail says "{n, plural, one {Its project stays, uncategorized.} other {Its # projects stay, uncategorized.}}"
+// in the language of msgs.
+func (msgs Messages) CategoryDeleteDetail(n int) string {
+	return Catalog.Format(msgs.locale, "categoryDeleteDetail", map[string]any{"n": n})
+}
+
+// Uncategorized says "Uncategorized"
+// in the language the app shows.
+func Uncategorized() string { return In(i18n.Locale()).Uncategorized() }
+
+// Uncategorized says "Uncategorized"
+// in the language of msgs.
+func (msgs Messages) Uncategorized() string {
+	return Catalog.Format(msgs.locale, "uncategorized", nil)
+}
+
+// Done says "Done"
+// in the language the app shows.
+func Done() string { return In(i18n.Locale()).Done() }
+
+// Done says "Done"
+// in the language of msgs.
+func (msgs Messages) Done() string {
+	return Catalog.Format(msgs.locale, "done", nil)
+}
+
 // NoDirection says "No direction"
 // in the language the app shows.
 func NoDirection() string { return In(i18n.Locale()).NoDirection() }

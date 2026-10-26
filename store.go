@@ -13,18 +13,41 @@ import (
 	"time"
 )
 
-// Category is how a project is funded and run: the 纵向 / 横向 split of
-// Chinese research, plus self-directed work and academic service.
-type Category int
+// CatID names a category of projects. NextTodo 0.2 wrote a number, one of
+// four fixed categories, which reads as the ID of its default category.
+type CatID string
 
-const (
-	CatFunded      Category = iota // 纵向课题: government and foundation grants
-	CatIndustry                    // 横向课题: contracts with companies
-	CatIndependent                 // 自主研究: self-directed work
-	CatService                     // 学术服务: reviewing, editing, committees
-)
+// The default categories: the 纵向 / 横向 split of Chinese research, with
+// self-directed work and academic service.
+var defaultCatIDs = []CatID{"funded", "industry", "independent", "service"}
 
-var categories = []Category{CatFunded, CatIndustry, CatIndependent, CatService}
+func (c *CatID) UnmarshalJSON(b []byte) error {
+	var n int
+	if err := json.Unmarshal(b, &n); err == nil {
+		*c = ""
+		if n >= 0 && n < len(defaultCatIDs) {
+			*c = defaultCatIDs[n]
+		}
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	*c = CatID(s)
+	return nil
+}
+
+// Category is a kind of project the user names, describes, colors and
+// orders: by how projects are funded, as 纵向课题 and 横向课题, or any way
+// that suits them.
+type Category struct {
+	ID    CatID  `json:"id"`
+	Name  string `json:"name"`
+	Note  string `json:"note,omitempty"`
+	Color int    `json:"color"` // a color of the palette's series
+	Icon  string `json:"icon,omitempty"`
+}
 
 // Status is where a project stands.
 type Status int
@@ -73,7 +96,7 @@ type Project struct {
 	ID        string    `json:"id"`
 	Title     string    `json:"title"`
 	Code      string    `json:"code,omitempty"` // grant or contract number
-	Category  Category  `json:"category"`
+	Category  CatID     `json:"category,omitempty"`
 	Status    Status    `json:"status"`
 	Direction string    `json:"direction,omitempty"`
 	Lead      string    `json:"lead,omitempty"` // PI or role
@@ -133,6 +156,7 @@ type Prefs struct {
 type Data struct {
 	Format     string       `json:"format"`
 	Version    int          `json:"version"`
+	Categories []*Category  `json:"categories"`
 	Directions []*Direction `json:"directions"`
 	Projects   []*Project   `json:"projects"`
 	Tasks      []*Task      `json:"tasks"`
@@ -140,10 +164,22 @@ type Data struct {
 	Prefs      Prefs        `json:"prefs"`
 }
 
-const dataFormat = "nexttodo"
+const (
+	dataFormat  = "nexttodo"
+	dataVersion = 2 // 2: categories of the user's own
+)
 
 func newData() *Data {
-	return &Data{Format: dataFormat, Version: 1, Prefs: Prefs{WeekStart: -1, AlertMinutes: 10}}
+	return &Data{Format: dataFormat, Version: dataVersion, Prefs: Prefs{WeekStart: -1, AlertMinutes: 10}}
+}
+
+// migrate brings data written by an earlier version up to date: data of
+// 0.2 gets the default categories its projects' numbers stood for.
+func (d *Data) migrate(defaults func() []*Category) {
+	if d.Version < 2 && len(d.Categories) == 0 {
+		d.Categories = defaults()
+	}
+	d.Version = dataVersion
 }
 
 func newID() string {
@@ -161,6 +197,7 @@ func decodeData(b []byte) (*Data, error) {
 	if d.Format != dataFormat {
 		return nil, errors.New("not a NextTodo backup")
 	}
+	d.Categories = slices.DeleteFunc(d.Categories, func(x *Category) bool { return x == nil })
 	d.Directions = slices.DeleteFunc(d.Directions, func(x *Direction) bool { return x == nil })
 	d.Projects = slices.DeleteFunc(d.Projects, func(x *Project) bool { return x == nil })
 	d.Tasks = slices.DeleteFunc(d.Tasks, func(x *Task) bool { return x == nil })
@@ -197,6 +234,42 @@ func (d *Data) project(id string) *Project {
 		}
 	}
 	return nil
+}
+
+func (d *Data) category(id CatID) *Category {
+	if id == "" {
+		return nil
+	}
+	for _, k := range d.Categories {
+		if k.ID == id {
+			return k
+		}
+	}
+	return nil
+}
+
+// deleteCategory removes a category; its projects are left without one.
+func (d *Data) deleteCategory(id CatID) {
+	d.Categories = slices.DeleteFunc(d.Categories, func(k *Category) bool { return k.ID == id })
+	for _, p := range d.Projects {
+		if p.Category == id {
+			p.Category = ""
+		}
+	}
+}
+
+// moveCategory puts the category moved before the one at, or last.
+func (d *Data) moveCategory(moved, at *Category) {
+	i := slices.Index(d.Categories, moved)
+	if i < 0 || moved == at {
+		return
+	}
+	d.Categories = slices.Delete(d.Categories, i, i+1)
+	j := slices.Index(d.Categories, at)
+	if j < 0 {
+		j = len(d.Categories)
+	}
+	d.Categories = slices.Insert(d.Categories, j, moved)
 }
 
 func (d *Data) direction(id string) *Direction {

@@ -3,7 +3,21 @@ package main
 import (
 	"strings"
 	"time"
+
+	"nexttodo/locales"
 )
+
+// defaultCategories are the categories a first launch starts with, named
+// in lang: they are the user's to rename, recolor, reorder and delete.
+func defaultCategories(lang string) []*Category {
+	tr := locales.In(lang)
+	return []*Category{
+		{ID: defaultCatIDs[0], Name: tr.CatFunded(), Note: tr.CatFundedHint(), Color: 0, Icon: "flask"},
+		{ID: defaultCatIDs[1], Name: tr.CatIndustry(), Note: tr.CatIndustryHint(), Color: 1, Icon: "building"},
+		{ID: defaultCatIDs[2], Name: tr.CatIndependent(), Note: tr.CatIndependentHint(), Color: 2, Icon: "bulb"},
+		{ID: defaultCatIDs[3], Name: tr.CatService(), Note: tr.CatServiceHint(), Color: 4, Icon: "book"},
+	}
+}
 
 // sampleData is the almanac of an imagined researcher's season, around
 // now, in English or Chinese, for a first launch to show what the app
@@ -18,6 +32,8 @@ func sampleData(now time.Time, lang string) *Data {
 	}
 	today := day(now)
 	d := newData()
+	d.Categories = defaultCategories(lang)
+	funded, industry, independent, service := defaultCatIDs[0], defaultCatIDs[1], defaultCatIDs[2], defaultCatIDs[3]
 	created := now.Add(-90 * 24 * time.Hour)
 
 	dir := func(title, summary string, primary bool) *Direction {
@@ -40,7 +56,7 @@ func sampleData(now time.Time, lang string) *Data {
 	}
 	nsfc := proj(&Project{
 		Title: s("Weakly supervised cross-modal alignment", "弱监督跨模态对齐方法研究"), Code: "NSFC 62376118",
-		Category: CatFunded, Status: StatusActive, Direction: multimodal.ID, Lead: s("Principal investigator", "项目负责人"),
+		Category: funded, Status: StatusActive, Direction: multimodal.ID, Lead: s("Principal investigator", "项目负责人"),
 		Funder: s("National Natural Science Foundation of China", "国家自然科学基金委员会"),
 		Start:  time.Date(2025, 1, 1, 0, 0, 0, 0, now.Location()), End: time.Date(2028, 12, 31, 0, 0, 0, 0, now.Location()),
 		Summary: s("Aligning images and text from noisy web pairs, with guarantees on what the alignment preserves.", "从带噪声的网络图文对中学习对齐，并刻画对齐所保留的语义结构。"),
@@ -51,26 +67,26 @@ func sampleData(now time.Time, lang string) *Data {
 	})
 	hangxin := proj(&Project{
 		Title: s("On-device speech model compression", "端侧语音模型压缩"), Code: "HX-2026-031",
-		Category: CatIndustry, Status: StatusActive, Direction: edge.ID, Lead: s("Technical lead", "技术负责人"),
+		Category: industry, Status: StatusActive, Direction: edge.ID, Lead: s("Technical lead", "技术负责人"),
 		Funder: s("Hangxin Technology", "杭芯科技"), Start: addDays(today, -120), End: addDays(today, 38),
 		Summary: s("A streaming recognizer under 40 MB that keeps word error rate within 5% of the server model.", "将流式识别模型压缩到 40 MB 以内，词错率与服务端模型相差不超过 5%。"),
 	})
 	survey := proj(&Project{
 		Title:    s("Survey: retrieval-augmented reasoning", "综述：检索增强推理"),
-		Category: CatIndependent, Status: StatusPlanning, Direction: multimodal.ID, End: addDays(today, 75),
+		Category: independent, Status: StatusPlanning, Direction: multimodal.ID, End: addDays(today, 75),
 		Summary: s("Mapping how retrieval changes what language models can reason about.", "梳理检索如何改变语言模型的推理能力。"),
 	})
 	reviewing := proj(&Project{
-		Title: s("CVPR 2027 reviewing", "CVPR 2027 审稿"), Category: CatService, Status: StatusActive, End: addDays(today, 18),
+		Title: s("CVPR 2027 reviewing", "CVPR 2027 审稿"), Category: service, Status: StatusActive, End: addDays(today, 18),
 		Summary: s("Six papers in the area of vision and language.", "视觉与语言方向，共六篇。"),
 	})
 	proj(&Project{
 		Title: s("Spectral foundation model for materials", "材料光谱基础模型"), Code: "2024ZD0101",
-		Category: CatFunded, Status: StatusPaused, Direction: science.ID, Funder: s("Provincial Department of Science and Technology", "省科技厅"),
+		Category: funded, Status: StatusPaused, Direction: science.ID, Funder: s("Provincial Department of Science and Technology", "省科技厅"),
 		Summary: s("Waiting on the new spectrometer before collecting the second corpus.", "等待新光谱仪到位后采集第二批数据。"),
 	})
 	proj(&Project{
-		Title: s("Graduate course: deep learning", "研究生课程：深度学习"), Category: CatService, Status: StatusDone,
+		Title: s("Graduate course: deep learning", "研究生课程：深度学习"), Category: service, Status: StatusDone,
 		Summary: s("Spring term, 64 students. Slides and notes are in the course folder.", "春季学期，64 名学生，课件与讲义已归档。"),
 	})
 

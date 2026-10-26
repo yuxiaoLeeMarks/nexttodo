@@ -77,6 +77,12 @@ type app struct {
 	journalDraft  string
 	askProject    bool
 
+	// Categories.
+	catOpen  bool
+	catDraft string
+	catPop   CatID // the category whose look is being chosen
+	askCat   CatID // asking whether to delete it
+
 	// Directions.
 	dir     dirDraft
 	dirOpen bool
@@ -163,6 +169,7 @@ func loadData(path string, now time.Time, lang string) *Data {
 	if err == nil {
 		var d *Data
 		if d, err = decodeData(b); err == nil {
+			d.migrate(func() []*Category { return defaultCategories(lang) })
 			return d
 		}
 	}
@@ -174,40 +181,34 @@ func loadData(path string, now time.Time, lang string) *Data {
 
 // Names.
 
-func (a *app) categoryName(k Category) string {
-	switch k {
-	case CatIndustry:
-		return a.tr.CatIndustry()
-	case CatIndependent:
-		return a.tr.CatIndependent()
-	case CatService:
-		return a.tr.CatService()
+func (a *app) categoryName(id CatID) string {
+	if k := a.data.category(id); k != nil {
+		return orUntitled(k.Name, a.tr.Untitled())
 	}
-	return a.tr.CatFunded()
+	return a.tr.Uncategorized()
 }
 
-func (a *app) categoryHint(k Category) string {
-	switch k {
-	case CatIndustry:
-		return a.tr.CatIndustryHint()
-	case CatIndependent:
-		return a.tr.CatIndependentHint()
-	case CatService:
-		return a.tr.CatServiceHint()
+// categoryLook returns the icon and the color a project's category shows
+// it with: a gray folder without one.
+func (a *app) categoryLook(id CatID) (*ui.SVG, ui.Color) {
+	k := a.data.category(id)
+	if k == nil {
+		return iconFolder, a.p.series[6]
 	}
-	return a.tr.CatFundedHint()
+	return categoryIcon(k.Icon), a.p.series[(k.Color%7+7)%7]
 }
 
-func categoryIcon(k Category) *ui.SVG {
-	switch k {
-	case CatIndustry:
-		return iconBuilding
-	case CatIndependent:
-		return iconBulb
-	case CatService:
-		return iconBook
+// categoryIDs returns the categories in their order, with none ("") first
+// when withNone.
+func (a *app) categoryIDs(withNone bool) []CatID {
+	var ids []CatID
+	if withNone {
+		ids = append(ids, "")
 	}
-	return iconFlask
+	for _, k := range a.data.Categories {
+		ids = append(ids, k.ID)
+	}
+	return ids
 }
 
 func (a *app) statusName(s Status) string {
@@ -385,6 +386,7 @@ func (a *app) view(c *ui.Context) {
 	})
 	a.eventDialog(c)
 	a.directionDialog(c)
+	a.categoriesSheet(c)
 }
 
 // header is the title bar: the app's mark after the window's controls,

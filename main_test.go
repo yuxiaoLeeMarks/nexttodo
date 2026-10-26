@@ -116,6 +116,75 @@ func TestBackupRoundTrip(t *testing.T) {
 	}
 }
 
+func TestMigrateCategories(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "data.json")
+	old := `{"format":"nexttodo","version":1,"projects":[{"id":"p","title":"Grant","category":1,"status":1,"created":"2026-01-01T00:00:00Z"}],"prefs":{"weekStart":-1}}`
+	os.WriteFile(path, []byte(old), 0o644)
+	d := loadData(path, monday, "zh-Hans")
+	if len(d.Categories) != 4 || d.Categories[1].Name != "横向课题" || d.Version != dataVersion {
+		t.Fatalf("categories %+v, version %d", d.Categories, d.Version)
+	}
+	if p := d.project("p"); p == nil || p.Category != "industry" || d.category(p.Category) == nil {
+		t.Errorf("the project's category is %q", p.Category)
+	}
+	b, _ := d.encode()
+	again, err := decodeData(b)
+	if err != nil || again.project("p").Category != "industry" || len(again.Categories) != 4 {
+		t.Errorf("round trip: %v", err)
+	}
+}
+
+func TestCategories(t *testing.T) {
+	a := testApp("en")
+	a.page = PageProjects
+	tt := newTester(t, a, "en")
+	if err := tt.Click("Edit categories"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.catOpen {
+		t.Fatal("the categories did not open")
+	}
+	tt.Click("New category")
+	tt.Type("Teaching")
+	tt.Key(0, ui.KeyEnter)
+	k := a.data.Categories[len(a.data.Categories)-1]
+	if k.Name != "Teaching" || len(a.data.Categories) != 5 {
+		t.Fatalf("categories %+v", a.data.Categories)
+	}
+	// Dragged by its grip above the first, it comes first. Rows are found
+	// by their first look button, a row apart.
+	look, _ := tt.Find("Color and icon")
+	row := float32(55)
+	drag(tt, look.X-16, look.Y+look.H/2+4*row, 0, -4*row-look.H/2+2)
+	if a.data.Categories[0] != k {
+		t.Errorf("order %q", []string{a.data.Categories[0].Name, a.data.Categories[1].Name})
+	}
+	// A project in it groups under it.
+	a.data.Projects[0].Category = k.ID
+	a.catOpen = false
+	tt.Frame()
+	if !tt.HasText("Teaching") {
+		t.Error("the projects page has no Teaching group")
+	}
+	// Deleting a category in use asks, and leaves its project uncategorized.
+	a.catOpen = true
+	tt.Frame()
+	r, _ := tt.Find(a.tr.ProjectsCount(1))
+	tt.ClickAt(r.X+r.W+23, r.Y+r.H/2)
+	if a.askCat != k.ID {
+		t.Fatalf("no question before deleting a category in use (asked %q)", a.askCat)
+	}
+	tt.Key(0, ui.KeyEnter) // the alert's Delete
+	if a.data.category(k.ID) != nil || a.data.Projects[0].Category != "" {
+		t.Error("the category was not deleted")
+	}
+	a.catOpen = false
+	tt.Frame()
+	if !tt.HasText("Uncategorized") {
+		t.Error("no Uncategorized group")
+	}
+}
+
 func TestSaveAndLoad(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data.json")
 	d := loadData(path, monday, "zh-Hans")
@@ -447,6 +516,7 @@ func TestSnapshots(t *testing.T) {
 		{"directions", func(a *app) { a.page = PageDirections }, 1280, 820},
 		{"settings", func(a *app) { a.page = PageSettings }, 1280, 900},
 		{"event", func(a *app) { a.page = PageSchedule; a.editEvent(a.data.Events[1]) }, 1280, 820},
+		{"categories", func(a *app) { a.page, a.catOpen = PageProjects, true }, 1280, 820},
 		{"panel", nil, 340, 480},
 	}
 	only := os.Getenv("NT_PAGE")

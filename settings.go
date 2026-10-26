@@ -70,6 +70,15 @@ func (a *app) settingsPage(c *ui.Context) {
 				})
 			})
 
+			a.section(c, a.tr.NavProjects(), "", nil)
+			a.list(c, func() {
+				a.formRowHint(c, a.tr.CategoriesTitle(), a.tr.CategoriesCount(len(a.data.Categories)), func() {
+					if a.iconLabel(c, a.btn(c, "", btnSecondary), iconTag, a.tr.EditCategories()).Clicked() {
+						a.catOpen = true
+					}
+				})
+			})
+
 			a.section(c, a.tr.SettingsNotifications(), "", nil)
 			a.list(c, func() {
 				a.formRowHint(c, a.tr.SettingsEventAlerts(), a.tr.SettingsEventAlertsHint(), func() {
@@ -122,9 +131,12 @@ func (a *app) settingsPage(c *ui.Context) {
 				if empty {
 					a.formRow(c, a.tr.SettingsSampleData(), func() {
 						if a.btn(c, a.tr.LoadSample(), btnSecondary).Clicked() {
-							prefs := a.data.Prefs
+							prefs, cats := a.data.Prefs, a.data.Categories
 							a.data = sampleData(a.now(), a.lang)
 							a.data.Prefs = prefs
+							if len(cats) > 0 {
+								a.data.Categories = cats
+							}
 							a.changed()
 							a.toast = a.tr.SampleLoaded()
 						}
@@ -154,9 +166,9 @@ func (a *app) settingsPage(c *ui.Context) {
 		})
 	})
 	if ui.AlertDialog(c, &a.askErase, a.tr.EraseConfirm(), "", a.tr.Cancel(), a.tr.Erase()) == 1 {
-		prefs := a.data.Prefs
+		prefs, cats := a.data.Prefs, a.data.Categories
 		a.data = newData()
-		a.data.Prefs = prefs
+		a.data.Prefs, a.data.Categories = prefs, cats
 		a.resetSelection()
 		a.changed()
 		a.toast = a.tr.Erased()
@@ -264,6 +276,7 @@ func (a *app) importBackup() {
 		return
 	}
 	win := a.win
+	lang := a.lang
 	failed, confirm, detail, replace, cancel, done :=
 		a.tr.ImportFailed(), a.tr.ImportConfirm(), a.tr.ImportConfirmDetail(), a.tr.ImportReplace(), a.tr.Cancel(), a.tr.Imported()
 	go func() {
@@ -277,7 +290,9 @@ func (a *app) importBackup() {
 		b, err := os.ReadFile(paths[0])
 		var d *Data
 		if err == nil {
-			d, err = decodeData(b)
+			if d, err = decodeData(b); err == nil {
+				d.migrate(func() []*Category { return defaultCategories(lang) })
+			}
 		}
 		if err != nil {
 			mygo.Dialog.Error(failed, err.Error())

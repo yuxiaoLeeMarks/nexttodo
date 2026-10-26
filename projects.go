@@ -76,9 +76,10 @@ func (a *app) projectGroups() []projectGroup {
 			add(a.statusName(s), "", func(p *Project) bool { return p.Status == s })
 		}
 	default:
-		for _, k := range categories {
-			add(a.categoryName(k), a.categoryHint(k), func(p *Project) bool { return p.Category == k })
+		for _, k := range a.data.Categories {
+			add(orUntitled(k.Name, a.tr.Untitled()), k.Note, func(p *Project) bool { return p.Category == k.ID })
 		}
+		add(a.tr.Uncategorized(), "", func(p *Project) bool { return a.data.category(p.Category) == nil })
 	}
 	return groups
 }
@@ -86,6 +87,9 @@ func (a *app) projectGroups() []projectGroup {
 // newProject adds a project and opens it.
 func (a *app) newProject() {
 	pr := &Project{ID: newID(), Status: StatusPlanning, Created: a.now()}
+	if len(a.data.Categories) > 0 {
+		pr.Category = a.data.Categories[0].ID
+	}
 	a.data.Projects = append(a.data.Projects, pr)
 	a.changed()
 	a.openProject(pr.ID)
@@ -101,6 +105,9 @@ func (a *app) projectsPage(c *ui.Context) {
 		})
 		ui.Box(c).Width(4)
 		a.segTrack(c, "group", &a.projGroup, a.tr.GroupCategory(), a.tr.GroupDirection(), a.tr.GroupStatus())
+		if a.iconBtn(c, iconTag, a.tr.EditCategories()).Clicked() {
+			a.catOpen = true
+		}
 		ui.Spacer(c)
 		a.labeledCheck(c, &a.projShowDone, a.tr.ShowCompleted())
 		ui.Box(c).Width(6)
@@ -150,7 +157,8 @@ func (a *app) projectRow(c *ui.Context, pr *Project) {
 	}
 	done, total := a.data.progress(pr.ID)
 	b.Children(func() {
-		a.disc(c, categoryIcon(pr.Category), a.categoryColor(pr.Category), 30)
+		icon, col := a.categoryLook(pr.Category)
+		a.disc(c, icon, col, 30)
 		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 			ui.Text(c, orUntitled(pr.Title, a.tr.Untitled())).FontSize(13).FontWeight(500).TextColor(p.fg).SingleLine()
 			var sub []string
@@ -193,9 +201,9 @@ func (a *app) projectRow(c *ui.Context, pr *Project) {
 			}
 		})
 		m.Submenu(a.tr.FieldCategory(), func(m *ui.Menu) {
-			for _, k := range categories {
-				if m.Item(a.categoryName(k)).Checked(pr.Category == k).Chosen() {
-					pr.Category = k
+			for _, id := range a.categoryIDs(true) {
+				if m.Item(a.categoryName(id)).Checked(pr.Category == id).Chosen() {
+					pr.Category = id
 					a.changed()
 				}
 			}
@@ -236,7 +244,8 @@ func (a *app) projectPage(c *ui.Context) {
 	}, func() {
 		a.card(c).Padding(16, 18).Gap(10).Margin(4, 0, 0, 0).Children(func() {
 			ui.Row(c).Gap(14).AlignItems(ui.Center).Children(func() {
-				a.disc(c, categoryIcon(pr.Category), a.categoryColor(pr.Category), 40)
+				icon, col := a.categoryLook(pr.Category)
+				a.disc(c, icon, col, 40)
 				ui.Column(c).Grow(1).MinWidth(0).Gap(4).Children(func() {
 					t := a.titleInput(c, &pr.Title, a.tr.ProjectTitlePlaceholder(), 20)
 					if pr.Title == "" {
@@ -345,7 +354,7 @@ func (a *app) projectDetails(c *ui.Context, pr *Project) {
 	a.section(c, a.tr.ProjectDetails(), "", nil)
 	a.list(c, func() {
 		a.formRow(c, a.tr.FieldCategory(), func() {
-			if selectOf(a, c, "category", &pr.Category, categories, a.categoryName).Label(a.tr.FieldCategory()).Changed() {
+			if selectOf(a, c, "category", &pr.Category, a.categoryIDs(true), a.categoryName).MaxWidth(170).Label(a.tr.FieldCategory()).Changed() {
 				a.changed()
 			}
 		})

@@ -110,17 +110,9 @@ func (a *app) kindColor(k EventKind) ui.Color {
 	return s[6]
 }
 
-func (a *app) categoryColor(k Category) ui.Color {
-	s := &a.p.series
-	switch k {
-	case CatIndustry:
-		return s[1]
-	case CatIndependent:
-		return s[2]
-	case CatService:
-		return s[4]
-	}
-	return s[0]
+func (a *app) categoryColor(id CatID) ui.Color {
+	_, col := a.categoryLook(id)
+	return col
 }
 
 func (a *app) statusColor(s Status) ui.Color {
