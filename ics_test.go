@@ -60,7 +60,7 @@ func TestReadICS(t *testing.T) {
 	}
 	// Ten lectures from Oct 26: the last on Nov 25. One Monday skipped, one
 	// Wednesday moved.
-	if !sameDay(mon.Until, time.Date(2026, 11, 25, 0, 0, 0, 0, sh)) || !sameDay(wed.Until, mon.Until) {
+	if !sameDay(mon.Until, time.Date(2026, 11, 23, 0, 0, 0, 0, sh)) || !sameDay(wed.Until, time.Date(2026, 11, 25, 0, 0, 0, 0, sh)) {
 		t.Errorf("until %v %v", mon.Until, wed.Until)
 	}
 	var n int
@@ -144,5 +144,78 @@ func TestAddCalendar(t *testing.T) {
 	tt.Click("Undo")
 	if len(a.data.Events) != n {
 		t.Errorf("%d events after Undo, want %d", len(a.data.Events), n)
+	}
+}
+
+func icsEvent(lines ...string) string {
+	return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\n" + strings.Join(lines, "\r\n") + "\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+}
+
+// What a second review found in reading calendars.
+func TestReadICSEdges(t *testing.T) {
+	sh, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		t.Skip(err)
+	}
+	read := func(s string) icsImport {
+		t.Helper()
+		got, err := readICS([]byte(s), sh)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	// A Monday evening call in New York is a Tuesday morning one here.
+	got := read(icsEvent("UID:call", "DTSTART;TZID=America/New_York:20261019T210000", "DTEND;TZID=America/New_York:20261019T220000",
+		"RRULE:FREQ=WEEKLY;BYDAY=MO", "SUMMARY:Call"))
+	if e := got.events[0]; e.Start.Weekday() != time.Tuesday || e.Start.Hour() != 9 || e.Repeat != RepeatWeekly {
+		t.Errorf("the call is %v, %v", e.Start, e.Repeat)
+	}
+	// Every other week on Mondays and Wednesdays, from a Wednesday: the
+	// Mondays start the week after next.
+	got = read(icsEvent("UID:bw", "DTSTART:20261028T020000Z", "DURATION:PT1H", "RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE", "SUMMARY:BW"))
+	var starts []string
+	for _, e := range got.events {
+		starts = append(starts, e.Start.Format("01-02"))
+	}
+	if strings.Join(starts, " ") != "10-28 11-09" || got.events[0].Repeat != RepeatBiweekly {
+		t.Errorf("biweekly series start %v", starts)
+	}
+	// DURATION before DTSTART; a zone of Windows; a byte-order mark.
+	got = read("\ufeff" + icsEvent("UID:d", "DURATION:PT2H", `DTSTART;TZID="Pacific Standard Time":20261026T090000`, "SUMMARY:D"))
+	if e := got.events[0]; e.End.Sub(e.Start) != 2*time.Hour || !e.Start.Equal(time.Date(2026, 10, 27, 0, 0, 0, 0, sh)) {
+		t.Errorf("d %v – %v", e.Start, e.End)
+	}
+	// A start that cannot be read leaves out that event alone.
+	bad := "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:x\r\nDTSTART:20261026T0200\r\nSUMMARY:Bad\r\nEND:VEVENT\r\n" +
+		"BEGIN:VEVENT\r\nUID:y\r\nDTSTART:20261026T020000Z\r\nSUMMARY:Good\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+	if got = read(bad); len(got.events) != 1 || got.events[0].Title != "Good" {
+		t.Errorf("events %+v", got.events)
+	}
+	// A cancelled occurrence is skipped; one changed alone, imported after
+	// its series, takes the place of its day there.
+	d := newData()
+	d.importEvents(read(icsEvent("UID:s", "DTSTART:20261026T020000Z", "DURATION:PT1H", "RRULE:FREQ=WEEKLY", "SUMMARY:S")).events)
+	cancel := read(icsEvent("UID:s", "RECURRENCE-ID:20261102T020000Z", "DTSTART:20261102T020000Z", "STATUS:CANCELLED", "SUMMARY:S"))
+	d.importEvents(cancel.events)
+	d.skipImported(cancel.skips)
+	moved := read(icsEvent("UID:s", "RECURRENCE-ID:20261109T020000Z", "DTSTART:20261110T020000Z", "DURATION:PT1H", "SUMMARY:S moved"))
+	d.importEvents(moved.events)
+	d.skipImported(moved.skips)
+	var days []string
+	for _, e := range d.eventsBetween(time.Date(2026, 10, 26, 0, 0, 0, 0, sh), time.Date(2026, 11, 17, 0, 0, 0, 0, sh)) {
+		days = append(days, e.Start.In(sh).Format("01-02"))
+	}
+	if strings.Join(days, " ") != "10-26 11-10 11-16" {
+		t.Errorf("the series falls on %v", days)
+	}
+}
+
+// A repeating all-day event goes out with a date to end on, as its start.
+func TestWriteICSAllDayUntil(t *testing.T) {
+	e := &Event{ID: "a", Title: "Retreat", AllDay: true, Start: day(monday), End: addDays(day(monday), 1),
+		Repeat: RepeatWeekly, Until: addDays(day(monday), 21)}
+	if s := string(writeICS([]*Event{e}, monday)); !strings.Contains(s, "RRULE:FREQ=WEEKLY;UNTIL="+e.Until.Format("20060102")+"\r\n") {
+		t.Errorf("%s", s)
 	}
 }

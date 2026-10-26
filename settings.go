@@ -375,6 +375,7 @@ func (a *app) importCalendar() {
 func (a *app) addCalendar(got icsImport) {
 	step := a.remember()
 	added, changed := a.data.importEvents(got.events)
+	a.data.skipImported(got.skips)
 	a.settle(step)
 	a.changed()
 	msg := a.tr.CalendarImported(added + changed)

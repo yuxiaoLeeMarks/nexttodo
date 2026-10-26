@@ -60,8 +60,8 @@ func icsText(s string) string {
 	return strings.TrimSpace(r.Replace(s))
 }
 
-// icsTime reads a date or a date and time, in loc unless it says its zone,
-// and whether it is a date alone.
+// icsTime reads a date or a date and time: in its zone, UTC or the one
+// its TZID names, or else in loc; and whether it is a date alone.
 func icsTime(l icsLine, loc *time.Location) (time.Time, bool, error) {
 	v := strings.TrimSpace(l.value)
 	if l.params["VALUE"] == "DATE" || len(v) == 8 {
@@ -70,16 +70,47 @@ func icsTime(l icsLine, loc *time.Location) (time.Time, bool, error) {
 	}
 	if strings.HasSuffix(v, "Z") {
 		t, err := time.Parse("20060102T150405Z", v)
-		return t.In(loc), false, err
+		return t, false, err
 	}
 	zone := loc
 	if id := l.params["TZID"]; id != "" {
-		if z, err := time.LoadLocation(id); err == nil {
-			zone = z
-		}
+		zone = icsZone(id, loc)
 	}
 	t, err := time.ParseInLocation("20060102T150405", v, zone)
-	return t.In(loc), false, err
+	return t, false, err
+}
+
+// windowsZones names in IANA's way the zones Outlook names in Windows'.
+var windowsZones = map[string]string{
+	"China Standard Time": "Asia/Shanghai", "Taipei Standard Time": "Asia/Taipei", "Tokyo Standard Time": "Asia/Tokyo",
+	"Korea Standard Time": "Asia/Seoul", "Singapore Standard Time": "Asia/Singapore", "India Standard Time": "Asia/Kolkata",
+	"Pacific Standard Time": "America/Los_Angeles", "Mountain Standard Time": "America/Denver",
+	"Central Standard Time": "America/Chicago", "Eastern Standard Time": "America/New_York",
+	"GMT Standard Time": "Europe/London", "W. Europe Standard Time": "Europe/Berlin", "Romance Standard Time": "Europe/Paris",
+	"Central Europe Standard Time": "Europe/Budapest", "Central European Standard Time": "Europe/Warsaw",
+	"AUS Eastern Standard Time": "Australia/Sydney", "New Zealand Standard Time": "Pacific/Auckland",
+	"UTC": "UTC", "Coordinated Universal Time": "UTC", "Greenwich Standard Time": "Atlantic/Reykjavik",
+}
+
+// icsZone finds the zone a TZID names: by IANA's name, Windows' name, or
+// the end of a path as /mozilla.org/20050126_1/America/New_York; else loc.
+func icsZone(id string, loc *time.Location) *time.Location {
+	if z, err := time.LoadLocation(id); err == nil && id != "Local" {
+		return z
+	}
+	if name, ok := windowsZones[id]; ok {
+		if z, err := time.LoadLocation(name); err == nil {
+			return z
+		}
+	}
+	for i := 0; i < len(id); i++ {
+		if id[i] == '/' {
+			if z, err := time.LoadLocation(id[i+1:]); err == nil && id[i+1:] != "" {
+				return z
+			}
+		}
+	}
+	return loc
 }
 
 // icsDuration reads a duration: P1D, PT1H30M, P1W.
@@ -112,26 +143,38 @@ func icsDuration(s string) time.Duration {
 	return d
 }
 
-// icsImport is what a calendar file holds: its events, and how many repeat
-// in a way NextTodo cannot, which keep their first time.
+// icsImport is what a calendar file holds: its events, the occurrences
+// of series changed or cancelled on their own, which those series skip
+// even if imported before, and how many repeat in a way NextTodo cannot,
+// which keep their first time.
 type icsImport struct {
 	events []*Event
+	skips  []icsSkip
 	simple int
 }
 
-// readICS reads the events of a calendar file, in loc.
+// icsSkip is a day the series of a UID skips.
+type icsSkip struct {
+	uid string
+	day time.Time
+}
+
+// readICS reads the events of a calendar file, in loc. An event whose
+// start cannot be read is left out.
 func readICS(b []byte, loc *time.Location) (icsImport, error) {
 	var out icsImport
-	lines := icsLines(b)
+	lines := icsLines(bytes.TrimPrefix(b, []byte("\ufeff")))
 	if len(lines) == 0 || lines[0].name != "BEGIN" || !strings.EqualFold(lines[0].value, "VCALENDAR") {
 		return out, errors.New("not a calendar file")
 	}
 	type vevent struct {
-		e         *Event
-		rule      string
-		exdate    []time.Time
-		recur     time.Time // the occurrence a changed one replaces
-		cancelled bool
+		e          *Event
+		start, end *icsLine
+		duration   string
+		rule       string
+		exdate     []time.Time
+		recur      time.Time // the occurrence a changed one replaces
+		cancelled  bool
 	}
 	var all []*vevent
 	var cur *vevent
@@ -142,7 +185,7 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 			cur = &vevent{e: &Event{ID: newID(), Kind: KindOther}}
 			continue
 		case l.name == "END" && strings.EqualFold(l.value, "VEVENT"):
-			if cur != nil && !cur.e.Start.IsZero() && !cur.cancelled {
+			if cur != nil && cur.start != nil {
 				all = append(all, cur)
 			}
 			cur, depth = nil, 0
@@ -177,69 +220,81 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 		case "STATUS":
 			cur.cancelled = strings.EqualFold(l.value, "CANCELLED")
 		case "DTSTART":
-			t, date, err := icsTime(l, loc)
-			if err != nil {
-				return out, err
-			}
-			e.Start, e.AllDay = t, date
+			cur.start = &l
 		case "DTEND":
-			if t, _, err := icsTime(l, loc); err == nil {
-				e.End = t
-			}
+			cur.end = &l
 		case "DURATION":
-			if !e.Start.IsZero() {
-				e.End = e.Start.Add(icsDuration(l.value))
-			}
+			cur.duration = l.value
 		case "RRULE":
 			cur.rule = l.value
 		case "EXDATE":
 			for _, v := range strings.Split(l.value, ",") {
 				if t, _, err := icsTime(icsLine{params: l.params, value: v}, loc); err == nil {
-					cur.exdate = append(cur.exdate, t)
+					cur.exdate = append(cur.exdate, t.In(loc))
 				}
 			}
 		case "RECURRENCE-ID":
 			if t, _, err := icsTime(l, loc); err == nil {
-				cur.recur = t
+				cur.recur = t.In(loc)
 			}
 		}
 	}
 	series := map[string][]*Event{} // by UID, a series and those it split into
 	for _, v := range all {
 		e := v.e
+		if !v.recur.IsZero() {
+			out.skips = append(out.skips, icsSkip{uid: e.UID, day: day(v.recur)})
+		}
+		var err error
+		if e.Start, e.AllDay, err = icsTime(*v.start, loc); err != nil || v.cancelled {
+			continue
+		}
+		if v.end != nil {
+			e.End, _, _ = icsTime(*v.end, loc)
+		} else if v.duration != "" {
+			e.End = e.Start.Add(icsDuration(v.duration))
+		}
 		switch {
 		case e.AllDay && !e.End.After(e.Start):
 			e.End = addDays(e.Start, 1)
 		case !e.End.After(e.Start):
 			e.End = e.Start.Add(30 * time.Minute) // a deadline, at a moment
 		}
-		var more []*Event
+		// The rule repeats in the event's own zone; then the series take
+		// the days and the times here.
+		group := []*Event{e}
 		if v.recur.IsZero() && v.rule != "" {
-			var ok bool
-			if more, ok = e.repeatAs(v.rule); !ok {
+			more, ok := e.repeatAs(v.rule)
+			if !ok {
 				out.simple++
 			}
-			for _, x := range append([]*Event{e}, more...) {
-				for _, t := range v.exdate {
-					x.Skip = append(x.Skip, day(t))
-				}
+			group = append(group, more...)
+		}
+		for _, x := range group {
+			if !x.AllDay {
+				x.Start, x.End = x.Start.In(loc), x.End.In(loc)
+			}
+			if !x.Until.IsZero() {
+				x.Until = day(x.Until.In(loc))
+			}
+			for _, t := range v.exdate {
+				x.Skip = append(x.Skip, day(t))
 			}
 		}
 		if v.recur.IsZero() {
-			series[e.UID] = append([]*Event{e}, more...)
+			series[e.UID] = group
+		} else {
+			e.UID += "/" + v.recur.Format("20060102")
 		}
-		out.events = append(append(out.events, e), more...)
+		out.events = append(out.events, group...)
 	}
-	// An occurrence changed on its own is an event of its own, which its
-	// series skips.
-	for _, v := range all {
-		if v.recur.IsZero() {
-			continue
+	// An occurrence changed or cancelled on its own, which its series skips.
+	for _, sk := range out.skips {
+		for _, x := range series[sk.uid] {
+			if !x.skipped(sk.day) {
+				x.Skip = append(x.Skip, sk.day)
+			}
 		}
-		for _, s := range series[v.e.UID] {
-			s.Skip = append(s.Skip, day(v.recur))
-		}
-		v.e.UID += "/" + v.recur.Format("20060102")
 	}
 	return out, nil
 }
@@ -290,10 +345,20 @@ func (e *Event) repeatAs(rule string) ([]*Event, bool) {
 		if interval == 2 {
 			e.Repeat = RepeatBiweekly
 		}
-		// A series for each day of the week, from its first.
+		// A series for each day of the week, from its first in the week
+		// of the start, or, gone by then, in the next week it repeats.
+		wkst := time.Monday
+		if wd, ok := codes[parts["WKST"]]; ok {
+			wkst = wd
+		}
+		week := addDays(e.Start, -((int(e.Start.Weekday()) - int(wkst) + 7) % 7))
 		var starts []time.Time
 		for _, wd := range days {
-			starts = append(starts, addDays(e.Start, (int(wd)-int(e.Start.Weekday())+7)%7))
+			s := addDays(week, (int(wd)-int(wkst)+7)%7)
+			if day(s).Before(day(e.Start)) {
+				s = addDays(s, 7*interval)
+			}
+			starts = append(starts, s)
 		}
 		slices.SortFunc(starts, time.Time.Compare)
 		starts = slices.CompactFunc(starts, time.Time.Equal)
@@ -315,17 +380,19 @@ func (e *Event) repeatAs(rule string) ([]*Event, bool) {
 	default:
 		return nil, false
 	}
-	// Until a day, or so many times.
+	// Until a moment, or so many times: each series ends with its last
+	// time by then, which Until keeps until the series takes the days here.
+	series := append([]*Event{e}, more...)
+	var last time.Time
 	if u := parts["UNTIL"]; u != "" {
-		if t, _, err := icsTime(icsLine{params: map[string]string{}, value: u}, e.Start.Location()); err == nil {
-			for _, x := range append([]*Event{e}, more...) {
-				x.Until = day(t)
+		if t, date, err := icsTime(icsLine{params: map[string]string{}, value: u}, e.Start.Location()); err == nil {
+			if last = t; date {
+				last = addDays(t, 1).Add(-time.Second)
 			}
 		}
 	}
 	if n, err := strconv.Atoi(parts["COUNT"]); err == nil && n > 0 {
 		// The nth time of all the series together.
-		series := append([]*Event{e}, more...)
 		var times []time.Time
 		for _, x := range series {
 			for _, o := range x.occurrences(x.Start, addDays(x.Start, 3700)) {
@@ -334,9 +401,16 @@ func (e *Event) repeatAs(rule string) ([]*Event, bool) {
 		}
 		slices.SortFunc(times, time.Time.Compare)
 		if len(times) >= n {
-			for _, x := range series {
-				x.Until = day(times[n-1])
+			last = times[n-1]
+		}
+	}
+	if !last.IsZero() {
+		for _, x := range series {
+			until := x.Start
+			for _, o := range x.occurrences(x.Start, last.Add(time.Second)) {
+				until = o.Start
 			}
+			x.Until = until
 		}
 	}
 	return more, true
@@ -397,7 +471,10 @@ func writeICS(events []*Event, now time.Time) []byte {
 				RepeatDaily: "FREQ=DAILY", RepeatWeekdays: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", RepeatWeekly: "FREQ=WEEKLY",
 				RepeatBiweekly: "FREQ=WEEKLY;INTERVAL=2", RepeatMonthly: "FREQ=MONTHLY",
 			}[e.Repeat]
-			if !e.Until.IsZero() {
+			switch {
+			case !e.Until.IsZero() && e.AllDay:
+				rule += ";UNTIL=" + e.Until.Format("20060102") // as the start, a date
+			case !e.Until.IsZero():
 				rule += ";UNTIL=" + addDays(day(e.Until), 1).Add(-time.Second).UTC().Format("20060102T150405Z")
 			}
 			line("RRULE:" + rule)
@@ -440,4 +517,16 @@ func (d *Data) importEvents(events []*Event) (added, changed int) {
 		added++
 	}
 	return added, changed
+}
+
+// skipImported makes the series of earlier imports skip the occurrences a
+// calendar file changed or cancelled on their own.
+func (d *Data) skipImported(skips []icsSkip) {
+	for _, sk := range skips {
+		for _, e := range d.Events {
+			if sk.uid != "" && (e.UID == sk.uid || strings.HasPrefix(e.UID, sk.uid+"#")) && !e.skipped(sk.day) {
+				e.Skip = append(e.Skip, sk.day)
+			}
+		}
+	}
 }
