@@ -332,9 +332,11 @@ func (a *app) deadlines(c *ui.Context, today time.Time) {
 			if i == 8 {
 				break
 			}
-			key := "p:" + itoa(i)
+			key := "t:"
 			if it.task != nil {
-				key = it.task.ID
+				key += it.task.ID
+			} else {
+				key = "p:" + it.project.ID
 			}
 			b := ui.ButtonBase(c.Key(key)).MinHeight(46).Padding(6, 14).Gap(12).AlignItems(ui.Center).Radius(0).FocusRing(false).Label(it.title)
 			if b.Hovered() {
