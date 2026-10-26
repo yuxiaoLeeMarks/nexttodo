@@ -233,8 +233,14 @@ func (a *app) panelTaskRow(c *ui.Context, t *Task) {
 			a.priorityMarks(c, t.Priority).FontSize(12)
 		}
 		ui.Text(c, orUntitled(t.Title, a.tr.Untitled())).FontSize(12.5).TextColor(p.fg).Grow(1).MinWidth(0).SingleLine()
-		if !t.Due.IsZero() && day(t.Due).Before(day(a.now())) {
+		switch {
+		case !t.Due.IsZero() && day(t.Due).Before(day(a.now())):
 			ui.Text(c, a.relDay(t.Due)).FontSize(11).TextColor(p.red).SingleLine()
+		case !t.Remind.IsZero() && t.Remind.After(a.now()):
+			ui.Row(c).Gap(3).AlignItems(ui.Center).Shrink(0).Children(func() {
+				ui.Icon(c, iconBell).Size(10, 10).TextColor(p.muted)
+				ui.Text(c, a.remindText(t.Remind)).FontSize(11).FontFeatures("tnum").TextColor(p.muted).SingleLine()
+			})
 		}
 	})
 }
