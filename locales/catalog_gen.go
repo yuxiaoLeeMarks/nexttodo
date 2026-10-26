@@ -1424,6 +1424,36 @@ func (msgs Messages) ShowCompleted() string {
 	return Catalog.Format(msgs.locale, "showCompleted", nil)
 }
 
+// ViewList says "List"
+// in the language the app shows.
+func ViewList() string { return In(i18n.Locale()).ViewList() }
+
+// ViewList says "List"
+// in the language of msgs.
+func (msgs Messages) ViewList() string {
+	return Catalog.Format(msgs.locale, "viewList", nil)
+}
+
+// ViewTimeline says "Timeline"
+// in the language the app shows.
+func ViewTimeline() string { return In(i18n.Locale()).ViewTimeline() }
+
+// ViewTimeline says "Timeline"
+// in the language of msgs.
+func (msgs Messages) ViewTimeline() string {
+	return Catalog.Format(msgs.locale, "viewTimeline", nil)
+}
+
+// NoDates says "No dates"
+// in the language the app shows.
+func NoDates() string { return In(i18n.Locale()).NoDates() }
+
+// NoDates says "No dates"
+// in the language of msgs.
+func (msgs Messages) NoDates() string {
+	return Catalog.Format(msgs.locale, "noDates", nil)
+}
+
 // CatFunded says "Funded grant"
 // in the language the app shows.
 func CatFunded() string { return In(i18n.Locale()).CatFunded() }

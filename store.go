@@ -165,6 +165,7 @@ type Prefs struct {
 	NoBadge      bool   `json:"noBadge,omitempty"`  // no count on the Dock icon
 	NoHotkey     bool   `json:"noHotkey,omitempty"` // no global shortcut for the panel
 	Page         int    `json:"page,omitempty"`     // the page shown last, which opens again
+	Timeline     bool   `json:"timeline,omitempty"` // the projects show as a timeline
 }
 
 // Data is everything the app keeps, as written to disk and to backups.

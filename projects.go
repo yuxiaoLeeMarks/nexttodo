@@ -142,6 +142,15 @@ func (a *app) projectsPage(c *ui.Context) {
 			a.catOpen = true
 		}
 		ui.Spacer(c)
+		view := 0
+		if a.data.Prefs.Timeline {
+			view = 1
+		}
+		if a.segTrack(c, "view", &view, a.tr.ViewList(), a.tr.ViewTimeline()).Changed() {
+			a.data.Prefs.Timeline = view == 1
+			a.changed()
+		}
+		ui.Box(c).Width(10)
 		a.labeledCheck(c, &a.projShowDone, a.tr.ShowCompleted())
 		ui.Box(c).Width(6)
 		if a.iconLabel(c, a.btn(c, "", btnPrimary), iconPlus, a.tr.NewProject()).Clicked() {
@@ -162,6 +171,10 @@ func (a *app) projectsPage(c *ui.Context) {
 		if len(groups) == 0 && len(archived) == 0 {
 			a.list(c, func() { a.empty(c, a.tr.NoMatches(), "") }).Margin(8, 0, 0, 0)
 			return
+		}
+		if a.data.Prefs.Timeline && len(groups) > 0 {
+			ui.Column(c.Key("timeline")).Margin(8, 0, 0, 0).Children(func() { a.timeline(c, groups) })
+			groups = nil
 		}
 		for _, g := range groups {
 			ui.Column(c.Key("group:" + g.key)).Children(func() {

@@ -280,3 +280,30 @@ func TestTaskReminder(t *testing.T) {
 		t.Errorf("the row does not show the reminder: %q", tt.Texts())
 	}
 }
+
+// The projects show as a timeline, remembered, whose rows open them.
+func TestTimeline(t *testing.T) {
+	a := testApp("en")
+	a.page = PageProjects
+	tt := newTester(t, a, "en")
+	if err := tt.Click("Timeline"); err != nil {
+		t.Fatal(err)
+	}
+	if !a.data.Prefs.Timeline || !tt.HasText("No dates") {
+		t.Fatalf("no timeline: %q", tt.Texts())
+	}
+	pr := a.data.Projects[0]
+	if err := tt.Click(pr.Title); err != nil {
+		t.Fatal(err)
+	}
+	if a.projOpen != pr.ID {
+		t.Error("a row did not open its project")
+	}
+	from, to := a.timelineSpan(a.projectGroups())
+	if from.After(pr.Start) || to.Before(pr.End) || from.Day() != 1 || to.Day() != 1 {
+		t.Errorf("the timeline runs %v – %v", from, to)
+	}
+	if n := len(timelineTicks(time.Date(2020, 3, 1, 0, 0, 0, 0, time.Local), time.Date(2030, 1, 1, 0, 0, 0, 0, time.Local))); n != 9 {
+		t.Errorf("%d ticks from March 2020 to 2030, want each January", n)
+	}
+}
