@@ -142,6 +142,13 @@ type Event struct {
 	// Alert is how many minutes before the start to send a notification,
 	// alertNone for none, or nil for the default of the settings.
 	Alert *int `json:"alert,omitempty"`
+	// Repeat repeats the event from Start until the day Until, if set,
+	// but on the days of Skip.
+	Repeat Repeat      `json:"repeat,omitempty"`
+	Until  time.Time   `json:"until,omitzero"`
+	Skip   []time.Time `json:"skip,omitempty"`
+
+	series *Event // the event an occurrence repeats
 }
 
 // alertNone is an alert that is never sent.
@@ -403,10 +410,15 @@ func (d *Data) projectTasks(projectID string) []*Task {
 	return out
 }
 
-// eventsBetween returns the events overlapping [from, to), by start.
+// eventsBetween returns the events overlapping [from, to), by start, with
+// the occurrences of repeating ones.
 func (d *Data) eventsBetween(from, to time.Time) []*Event {
 	var out []*Event
 	for _, e := range d.Events {
+		if e.Repeat != RepeatNone {
+			out = append(out, e.occurrences(from, to)...)
+			continue
+		}
 		if e.Start.Before(to) && e.End.After(from) || e.Start.Equal(from) {
 			out = append(out, e)
 		}

@@ -527,11 +527,20 @@ func (a *app) openTask(id string) {
 	}
 }
 
-// openEvent shows an event's week and opens it.
-func (a *app) openEvent(id string) {
+// openEvent shows an event's week and opens it: ref is its ID, or for an
+// occurrence its series' with its start, as Event.key writes it.
+func (a *app) openEvent(ref string) {
+	id, start := occurrenceRef(ref)
 	e := a.data.event(id)
 	if e == nil {
 		return
+	}
+	if e.Repeat != RepeatNone && !start.IsZero() {
+		for _, occ := range e.occurrences(day(start), addDays(day(start), 1)) {
+			if occ.Start.Equal(start) {
+				e = occ
+			}
+		}
 	}
 	a.page, a.schedMode = PageSchedule, 0
 	a.schedAnchor = day(e.Start)

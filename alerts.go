@@ -36,7 +36,9 @@ func (a *app) dueAlerts(now time.Time) []alert {
 		a.alertedTo = now
 	}
 	var out []alert
-	for _, e := range a.data.Events {
+	// The events starting within the longest lead, a day, and those going
+	// on, with the occurrences of repeating ones.
+	for _, e := range a.data.eventsBetween(now.Add(-48*time.Hour), now.Add(48*time.Hour)) {
 		lead, ok := a.alertLead(e)
 		if !ok || !e.End.After(now) {
 			continue
@@ -45,7 +47,7 @@ func (a *app) dueAlerts(now time.Time) []alert {
 		if !at.After(from) || at.After(now) {
 			continue
 		}
-		key := e.ID + "@" + strconv.FormatInt(e.Start.Unix(), 10)
+		key := e.ID + "@" + strconv.FormatInt(e.Start.Unix(), 10) // an occurrence, or a time moved to, alerts anew
 		if a.alerted[key] {
 			continue
 		}
@@ -58,7 +60,7 @@ func (a *app) dueAlerts(now time.Time) []alert {
 			body += " · " + a.projectName(e.Project)
 		}
 		out = append(out, alert{
-			id:       "event:" + e.ID,
+			id:       "event:" + e.key(),
 			title:    orUntitled(e.Title, a.tr.Untitled()),
 			subtitle: a.tr.AlertStartsIn(max(int(e.Start.Sub(now).Minutes()+0.5), 0)),
 			body:     body,

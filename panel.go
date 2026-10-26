@@ -161,7 +161,7 @@ func (a *app) panelView(c *ui.Context) {
 func (a *app) panelEventRow(c *ui.Context, e *Event) {
 	p := &a.p
 	now := a.now()
-	b := ui.ButtonBase(c.Key(e.ID)).MinHeight(38).Padding(5, 12).Gap(10).AlignItems(ui.Center).Radius(0).FocusRing(false).
+	b := ui.ButtonBase(c.Key(e.key())).MinHeight(38).Padding(5, 12).Gap(10).AlignItems(ui.Center).Radius(0).FocusRing(false).
 		Label(orUntitled(e.Title, a.tr.Untitled()))
 	if b.Hovered() {
 		b.Background(p.card2)
@@ -182,7 +182,7 @@ func (a *app) panelEventRow(c *ui.Context, e *Event) {
 	})
 	if b.Clicked() {
 		a.showMain()
-		a.openEvent(e.ID)
+		a.openEvent(e.key())
 	}
 }
 

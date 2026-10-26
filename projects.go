@@ -506,7 +506,7 @@ func (a *app) projectDetails(c *ui.Context, pr *Project) {
 			return
 		}
 		for _, e := range upcoming {
-			b := ui.ButtonBase(c.Key(e.ID)).MinHeight(44).Gap(10).Padding(6, 14).AlignItems(ui.Center).Radius(0).FocusRing(false)
+			b := ui.ButtonBase(c.Key(e.key())).MinHeight(44).Gap(10).Padding(6, 14).AlignItems(ui.Center).Radius(0).FocusRing(false)
 			if b.Hovered() {
 				b.Background(p.card2)
 			}

@@ -29,6 +29,12 @@ type eventDraft struct {
 	end      time.Time
 	allDay   bool
 	alert    int // minutes before, alertNone, or alertDefault
+	repeat   Repeat
+	until    time.Time
+	// occ is the start of the occurrence of a repeating event opened, and
+	// all whether a change goes to the whole series rather than to it.
+	occ time.Time
+	all int
 }
 
 // alertDefault, in a draft, follows the settings.
@@ -54,23 +60,44 @@ func (a *app) newEvent(start time.Time, project string) {
 	a.evtOpen = true
 }
 
+// editEvent opens the dialog for an event, or for an occurrence of a
+// repeating one, which changes it alone unless the user says all.
 func (a *app) editEvent(e *Event) {
 	alert := alertDefault
 	if e.Alert != nil {
 		alert = *e.Alert
 	}
 	a.evt = eventDraft{id: e.ID, title: e.Title, kind: e.Kind, project: e.Project, location: e.Location, notes: e.Notes,
-		date: day(e.Start), start: e.Start, end: e.End, allDay: e.AllDay, alert: alert}
+		date: day(e.Start), start: e.Start, end: e.End, allDay: e.AllDay, alert: alert, repeat: e.Repeat, until: e.Until}
+	if e.series != nil {
+		a.evt.occ = e.Start
+	}
 	a.evtOpen = true
 }
 
-// saveEvent writes the draft to its event, or adds it.
+// saveEvent writes the draft to its event, or adds it. For an occurrence
+// of a repeating event, it changes that occurrence alone, which leaves the
+// series as an event of its own, or the whole series, moved by as many
+// days as the occurrence was.
 func (a *app) saveEvent() {
 	d := &a.evt
 	e := a.data.event(d.id)
-	if e == nil {
+	series := e != nil && e.Repeat != RepeatNone && !d.occ.IsZero()
+	switch {
+	case e == nil:
 		e = &Event{ID: newID()}
 		a.data.Events = append(a.data.Events, e)
+	case series && d.all == 0:
+		a.data.skip(&Event{Start: d.occ, series: e})
+		e = &Event{ID: newID()}
+		a.data.Events = append(a.data.Events, e)
+		d.repeat, d.until = RepeatNone, time.Time{}
+	case series:
+		d.date = addDays(day(e.Start), daysBetween(d.occ, d.date))
+	}
+	e.Repeat, e.Until = d.repeat, d.until
+	if e.Repeat == RepeatNone {
+		e.Until, e.Skip = time.Time{}, nil
 	}
 	e.Title, e.Kind, e.Project = strings.TrimSpace(d.title), d.kind, d.project
 	e.Location, e.Notes, e.AllDay = strings.TrimSpace(d.location), d.notes, d.allDay
@@ -92,14 +119,32 @@ func (a *app) saveEvent() {
 	a.changed()
 }
 
-// moveToDay moves an event to the day d, keeping its times.
+// moveToDay moves an event to the day d, keeping its times: an occurrence
+// of a repeating event goes alone.
 func (a *app) moveToDay(e *Event, d time.Time) {
 	n := daysBetween(e.Start, d)
 	if n == 0 {
 		return
 	}
+	e = a.data.detach(e)
 	e.Start, e.End = addDays(e.Start, n), addDays(e.End, n)
 	a.changed()
+}
+
+func (a *app) repeatName(r Repeat) string {
+	switch r {
+	case RepeatDaily:
+		return a.tr.RepeatDaily()
+	case RepeatWeekdays:
+		return a.tr.RepeatWeekdays()
+	case RepeatWeekly:
+		return a.tr.RepeatWeekly()
+	case RepeatBiweekly:
+		return a.tr.RepeatBiweekly()
+	case RepeatMonthly:
+		return a.tr.RepeatMonthly()
+	}
+	return a.tr.RepeatNever()
 }
 
 func (a *app) alertName(n int) string {
@@ -263,9 +308,13 @@ func (a *app) dragShift() (days, minutes int) {
 	return days, minutes
 }
 
-// dragged moves or resizes e as the drag in progress says, and ends it.
+// dragged moves or resizes e as the drag in progress says, and ends it:
+// an occurrence of a repeating event goes alone.
 func (a *app) dragged(e *Event) {
 	days, minutes := a.dragShift()
+	if days != 0 || minutes != 0 {
+		e = a.data.detach(e)
+	}
 	shift := time.Duration(minutes) * time.Minute
 	if a.drag.resize {
 		e.End = maxTime(e.End.Add(shift), e.Start.Add(snapMinutes*time.Minute))
@@ -402,17 +451,18 @@ func (a *app) eventBlock(c *ui.Context, pl placed, d time.Time) {
 	top := float32(from.Sub(d).Minutes()) / 60 * hourHeight
 	h := max(float32(to.Sub(from).Minutes())/60*hourHeight, 18)
 	w := 100 / float32(pl.lanes)
-	b := ui.ButtonBase(c.Key(e.ID)).Absolute().Top(top+1).LeftPercent(w*float32(pl.lane)).WidthPercent(w).
+	key := e.key() // one occurrence of a series drags alone
+	b := ui.ButtonBase(c.Key(key)).Absolute().Top(top+1).LeftPercent(w*float32(pl.lane)).WidthPercent(w).
 		Height(h-2).Padding(0, 2).FocusRing(false).Cursor(ui.CursorPointer).Label(orUntitled(e.Title, a.tr.Untitled()))
 	// A drag of the block moves the event.
-	if dx, dy, ok := b.Dragged(); ok && (dx != 0 || dy != 0) && !(a.drag.id == e.ID && a.drag.resize) {
-		if a.drag.id != e.ID {
-			a.drag = eventDrag{id: e.ID}
+	if dx, dy, ok := b.Dragged(); ok && (dx != 0 || dy != 0) && !(a.drag.id == key && a.drag.resize) {
+		if a.drag.id != key {
+			a.drag = eventDrag{id: key}
 		}
 		a.drag.dx += dx
 		a.drag.dy += dy
 	}
-	dragging := a.drag.id == e.ID
+	dragging := a.drag.id == key
 	if dragging {
 		days, minutes := a.dragShift()
 		shift := time.Duration(minutes) * time.Minute
@@ -437,7 +487,12 @@ func (a *app) eventBlock(c *ui.Context, pl placed, d time.Time) {
 		inner.Children(func() {
 			ui.Text(c, orUntitled(e.Title, a.tr.Untitled())).FontSize(12).FontWeight(500).TextColor(fg).MaxLines(2)
 			if h > 34 || dragging {
-				ui.Text(c, a.clock(from)+" – "+a.clock(to)).FontSize(10.5).FontFeatures("tnum").TextColor(fg.Alpha(0.75)).SingleLine()
+				ui.Row(c).Gap(3).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, a.clock(from)+" – "+a.clock(to)).FontSize(10.5).FontFeatures("tnum").TextColor(fg.Alpha(0.75)).SingleLine()
+					if e.series != nil {
+						ui.Icon(c, iconRepeat).Size(10, 10).TextColor(fg.Alpha(0.6))
+					}
+				})
 			}
 			if e.Location != "" && h > 62 {
 				ui.Text(c, e.Location).FontSize(10.5).TextColor(fg.Alpha(0.75)).SingleLine()
@@ -446,17 +501,17 @@ func (a *app) eventBlock(c *ui.Context, pl placed, d time.Time) {
 		// The bottom edge resizes the event.
 		edge := ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(7).Cursor(ui.CursorResizeNS)
 		if _, dy, ok := edge.Dragged(); ok && dy != 0 {
-			if a.drag.id != e.ID || !a.drag.resize {
-				a.drag = eventDrag{id: e.ID, resize: true}
+			if a.drag.id != key || !a.drag.resize {
+				a.drag = eventDrag{id: key, resize: true}
 			}
 			a.drag.dy += dy
 		}
-		if _, _, ended := edge.DragEnded(); ended && a.drag.id == e.ID {
+		if _, _, ended := edge.DragEnded(); ended && a.drag.id == key {
 			a.dragged(e)
 		}
 	})
 	_, _, ended := b.DragEnded()
-	if ended && a.drag.id == e.ID {
+	if ended && a.drag.id == key {
 		if abs(a.drag.dx) < 4 && abs(a.drag.dy) < 4 {
 			// A press that hardly moved is a click.
 			a.drag = eventDrag{}
@@ -506,6 +561,17 @@ func (a *app) eventMenu(b ui.Element, e *Event) {
 			a.editEvent(e)
 		}
 		m.Separator()
+		if e.series != nil {
+			if m.Item(a.tr.DeleteThisEvent()).Chosen() {
+				a.data.skip(e)
+				a.changed()
+			}
+			if m.Item(a.tr.DeleteAllEvents()).Chosen() {
+				a.data.deleteEvent(e.ID)
+				a.changed()
+			}
+			return
+		}
 		if m.Item(a.tr.Delete()).Chosen() {
 			a.data.deleteEvent(e.ID)
 			a.changed()
@@ -517,7 +583,7 @@ func (a *app) eventMenu(b ui.Element, e *Event) {
 // show them, which drags to another day.
 func (a *app) eventChip(c *ui.Context, e *Event, withTime bool) {
 	p := &a.p
-	b := ui.ButtonBase(c.Key(e.ID)).Height(20).Gap(5).Padding(0, 5).AlignItems(ui.Center).Justify(ui.Start).AlignSelf(ui.Stretch).
+	b := ui.ButtonBase(c.Key(e.key())).Height(20).Gap(5).Padding(0, 5).AlignItems(ui.Center).Justify(ui.Start).AlignSelf(ui.Stretch).
 		Radius(4).FocusRing(false).Drag(e).Label(orUntitled(e.Title, a.tr.Untitled()))
 	col := a.kindColor(e.Kind)
 	switch {
@@ -716,6 +782,14 @@ func (a *app) eventDialog(c *ui.Context) {
 					selectOf(a, c, "alert", &d.alert, alertChoices, a.alertName).Label(a.tr.FieldAlert())
 				})
 			}
+			if d.occ.IsZero() || d.all == 1 {
+				a.formRow(c, a.tr.FieldRepeat(), func() {
+					selectOf(a, c, "repeat", &d.repeat, repeats, a.repeatName).Label(a.tr.FieldRepeat())
+				})
+				if d.repeat != RepeatNone {
+					a.formRow(c, a.tr.FieldRepeatEnd(), func() { a.dateField(c, "until", &d.until) })
+				}
+			}
 			a.formRow(c, a.tr.FieldProject(), func() {
 				selectOf(a, c, "evtProject", &d.project, a.projectChoices(d.project), a.projectName).MaxWidth(220).Label(a.tr.FieldProject())
 			})
@@ -724,6 +798,14 @@ func (a *app) eventDialog(c *ui.Context) {
 			})
 		})
 		ui.TextArea(c, &d.notes).Placeholder(a.tr.FieldNotes()).Label(a.tr.FieldNotes()).MinHeight(64).Radius(8)
+		if !d.occ.IsZero() {
+			ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
+				ui.Icon(c, iconRepeat).Size(14, 14).TextColor(p.muted)
+				ui.Text(c, a.repeatName(d.repeat)).FontSize(12.5).TextColor(p.fg2).Grow(1)
+				ui.Text(c, a.tr.ApplyTo()).FontSize(12.5).TextColor(p.muted)
+				a.segTrack(c, "scope", &d.all, a.tr.ApplyThis(), a.tr.ApplyAll())
+			})
+		}
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			if d.id != "" && a.btn(c, a.tr.Delete(), btnDanger).Clicked() {
 				a.askEvent = true
@@ -744,6 +826,23 @@ func (a *app) eventDialog(c *ui.Context) {
 			a.saveEvent()
 		}
 	})
+	if !d.occ.IsZero() {
+		// A repeating event: this occurrence, or all of them.
+		switch ui.AlertDialog(c, &a.askEvent, a.tr.EventDeleteRepeat(), orUntitled(d.title, a.tr.Untitled()),
+			a.tr.Cancel(), a.tr.DeleteAllEvents(), a.tr.DeleteThisEvent()) {
+		case 1:
+			a.data.deleteEvent(d.id)
+			a.evtOpen = false
+			a.changed()
+		case 2:
+			if e := a.data.event(d.id); e != nil {
+				a.data.skip(&Event{Start: d.occ, series: e})
+			}
+			a.evtOpen = false
+			a.changed()
+		}
+		return
+	}
 	if ui.AlertDialog(c, &a.askEvent, a.tr.EventDeleteConfirm(), orUntitled(d.title, a.tr.Untitled()), a.tr.Cancel(), a.tr.Delete()) == 1 {
 		a.data.deleteEvent(d.id)
 		a.evtOpen = false

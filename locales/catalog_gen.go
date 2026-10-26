@@ -1184,6 +1184,146 @@ func (msgs Messages) AlertStartsIn(n int) string {
 	return Catalog.Format(msgs.locale, "alertStartsIn", map[string]any{"n": n})
 }
 
+// FieldRepeat says "Repeat"
+// in the language the app shows.
+func FieldRepeat() string { return In(i18n.Locale()).FieldRepeat() }
+
+// FieldRepeat says "Repeat"
+// in the language of msgs.
+func (msgs Messages) FieldRepeat() string {
+	return Catalog.Format(msgs.locale, "fieldRepeat", nil)
+}
+
+// FieldRepeatEnd says "End repeat"
+// in the language the app shows.
+func FieldRepeatEnd() string { return In(i18n.Locale()).FieldRepeatEnd() }
+
+// FieldRepeatEnd says "End repeat"
+// in the language of msgs.
+func (msgs Messages) FieldRepeatEnd() string {
+	return Catalog.Format(msgs.locale, "fieldRepeatEnd", nil)
+}
+
+// RepeatNever says "Never"
+// in the language the app shows.
+func RepeatNever() string { return In(i18n.Locale()).RepeatNever() }
+
+// RepeatNever says "Never"
+// in the language of msgs.
+func (msgs Messages) RepeatNever() string {
+	return Catalog.Format(msgs.locale, "repeatNever", nil)
+}
+
+// RepeatDaily says "Every day"
+// in the language the app shows.
+func RepeatDaily() string { return In(i18n.Locale()).RepeatDaily() }
+
+// RepeatDaily says "Every day"
+// in the language of msgs.
+func (msgs Messages) RepeatDaily() string {
+	return Catalog.Format(msgs.locale, "repeatDaily", nil)
+}
+
+// RepeatWeekdays says "Every weekday"
+// in the language the app shows.
+func RepeatWeekdays() string { return In(i18n.Locale()).RepeatWeekdays() }
+
+// RepeatWeekdays says "Every weekday"
+// in the language of msgs.
+func (msgs Messages) RepeatWeekdays() string {
+	return Catalog.Format(msgs.locale, "repeatWeekdays", nil)
+}
+
+// RepeatWeekly says "Every week"
+// in the language the app shows.
+func RepeatWeekly() string { return In(i18n.Locale()).RepeatWeekly() }
+
+// RepeatWeekly says "Every week"
+// in the language of msgs.
+func (msgs Messages) RepeatWeekly() string {
+	return Catalog.Format(msgs.locale, "repeatWeekly", nil)
+}
+
+// RepeatBiweekly says "Every two weeks"
+// in the language the app shows.
+func RepeatBiweekly() string { return In(i18n.Locale()).RepeatBiweekly() }
+
+// RepeatBiweekly says "Every two weeks"
+// in the language of msgs.
+func (msgs Messages) RepeatBiweekly() string {
+	return Catalog.Format(msgs.locale, "repeatBiweekly", nil)
+}
+
+// RepeatMonthly says "Every month"
+// in the language the app shows.
+func RepeatMonthly() string { return In(i18n.Locale()).RepeatMonthly() }
+
+// RepeatMonthly says "Every month"
+// in the language of msgs.
+func (msgs Messages) RepeatMonthly() string {
+	return Catalog.Format(msgs.locale, "repeatMonthly", nil)
+}
+
+// ApplyTo says "Change"
+// in the language the app shows.
+func ApplyTo() string { return In(i18n.Locale()).ApplyTo() }
+
+// ApplyTo says "Change"
+// in the language of msgs.
+func (msgs Messages) ApplyTo() string {
+	return Catalog.Format(msgs.locale, "applyTo", nil)
+}
+
+// ApplyThis says "This event"
+// in the language the app shows.
+func ApplyThis() string { return In(i18n.Locale()).ApplyThis() }
+
+// ApplyThis says "This event"
+// in the language of msgs.
+func (msgs Messages) ApplyThis() string {
+	return Catalog.Format(msgs.locale, "applyThis", nil)
+}
+
+// ApplyAll says "All events"
+// in the language the app shows.
+func ApplyAll() string { return In(i18n.Locale()).ApplyAll() }
+
+// ApplyAll says "All events"
+// in the language of msgs.
+func (msgs Messages) ApplyAll() string {
+	return Catalog.Format(msgs.locale, "applyAll", nil)
+}
+
+// DeleteThisEvent says "Delete This Event"
+// in the language the app shows.
+func DeleteThisEvent() string { return In(i18n.Locale()).DeleteThisEvent() }
+
+// DeleteThisEvent says "Delete This Event"
+// in the language of msgs.
+func (msgs Messages) DeleteThisEvent() string {
+	return Catalog.Format(msgs.locale, "deleteThisEvent", nil)
+}
+
+// DeleteAllEvents says "Delete All Events"
+// in the language the app shows.
+func DeleteAllEvents() string { return In(i18n.Locale()).DeleteAllEvents() }
+
+// DeleteAllEvents says "Delete All Events"
+// in the language of msgs.
+func (msgs Messages) DeleteAllEvents() string {
+	return Catalog.Format(msgs.locale, "deleteAllEvents", nil)
+}
+
+// EventDeleteRepeat says "Delete this repeating event?"
+// in the language the app shows.
+func EventDeleteRepeat() string { return In(i18n.Locale()).EventDeleteRepeat() }
+
+// EventDeleteRepeat says "Delete this repeating event?"
+// in the language of msgs.
+func (msgs Messages) EventDeleteRepeat() string {
+	return Catalog.Format(msgs.locale, "eventDeleteRepeat", nil)
+}
+
 // NewProject says "New project"
 // in the language the app shows.
 func NewProject() string { return In(i18n.Locale()).NewProject() }

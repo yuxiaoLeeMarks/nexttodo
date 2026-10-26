@@ -247,7 +247,7 @@ func (a *app) nextUp(c *ui.Context) {
 func (a *app) eventRow(c *ui.Context, e *Event) {
 	p := &a.p
 	now := a.now()
-	row := ui.ButtonBase(c.Key(e.ID)).MinHeight(46).Padding(6, 14).Gap(12).AlignItems(ui.Center).Radius(0).FocusRing(false).
+	row := ui.ButtonBase(c.Key(e.key())).MinHeight(46).Padding(6, 14).Gap(12).AlignItems(ui.Center).Radius(0).FocusRing(false).
 		Label(orUntitled(e.Title, a.tr.Untitled()))
 	if row.Hovered() {
 		row.Background(p.card2)
@@ -265,6 +265,9 @@ func (a *app) eventRow(c *ui.Context, e *Event) {
 		ui.Column(c).Grow(1).MinWidth(0).Gap(1).Children(func() {
 			ui.Text(c, orUntitled(e.Title, a.tr.Untitled())).FontSize(13).FontWeight(500).TextColor(p.fg).SingleLine()
 			sub := a.kindName(e.Kind)
+			if e.series != nil {
+				sub += " · " + a.repeatName(e.Repeat)
+			}
 			if e.Location != "" {
 				sub += " · " + e.Location
 			}

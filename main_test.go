@@ -371,11 +371,11 @@ func TestDragEvent(t *testing.T) {
 	a := testApp("en")
 	a.page = PageSchedule
 	tt := newTester(t, a, "en")
-	e := eventTitled(a, "Group meeting")
+	e := eventTitled(a, "GPU cluster: alignment runs")
 	start, end := e.Start, e.End
-	r, ok := tt.Find("Group meeting")
+	r, ok := tt.Find(e.Title)
 	if !ok {
-		t.Fatal("no Group meeting in the week")
+		t.Fatal("no GPU cluster in the week")
 	}
 	// An hour down, and a day to the right.
 	drag(tt, r.X+r.W/2, r.Y+8, a.colW, hourHeight)
@@ -387,17 +387,101 @@ func TestDragEvent(t *testing.T) {
 	}
 	// Its bottom edge, dragged down half an hour, makes it end later.
 	start, end = e.Start, e.End
-	r, _ = tt.Find("Group meeting")
+	r, _ = tt.Find(e.Title)
 	edge := r.Y + float32(end.Sub(start).Minutes())/60*hourHeight - 7
 	drag(tt, r.X+r.W/2, edge, 0, hourHeight/2)
 	if !e.Start.Equal(start) || !e.End.Equal(end.Add(30*time.Minute)) {
 		t.Errorf("resized to %v – %v, want it to end at %v", e.Start, e.End, end.Add(30*time.Minute))
 	}
 	// A click still opens it.
-	r, _ = tt.Find("Group meeting")
+	r, _ = tt.Find(e.Title)
 	tt.ClickAt(r.X+r.W/2, r.Y+8)
 	if !a.evtOpen || a.evt.id != e.ID {
 		t.Error("a click did not open the event")
+	}
+}
+
+func TestRepeat(t *testing.T) {
+	d := day(monday)
+	count := func(e *Event, from, to time.Time) []string {
+		var out []string
+		for _, o := range e.occurrences(from, to) {
+			out = append(out, o.Start.Format("Jan 2 15:04"))
+		}
+		return out
+	}
+	weekly := &Event{ID: "w", Start: at(d, 9, 30), End: at(d, 10, 30), Repeat: RepeatWeekly}
+	if got := count(weekly, addDays(d, -7), addDays(d, 21)); strings.Join(got, ", ") != "Oct 26 09:30, Nov 2 09:30, Nov 9 09:30" {
+		t.Errorf("weekly: %q", got)
+	}
+	weekly.Until, weekly.Skip = addDays(d, 7), []time.Time{d}
+	if got := count(weekly, d, addDays(d, 21)); strings.Join(got, ", ") != "Nov 2 09:30" {
+		t.Errorf("weekly until Nov 2, without Oct 26: %q", got)
+	}
+	weekdays := &Event{ID: "d", Start: at(addDays(d, 4), 8, 0), End: at(addDays(d, 4), 8, 30), Repeat: RepeatWeekdays}
+	if got := count(weekdays, addDays(d, 4), addDays(d, 9)); strings.Join(got, ", ") != "Oct 30 08:00, Nov 2 08:00, Nov 3 08:00" {
+		t.Errorf("weekdays: %q", got)
+	}
+	jan31 := time.Date(2027, 1, 31, 14, 0, 0, 0, time.Local)
+	monthly := &Event{ID: "m", Start: jan31, End: jan31.Add(time.Hour), Repeat: RepeatMonthly}
+	if got := count(monthly, jan31, jan31.AddDate(0, 3, 1)); strings.Join(got, ", ") != "Jan 31 14:00, Mar 31 14:00" {
+		t.Errorf("monthly on the 31st: %q", got)
+	}
+	// Far from its start, the expansion starts near the range.
+	if got := count(weekly, addDays(d, 700), addDays(d, 707)); len(got) != 0 {
+		t.Errorf("after its end: %q", got)
+	}
+}
+
+func TestEditOccurrence(t *testing.T) {
+	a := testApp("en")
+	series := eventTitled(a, "Group meeting")
+	next := a.data.eventsBetween(addDays(day(monday), 7), addDays(day(monday), 8))
+	var occ *Event
+	for _, e := range next {
+		if e.series == series {
+			occ = e
+		}
+	}
+	if occ == nil {
+		t.Fatal("no group meeting next Monday")
+	}
+	// This event only: it leaves the series.
+	a.editEvent(occ)
+	a.evt.title = "Group meeting (moved)"
+	a.saveEvent()
+	if series.Title != "Group meeting" || !series.skipped(occ.Start) || eventTitled(a, "Group meeting (moved)") == nil {
+		t.Fatalf("this event: series %q, skips %v", series.Title, series.Skip)
+	}
+	// All events, moved a day later: the series moves.
+	occ = a.data.eventsBetween(day(monday), addDays(day(monday), 1))[0]
+	a.editEvent(occ)
+	a.evt.all, a.evt.title, a.evt.date = 1, "Lab meeting", addDays(day(monday), 1)
+	a.saveEvent()
+	if series.Title != "Lab meeting" || !sameDay(series.Start, addDays(monday, 1)) || series.Repeat != RepeatWeekly {
+		t.Errorf("all events: %q on %v", series.Title, series.Start)
+	}
+}
+
+func TestDragOccurrence(t *testing.T) {
+	a := testApp("en")
+	a.page = PageSchedule
+	tt := newTester(t, a, "en")
+	series := eventTitled(a, "Group meeting") // weekly, on Mondays
+	start := series.Start
+	r, _ := tt.Find("Group meeting")
+	drag(tt, r.X+r.W/2, r.Y+8, 0, hourHeight)
+	if !series.Start.Equal(start) || len(series.Skip) != 1 || !sameDay(series.Skip[0], monday) {
+		t.Fatalf("the series moved: %v, skips %v", series.Start, series.Skip)
+	}
+	var moved []*Event
+	for _, e := range a.data.eventsBetween(day(monday), addDays(day(monday), 14)) {
+		if e.Title == "Group meeting" {
+			moved = append(moved, e)
+		}
+	}
+	if len(moved) != 2 || !moved[0].Start.Equal(start.Add(time.Hour)) || moved[0].series != nil || moved[1].series != series {
+		t.Errorf("two weeks of group meetings: %+v", moved)
 	}
 }
 
@@ -569,6 +653,10 @@ func TestSnapshots(t *testing.T) {
 			a.data.Projects[4].Archived, a.data.Projects[4].ArchivedAt = true, monday
 			a.openProject(a.data.Projects[4].ID)
 		}, 1280, 820},
+		{"eventrepeat", func(a *app) {
+			a.page = PageSchedule
+			a.editEvent(a.data.eventsBetween(day(monday), addDays(day(monday), 1))[0])
+		}, 1280, 900},
 		{"panel", nil, 340, 480},
 	}
 	only := os.Getenv("NT_PAGE")
