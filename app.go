@@ -90,8 +90,11 @@ type app struct {
 	dirOpen bool
 	askDir  bool
 
-	undo     []*undoStep // deletions to undo, the last last
-	restored *undoStep   // a backup restored, to say so with Undo
+	undo []*undoStep // deletions to undo, the last last
+	// replaced is the step of the data replaced, by a backup or erased, to
+	// say so with Undo.
+	replaced    *undoStep
+	replacedMsg string
 
 	// Search.
 	searchOpen  bool
@@ -164,6 +167,9 @@ func (a *app) flush() {
 	if !a.dirty || a.path == "" {
 		return
 	}
+	if err := backupDaily(a.path, a.now()); err != nil {
+		log.Printf("backing up: %v", err)
+	}
 	b, err := a.data.encode()
 	if err == nil {
 		err = writeFile(a.path, b)
@@ -173,9 +179,6 @@ func (a *app) flush() {
 		return
 	}
 	a.dirty = false
-	if err := backupDaily(a.path, b, a.now()); err != nil {
-		log.Printf("backing up: %v", err)
-	}
 }
 
 // loadData reads the data at path; a first launch gets the sample data.
@@ -394,9 +397,9 @@ func (a *app) view(c *ui.Context) {
 		c.Toast(a.toast)
 		a.toast = ""
 	}
-	if step := a.restored; step != nil {
-		a.restored = nil
-		c.ToastAction(a.tr.Restored(), a.tr.Undo(), func() { a.restore(step) })
+	if step := a.replaced; step != nil {
+		a.replaced = nil
+		c.ToastAction(a.replacedMsg, a.tr.Undo(), func() { a.restore(step) })
 	}
 	a.undoShortcut(c)
 	if c.Shortcut(ui.Cmd, ui.KeyF) {
@@ -574,7 +577,7 @@ func (a *app) openEvent(ref string) {
 	if e == nil {
 		return
 	}
-	if e.Repeat != RepeatNone && !start.IsZero() {
+	if e.repeating() && !start.IsZero() {
 		for _, occ := range e.occurrences(day(start), addDays(day(start), 1)) {
 			if occ.Start.Equal(start) {
 				e = occ

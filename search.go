@@ -83,7 +83,7 @@ func (a *app) searchHits(query string) []hit {
 		}
 		// A repeating event shows when it comes next.
 		when := e
-		if e.Repeat != RepeatNone {
+		if e.repeating() {
 			if next := e.occurrences(day(now), addDays(day(now), 400)); len(next) > 0 {
 				when = next[0]
 			}
@@ -92,7 +92,7 @@ func (a *app) searchHits(query string) []hit {
 		if !e.AllDay {
 			sub += " · " + a.clock(when.Start)
 		}
-		if e.Repeat != RepeatNone {
+		if e.repeating() {
 			sub += " · " + a.repeatName(e.Repeat)
 		}
 		found = append(found, hit{key: "e" + e.ID, title: orUntitled(e.Title, a.tr.Untitled()), sub: sub, icon: iconCalendar,

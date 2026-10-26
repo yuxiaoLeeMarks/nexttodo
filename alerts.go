@@ -28,8 +28,9 @@ func (a *app) alertLead(e *Event) (time.Duration, bool) {
 }
 
 // dueAlerts returns the alerts that fell due since it was last asked, up
-// to now, once each: an event moved to another time alerts again. An
-// event that has ended alerts no more.
+// to now, and those due before of events yet to start, as one made or
+// moved within its lead: once each, though an event moved to another time
+// alerts again. An event that has ended alerts no more.
 func (a *app) dueAlerts(now time.Time) []alert {
 	from := a.alertedTo
 	if now.After(a.alertedTo) {
@@ -44,7 +45,7 @@ func (a *app) dueAlerts(now time.Time) []alert {
 			continue
 		}
 		at := e.Start.Add(-lead)
-		if !at.After(from) || at.After(now) {
+		if at.After(now) || !at.After(from) && !e.Start.After(now) {
 			continue
 		}
 		key := e.ID + "@" + strconv.FormatInt(e.Start.Unix(), 10) // an occurrence, or a time moved to, alerts anew

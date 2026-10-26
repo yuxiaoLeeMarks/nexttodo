@@ -16,8 +16,8 @@ const (
 )
 
 type projectGroup struct {
-	title, hint string
-	projects    []*Project
+	key, title, hint string
+	projects         []*Project
 }
 
 // projectGroups sorts the projects shown into the groups of the grouping
@@ -51,8 +51,8 @@ func (a *app) projectGroups() []projectGroup {
 		return x.Created.Compare(y.Created)
 	})
 	var groups []projectGroup
-	add := func(title, hint string, keep func(*Project) bool) {
-		g := projectGroup{title: title, hint: hint}
+	add := func(key, title, hint string, keep func(*Project) bool) {
+		g := projectGroup{key: key, title: title, hint: hint}
 		for _, p := range shown {
 			if keep(p) {
 				g.projects = append(g.projects, p)
@@ -69,18 +69,18 @@ func (a *app) projectGroups() []projectGroup {
 			if d.Primary {
 				hint = a.tr.DirectionPrimary()
 			}
-			add(orUntitled(d.Title, a.tr.Untitled()), hint, func(p *Project) bool { return p.Direction == d.ID })
+			add("d:"+d.ID, orUntitled(d.Title, a.tr.Untitled()), hint, func(p *Project) bool { return p.Direction == d.ID })
 		}
-		add(a.tr.NoDirection(), "", func(p *Project) bool { return a.data.direction(p.Direction) == nil })
+		add("d:", a.tr.NoDirection(), "", func(p *Project) bool { return a.data.direction(p.Direction) == nil })
 	case groupByStatus:
 		for _, s := range []Status{StatusActive, StatusPlanning, StatusPaused, StatusDone} {
-			add(a.statusName(s), "", func(p *Project) bool { return p.Status == s })
+			add("s:"+itoa(int(s)), a.statusName(s), "", func(p *Project) bool { return p.Status == s })
 		}
 	default:
 		for _, k := range a.data.Categories {
-			add(orUntitled(k.Name, a.tr.Untitled()), k.Note, func(p *Project) bool { return p.Category == k.ID })
+			add("k:"+string(k.ID), orUntitled(k.Name, a.tr.Untitled()), k.Note, func(p *Project) bool { return p.Category == k.ID })
 		}
-		add(a.tr.Uncategorized(), "", func(p *Project) bool { return a.data.category(p.Category) == nil })
+		add("k:", a.tr.Uncategorized(), "", func(p *Project) bool { return a.data.category(p.Category) == nil })
 	}
 	return groups
 }
@@ -164,7 +164,7 @@ func (a *app) projectsPage(c *ui.Context) {
 			return
 		}
 		for _, g := range groups {
-			ui.Column(c.Key("group:" + g.title)).Children(func() {
+			ui.Column(c.Key("group:" + g.key)).Children(func() {
 				a.section(c, g.title, g.hint, func() {
 					ui.Text(c, itoa(len(g.projects))).FontSize(12).FontFeatures("tnum").TextColor(p.muted)
 				})

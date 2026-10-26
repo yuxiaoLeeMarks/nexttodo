@@ -82,7 +82,7 @@ func (a *app) editEvent(e *Event) {
 func (a *app) saveEvent() {
 	d := &a.evt
 	e := a.data.event(d.id)
-	series := e != nil && e.Repeat != RepeatNone && !d.occ.IsZero()
+	series := e != nil && e.repeating() && !d.occ.IsZero()
 	switch {
 	case e == nil:
 		e = &Event{ID: newID()}
@@ -93,7 +93,16 @@ func (a *app) saveEvent() {
 		a.data.Events = append(a.data.Events, e)
 		d.repeat, d.until = RepeatNone, time.Time{}
 	case series:
-		d.date = addDays(day(e.Start), daysBetween(d.occ, d.date))
+		// The series moves as the occurrence did, its skipped days and its
+		// end too.
+		n := daysBetween(d.occ, d.date)
+		d.date = addDays(day(e.Start), n)
+		for i := range e.Skip {
+			e.Skip[i] = addDays(e.Skip[i], n)
+		}
+		if !e.Until.IsZero() && d.until.Equal(e.Until) {
+			d.until = addDays(d.until, n)
+		}
 	}
 	e.Repeat, e.Until = d.repeat, d.until
 	if e.Repeat == RepeatNone {
@@ -106,13 +115,23 @@ func (a *app) saveEvent() {
 		n := d.alert
 		e.Alert = &n
 	}
+	// An event keeps the days it goes over.
+	span := daysBetween(d.start, d.end)
 	if d.allDay {
-		e.Start, e.End = day(d.date), addDays(day(d.date), 1)
+		if d.end.Hour() != 0 || d.end.Minute() != 0 {
+			span++ // a timed event made all-day takes its last day
+		}
+		e.Start, e.End = day(d.date), addDays(day(d.date), max(span, 1))
 	} else {
 		e.Start = at(d.date, d.start.Hour(), d.start.Minute())
-		e.End = at(d.date, d.end.Hour(), d.end.Minute())
+		e.End = at(addDays(d.date, max(span, 0)), d.end.Hour(), d.end.Minute())
 		if !e.End.After(e.Start) {
-			e.End = e.Start.Add(time.Hour)
+			// 22:00 to 1:00 ends the next day.
+			if next := addDays(e.End, 1); span <= 0 && next.Sub(e.Start) <= 12*time.Hour {
+				e.End = next
+			} else {
+				e.End = e.Start.Add(time.Hour)
+			}
 		}
 	}
 	a.evtOpen = false
@@ -826,7 +845,13 @@ func (a *app) eventDialog(c *ui.Context) {
 		})
 		ui.Column(c).Background(p.card2).Border(1, p.line2).Radius(10).Dividers(1, p.line2).Gap(1).Children(func() {
 			a.formRow(c, a.tr.FieldDate(), func() { ui.DateInput(c, &d.date).Label(a.tr.FieldDate()).Width(140) })
-			a.formRow(c, a.tr.FieldAllDay(), func() { ui.Switch(c, &d.allDay).Label(a.tr.FieldAllDay()) })
+			a.formRow(c, a.tr.FieldAllDay(), func() {
+				// An all-day event made timed starts at nine, for an hour.
+				if ui.Switch(c, &d.allDay).Label(a.tr.FieldAllDay()).Changed() && !d.allDay && d.start.Equal(day(d.start)) {
+					d.start = at(d.date, 9, 0)
+					d.end = d.start.Add(time.Hour)
+				}
+			})
 			if !d.allDay {
 				a.formRow(c, a.tr.FieldStarts(), func() {
 					if ui.TimeInput(c, &d.start).Label(a.tr.FieldStarts()).Changed() && !d.end.After(d.start) {

@@ -14,13 +14,20 @@ const keepBackups = 14
 // backupDir is where the automatic backups go, beside the data.
 func backupDir(path string) string { return filepath.Join(filepath.Dir(path), "Backups") }
 
-// backupDaily copies the data b, once a day, into the backups, and drops
-// those beyond the last keepBackups days.
-func backupDaily(path string, b []byte, now time.Time) error {
+// backupDaily copies the data at path, before the day's first save
+// replaces it, into the backups: the data as the day began. It drops the
+// backups beyond the last keepBackups days.
+func backupDaily(path string, now time.Time) error {
 	dir := backupDir(path)
 	name := filepath.Join(dir, "data-"+now.Format("2006-01-02")+".json")
 	if _, err := os.Stat(name); err == nil {
 		return nil
+	}
+	b, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
 	}
 	if err := writeFile(name, b); err != nil {
 		return err
@@ -65,11 +72,6 @@ func (a *app) restoreBackup(b backup) error {
 	}
 	lang := a.lang
 	d.migrate(func() []*Category { return defaultCategories(lang) })
-	step := a.remember()
-	d.Prefs = a.data.Prefs
-	a.data = d
-	a.resetSelection()
-	a.changed()
-	a.restored = step
+	a.replaceData(d, a.tr.Restored())
 	return nil
 }

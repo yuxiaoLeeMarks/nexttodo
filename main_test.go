@@ -245,8 +245,9 @@ func TestSaveAndLoad(t *testing.T) {
 
 func TestBackups(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data.json")
+	writeFile(path, []byte(`{}`))
 	for i := range 16 {
-		if err := backupDaily(path, []byte(`{}`), addDays(monday, -i)); err != nil {
+		if err := backupDaily(path, addDays(monday, -i)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -258,6 +259,8 @@ func TestBackups(t *testing.T) {
 	// back, and Undo the data of now.
 	a := newApp(sampleData(monday, "en"), path)
 	a.now = func() time.Time { return monday.AddDate(0, 0, 1) }
+	b, _ := a.data.encode()
+	writeFile(path, b)
 	a.changed()
 	list = backups(path)
 	if !sameDay(list[0].day, a.now()) {
@@ -271,7 +274,7 @@ func TestBackups(t *testing.T) {
 	if len(a.data.Tasks) != n {
 		t.Errorf("restored %d of %d tasks", len(a.data.Tasks), n)
 	}
-	a.restore(a.restored)
+	a.restore(a.replaced)
 	if len(a.data.Tasks) != 0 {
 		t.Error("Undo did not bring back the data before the restore")
 	}

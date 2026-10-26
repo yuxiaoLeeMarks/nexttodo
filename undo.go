@@ -1,21 +1,30 @@
 package main
 
-import "github.com/egoist/mygo/ui"
+import (
+	"bytes"
+	"encoding/json"
+	"slices"
 
-// undoStep is the data as it was before a change that can be undone.
+	"github.com/egoist/mygo/ui"
+)
+
+// undoStep is a change that can be undone, as the data was before it and
+// after. Undoing it brings back what it removed and puts back what it
+// changed, but leaves alone whatever changed since, so that the work done
+// after a deletion survives undoing it.
 type undoStep struct {
-	data []byte
+	before, after []byte
 }
 
 const undoDepth = 20
 
-// remember keeps the data as it is, before a deletion, for undoing it.
+// remember keeps the data as it is, before a change, for undoing it.
 func (a *app) remember() *undoStep {
 	b, err := a.data.encode()
 	if err != nil {
 		return nil
 	}
-	step := &undoStep{data: b}
+	step := &undoStep{before: b}
 	a.undo = append(a.undo, step)
 	if len(a.undo) > undoDepth {
 		a.undo = a.undo[len(a.undo)-undoDepth:]
@@ -23,24 +32,93 @@ func (a *app) remember() *undoStep {
 	return step
 }
 
-// restore puts the data back as step kept it, with the settings of now,
-// and forgets the steps since.
-func (a *app) restore(step *undoStep) {
-	for i, s := range a.undo {
-		if s == step {
-			a.undo = a.undo[:i]
-			break
-		}
+// settle keeps the data as the change of step left it.
+func (a *app) settle(step *undoStep) {
+	if step != nil && step.after == nil {
+		step.after, _ = a.data.encode()
 	}
-	d, err := decodeData(step.data)
+}
+
+// replaceData puts d in the place of all the data, keeping the settings,
+// and says msg with Undo.
+func (a *app) replaceData(d *Data, msg string) {
+	step := a.remember()
+	d.Prefs = a.data.Prefs
+	a.data = d
+	a.resetSelection()
+	a.settle(step)
+	a.changed()
+	a.replaced, a.replacedMsg = step, msg
+}
+
+// restore undoes the change of step, with the settings of now.
+func (a *app) restore(step *undoStep) {
+	i := slices.Index(a.undo, step)
+	if i >= 0 {
+		a.undo = slices.Delete(a.undo, i, i+1)
+	}
+	a.settle(step)
+	before, err := decodeData(step.before)
 	if err != nil {
 		return
 	}
-	d.Prefs = a.data.Prefs
-	a.data = d
+	after, err := decodeData(step.after)
+	if err != nil {
+		return
+	}
+	d := a.data
+	d.Categories = unchange(d.Categories, before.Categories, after.Categories, func(k *Category) string { return string(k.ID) })
+	d.Directions = unchange(d.Directions, before.Directions, after.Directions, func(x *Direction) string { return x.ID })
+	d.Projects = unchange(d.Projects, before.Projects, after.Projects, func(p *Project) string { return p.ID })
+	d.Tasks = unchange(d.Tasks, before.Tasks, after.Tasks, func(t *Task) string { return t.ID })
+	d.Events = unchange(d.Events, before.Events, after.Events, func(e *Event) string { return e.ID })
 	a.drag = eventDrag{}
 	a.evtOpen, a.dirOpen = false, false
 	a.changed()
+}
+
+// unchange undoes, in the list cur, what a change did to the list before
+// to make after: what it removed comes back where it was, what it changed
+// goes back, and what it added goes, each unless changed since.
+func unchange[T any](cur, before, after []*T, id func(*T) string) []*T {
+	same := func(x, y *T) bool {
+		bx, _ := json.Marshal(x)
+		by, _ := json.Marshal(y)
+		return bytes.Equal(bx, by)
+	}
+	index := func(list []*T) map[string]int {
+		m := make(map[string]int, len(list))
+		for i, x := range list {
+			m[id(x)] = i
+		}
+		return m
+	}
+	was, is := index(before), index(after)
+	cur = slices.DeleteFunc(cur, func(x *T) bool {
+		j, added := is[id(x)]
+		_, old := was[id(x)]
+		return added && !old && same(x, after[j])
+	})
+	for i, b := range before {
+		here := index(cur)
+		j, kept := is[id(b)]
+		k, ok := here[id(b)]
+		switch {
+		case !kept && !ok:
+			// Back after the one it followed.
+			at := 0
+			for p := i - 1; p >= 0; p-- {
+				if k, ok := here[id(before[p])]; ok {
+					at = k + 1
+					break
+				}
+			}
+			cur = slices.Insert(cur, at, b)
+		case kept && ok && !same(b, after[j]) && same(cur[k], after[j]):
+			cur[k] = b
+		}
+	}
+	return cur
 }
 
 // deleted says that something went, with Undo to bring it back.
@@ -48,6 +126,7 @@ func (a *app) deleted(c *ui.Context, step *undoStep, title string) {
 	if step == nil {
 		return
 	}
+	a.settle(step)
 	c.ToastAction(a.tr.DeletedToast(orUntitled(title, a.tr.Untitled())), a.tr.Undo(), func() { a.restore(step) })
 }
 

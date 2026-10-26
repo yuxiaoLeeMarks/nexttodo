@@ -21,6 +21,10 @@ const (
 
 var repeats = []Repeat{RepeatNone, RepeatDaily, RepeatWeekdays, RepeatWeekly, RepeatBiweekly, RepeatMonthly}
 
+// repeating reports whether e repeats in a way this version knows: one it
+// does not, from a later version, is taken as once.
+func (e *Event) repeating() bool { return e.Repeat != RepeatNone && slices.Contains(repeats, e.Repeat) }
+
 // root is the event an occurrence repeats, or e itself.
 func (e *Event) root() *Event {
 	if e.series != nil {
@@ -64,7 +68,18 @@ func (e *Event) nth(n int) (time.Time, bool) {
 // occurrences returns the occurrences of a repeating event overlapping
 // [from, to), as copies of it pointing back to it.
 func (e *Event) occurrences(from, to time.Time) []*Event {
+	if !e.repeating() {
+		return nil
+	}
 	dur := e.End.Sub(e.Start)
+	// An all-day event lasts days, which a change of clocks makes 23 or 25
+	// hours long.
+	end := func(start time.Time) time.Time {
+		if e.AllDay {
+			return addDays(start, daysBetween(e.Start, e.End))
+		}
+		return start.Add(dur)
+	}
 	// Start from about where the range does, rather than from the first.
 	n := 0
 	switch e.Repeat {
@@ -90,11 +105,11 @@ func (e *Event) occurrences(from, to time.Time) []*Event {
 		if !start.Before(to) || !e.Until.IsZero() && day(start).After(day(e.Until)) {
 			break
 		}
-		if !ok || !start.Add(dur).After(from) && !start.Equal(from) || e.skipped(start) {
+		if !ok || !end(start).After(from) && !start.Equal(from) || e.skipped(start) {
 			continue
 		}
 		occ := *e
-		occ.Start, occ.End, occ.series = start, start.Add(dur), e
+		occ.Start, occ.End, occ.series = start, end(start), e
 		occ.Skip = nil
 		out = append(out, &occ)
 	}

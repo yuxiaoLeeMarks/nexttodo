@@ -216,6 +216,11 @@ func decodeData(b []byte) (*Data, error) {
 	d.Projects = slices.DeleteFunc(d.Projects, func(x *Project) bool { return x == nil })
 	d.Tasks = slices.DeleteFunc(d.Tasks, func(x *Task) bool { return x == nil })
 	d.Events = slices.DeleteFunc(d.Events, func(x *Event) bool { return x == nil })
+	for _, p := range d.Projects {
+		if !slices.Contains(statuses, p.Status) {
+			p.Status = StatusActive
+		}
+	}
 	return d, nil
 }
 
@@ -418,7 +423,7 @@ func (d *Data) projectTasks(projectID string) []*Task {
 func (d *Data) eventsBetween(from, to time.Time) []*Event {
 	var out []*Event
 	for _, e := range d.Events {
-		if e.Repeat != RepeatNone {
+		if e.repeating() {
 			out = append(out, e.occurrences(from, to)...)
 			continue
 		}

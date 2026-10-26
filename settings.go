@@ -174,14 +174,11 @@ func (a *app) settingsPage(c *ui.Context) {
 				if empty {
 					a.formRow(c, a.tr.SettingsSampleData(), func() {
 						if a.btn(c, a.tr.LoadSample(), btnSecondary).Clicked() {
-							prefs, cats := a.data.Prefs, a.data.Categories
-							a.data = sampleData(a.now(), a.lang)
-							a.data.Prefs = prefs
-							if len(cats) > 0 {
-								a.data.Categories = cats
+							d := sampleData(a.now(), a.lang)
+							if len(a.data.Categories) > 0 {
+								d.Categories = a.data.Categories
 							}
-							a.changed()
-							a.toast = a.tr.SampleLoaded()
+							a.replaceData(d, a.tr.SampleLoaded())
 						}
 					})
 				} else {
@@ -209,12 +206,9 @@ func (a *app) settingsPage(c *ui.Context) {
 		})
 	})
 	if ui.AlertDialog(c, &a.askErase, a.tr.EraseConfirm(), "", a.tr.Cancel(), a.tr.Erase()) == 1 {
-		prefs, cats := a.data.Prefs, a.data.Categories
-		a.data = newData()
-		a.data.Prefs, a.data.Categories = prefs, cats
-		a.resetSelection()
-		a.changed()
-		a.toast = a.tr.Erased()
+		d := newData()
+		d.Categories = a.data.Categories
+		a.replaceData(d, a.tr.Erased())
 	}
 }
 
@@ -349,11 +343,7 @@ func (a *app) importBackup() {
 			return
 		}
 		win.Update(func() {
-			d.Prefs = a.data.Prefs
-			a.data = d
-			a.resetSelection()
-			a.changed()
-			a.toast = done
+			a.replaceData(d, done)
 		})
 	}()
 }
