@@ -109,7 +109,7 @@ func (a *app) directionRow(c *ui.Context, d *Direction) {
 			ui.Row(c).Gap(6).Wrap().Margin(4, 0, 0, 0).Children(func() {
 				n := 0
 				for _, pr := range a.data.Projects {
-					if pr.Direction != d.ID {
+					if pr.Direction != d.ID || pr.Archived {
 						continue
 					}
 					n++

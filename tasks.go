@@ -19,6 +19,9 @@ const (
 // inList reports whether t belongs in list: My Day gathers what was added
 // to it today and what is due today or late, with what it finished today.
 func (a *app) inList(t *Task, list int) bool {
+	if list != listDone && a.data.shelved(t) {
+		return false
+	}
 	today := day(a.now())
 	switch list {
 	case listMyDay:
@@ -134,11 +137,7 @@ func (a *app) tasksPage(c *ui.Context) {
 			a.taskSel = ""
 		}
 		ui.Spacer(c)
-		ids := []string{""}
-		for _, pr := range a.data.Projects {
-			ids = append(ids, pr.ID)
-		}
-		if selectOf(a, c, "taskFilter", &a.taskFilter, ids, func(id string) string {
+		if selectOf(a, c, "taskFilter", &a.taskFilter, a.projectChoices(a.taskFilter), func(id string) string {
 			if id == "" {
 				return a.tr.FilterAllProjects()
 			}
@@ -342,11 +341,7 @@ func (a *app) taskDetail(c *ui.Context, t *Task) {
 					}
 				})
 				a.formRow(c, a.tr.FieldProject(), func() {
-					ids := []string{""}
-					for _, pr := range a.data.Projects {
-						ids = append(ids, pr.ID)
-					}
-					if selectOf(a, c, "project", &t.Project, ids, a.projectName).MaxWidth(180).Label(a.tr.FieldProject()).Changed() {
+					if selectOf(a, c, "project", &t.Project, a.projectChoices(t.Project), a.projectName).MaxWidth(180).Label(a.tr.FieldProject()).Changed() {
 						a.changed()
 					}
 				})

@@ -106,6 +106,10 @@ type Project struct {
 	Summary   string    `json:"summary,omitempty"`
 	Journal   []Entry   `json:"journal,omitempty"`
 	Created   time.Time `json:"created"`
+	// An archived project, and its tasks, are put away: out of the lists,
+	// the overview and the pickers, kept as they were.
+	Archived   bool      `json:"archived,omitempty"`
+	ArchivedAt time.Time `json:"archivedAt,omitzero"`
 }
 
 // Task is a to-do. Due is a date (local midnight), zero for none; the task
@@ -361,6 +365,12 @@ func (t *Task) setDone(done bool, now time.Time) {
 
 // Queries.
 
+// shelved reports whether t belongs to an archived project.
+func (d *Data) shelved(t *Task) bool {
+	p := d.project(t.Project)
+	return p != nil && p.Archived
+}
+
 func (t *Task) inMyDay(today time.Time) bool {
 	return !t.MyDay.IsZero() && sameDay(t.MyDay, today)
 }
@@ -408,7 +418,7 @@ func (d *Data) eventsBetween(from, to time.Time) []*Event {
 func (d *Data) tasksDueOn(date time.Time) []*Task {
 	var out []*Task
 	for _, t := range d.Tasks {
-		if !t.Due.IsZero() && sameDay(t.Due, date) {
+		if !t.Due.IsZero() && sameDay(t.Due, date) && !d.shelved(t) {
 			out = append(out, t)
 		}
 	}

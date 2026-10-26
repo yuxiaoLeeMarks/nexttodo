@@ -200,6 +200,20 @@ func (a *app) empty(c *ui.Context, title, sub string) ui.Element {
 	})
 }
 
+// notice is a line across a page telling what state it is in, with an
+// action: an archived project, a completed one.
+func (a *app) notice(c *ui.Context, icon *ui.SVG, text, action string, run func()) {
+	p := &a.p
+	ui.Row(c).Margin(4, 0, 0, 0).Padding(8, 8, 8, 14).Gap(10).AlignItems(ui.Center).Radius(10).
+		Background(p.accentSoft).Children(func() {
+		ui.Icon(c, icon).Size(14, 14).TextColor(p.accent)
+		ui.Text(c, text).FontSize(12.5).TextColor(p.fg2).Grow(1).MinWidth(0)
+		if a.btn(c, action, btnLink).Clicked() {
+			run()
+		}
+	})
+}
+
 // Controls.
 
 type btnKind int

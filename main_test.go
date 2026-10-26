@@ -185,6 +185,50 @@ func TestCategories(t *testing.T) {
 	}
 }
 
+func TestArchive(t *testing.T) {
+	a := testApp("en")
+	pr := a.data.Projects[0] // the NSFC grant, with tasks in My Day
+	a.openProject(pr.ID)
+	tt := newTester(t, a, "en")
+	if err := tt.Click("Archive"); err != nil {
+		t.Fatal(err)
+	}
+	if !pr.Archived || a.projOpen != "" {
+		t.Fatalf("archived %v, open %q", pr.Archived, a.projOpen)
+	}
+	for _, x := range a.tasksIn(listMyDay) {
+		if x.Project == pr.ID {
+			t.Errorf("%q of an archived project is in My Day", x.Title)
+		}
+	}
+	if _, listed := tt.Find(pr.Title); listed {
+		t.Errorf("the archived project is still listed: %q", tt.Texts())
+	}
+	// Undo, from the toast, brings it back.
+	if err := tt.Click("Undo"); err != nil {
+		t.Fatal(err)
+	}
+	if pr.Archived {
+		t.Fatal("Undo did not bring the project back")
+	}
+	// Archived again, it shows under Archived, where it opens to be taken
+	// out.
+	a.openProject(pr.ID)
+	tt.Frame()
+	tt.Click("Archive")
+	tt.Click("Archived")
+	if _, listed := tt.Find(pr.Title); !listed {
+		t.Fatal("the archived section does not list it")
+	}
+	tt.Click(pr.Title)
+	if err := tt.Click("Unarchive"); err != nil {
+		t.Fatal(err)
+	}
+	if pr.Archived {
+		t.Error("the project is still archived")
+	}
+}
+
 func TestSaveAndLoad(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data.json")
 	d := loadData(path, monday, "zh-Hans")
@@ -517,6 +561,14 @@ func TestSnapshots(t *testing.T) {
 		{"settings", func(a *app) { a.page = PageSettings }, 1280, 900},
 		{"event", func(a *app) { a.page = PageSchedule; a.editEvent(a.data.Events[1]) }, 1280, 820},
 		{"categories", func(a *app) { a.page, a.catOpen = PageProjects, true }, 1280, 820},
+		{"archived", func(a *app) {
+			a.page, a.projShowArchived = PageProjects, true
+			a.data.Projects[4].Archived, a.data.Projects[4].ArchivedAt = true, monday
+		}, 1280, 820},
+		{"archivedproject", func(a *app) {
+			a.data.Projects[4].Archived, a.data.Projects[4].ArchivedAt = true, monday
+			a.openProject(a.data.Projects[4].ID)
+		}, 1280, 820},
 		{"panel", nil, 340, 480},
 	}
 	only := os.Getenv("NT_PAGE")

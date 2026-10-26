@@ -717,11 +717,7 @@ func (a *app) eventDialog(c *ui.Context) {
 				})
 			}
 			a.formRow(c, a.tr.FieldProject(), func() {
-				ids := []string{""}
-				for _, pr := range a.data.Projects {
-					ids = append(ids, pr.ID)
-				}
-				selectOf(a, c, "evtProject", &d.project, ids, a.projectName).MaxWidth(220).Label(a.tr.FieldProject())
+				selectOf(a, c, "evtProject", &d.project, a.projectChoices(d.project), a.projectName).MaxWidth(220).Label(a.tr.FieldProject())
 			})
 			a.formRow(c, a.tr.FieldLocation(), func() {
 				ui.TextInput(c, &d.location).Placeholder(a.tr.EventLocationPlaceholder()).Label(a.tr.FieldLocation()).Width(220).Radius(7).Padding(4, 9)

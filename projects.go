@@ -3,6 +3,7 @@ package main
 import (
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -24,7 +25,7 @@ type projectGroup struct {
 func (a *app) projectGroups() []projectGroup {
 	var shown []*Project
 	for _, p := range a.data.Projects {
-		if p.Status == StatusDone && !a.projShowDone {
+		if p.Archived || p.Status == StatusDone && !a.projShowDone {
 			continue
 		}
 		if !matches(a.projQuery, p.Title, p.Code, p.Summary, p.Lead, p.Funder) {
@@ -84,6 +85,37 @@ func (a *app) projectGroups() []projectGroup {
 	return groups
 }
 
+// archived returns the archived projects the search matches, the last
+// archived first.
+func (a *app) archived() []*Project {
+	var out []*Project
+	for _, p := range a.data.Projects {
+		if p.Archived && matches(a.projQuery, p.Title, p.Code, p.Summary, p.Lead, p.Funder) {
+			out = append(out, p)
+		}
+	}
+	slices.SortStableFunc(out, func(x, y *Project) int { return y.ArchivedAt.Compare(x.ArchivedAt) })
+	return out
+}
+
+// archive puts a project away, or takes it out again, saying so with a
+// way back.
+func (a *app) archive(c *ui.Context, pr *Project, on bool) {
+	pr.Archived = on
+	pr.ArchivedAt = time.Time{}
+	if on {
+		pr.ArchivedAt = a.now()
+		if a.projOpen == pr.ID {
+			a.projOpen = ""
+		}
+		c.ToastAction(a.tr.ArchivedToast(orUntitled(pr.Title, a.tr.Untitled())), a.tr.Undo(), func() {
+			pr.Archived, pr.ArchivedAt = false, time.Time{}
+			a.changed()
+		})
+	}
+	a.changed()
+}
+
 // newProject adds a project and opens it.
 func (a *app) newProject() {
 	pr := &Project{ID: newID(), Status: StatusPlanning, Created: a.now()}
@@ -98,6 +130,7 @@ func (a *app) newProject() {
 func (a *app) projectsPage(c *ui.Context) {
 	p := &a.p
 	groups := a.projectGroups()
+	archived := a.archived()
 	a.pageBody(c, func() {
 		ui.Row(c).Height(26).Width(200).Padding(0, 8).Gap(6).AlignItems(ui.Center).Radius(7).Border(1, p.line).Background(p.card).Children(func() {
 			ui.Icon(c, iconSearch).Size(13, 13).TextColor(p.muted)
@@ -126,7 +159,7 @@ func (a *app) projectsPage(c *ui.Context) {
 			}).Margin(8, 0, 0, 0)
 			return
 		}
-		if len(groups) == 0 {
+		if len(groups) == 0 && len(archived) == 0 {
 			a.list(c, func() { a.empty(c, a.tr.NoMatches(), "") }).Margin(8, 0, 0, 0)
 			return
 		}
@@ -142,7 +175,35 @@ func (a *app) projectsPage(c *ui.Context) {
 				})
 			})
 		}
+		if len(archived) > 0 {
+			a.archivedSection(c, archived)
+		}
 	})
+}
+
+// archivedSection is the archived projects under the rest, behind a header
+// that shows and hides them.
+func (a *app) archivedSection(c *ui.Context, archived []*Project) {
+	p := &a.p
+	h := ui.ButtonBase(c.Key("archived")).Margin(10, 0, 0, 0).Padding(6, 4, 7).Gap(6).AlignItems(ui.Center).AlignSelf(ui.Start).Radius(6).FocusRing(true).
+		Label(a.tr.Archived()).Expanded(a.projShowArchived)
+	turn := h.Animate("turn", map[bool]float32{true: 90, false: 0}[a.projShowArchived], 160*time.Millisecond)
+	h.Children(func() {
+		ui.Icon(c, iconChevronRight).Size(12, 12).TextColor(p.muted).Rotate(turn)
+		ui.Icon(c, iconArchive).Size(13, 13).TextColor(p.muted)
+		ui.Text(c, a.tr.Archived()).FontSize(13).FontWeight(600).TextColor(p.fg2)
+		ui.Text(c, itoa(len(archived))).FontSize(12).TextColor(p.faint)
+	})
+	if h.Clicked() {
+		a.projShowArchived = !a.projShowArchived
+	}
+	if a.projShowArchived {
+		a.list(c, func() {
+			for _, pr := range archived {
+				a.projectRow(c, pr)
+			}
+		})
+	}
 }
 
 // projectRow is a project in a list, as magpie lists providers: a disc of
@@ -188,9 +249,18 @@ func (a *app) projectRow(c *ui.Context, pr *Project) {
 			}
 		}
 		ui.Text(c, end).FontSize(11.5).TextColor(endColor).Width(110).TextAlign(ui.End).SingleLine().Shrink(0)
-		ui.Row(c).Width(86).Shrink(0).Justify(ui.End).Children(func() { a.statusChip(c, pr.Status) })
+		ui.Row(c).Width(86).Shrink(0).Justify(ui.End).Children(func() {
+			if pr.Archived {
+				a.chip(c, a.tr.Archived(), p.faint)
+			} else {
+				a.statusChip(c, pr.Status)
+			}
+		})
 		ui.Icon(c, iconChevronRight).Size(13, 13).TextColor(p.faint)
 	})
+	if pr.Archived {
+		b.Opacity(0.7)
+	}
 	b.ContextMenu(func(m *ui.Menu) {
 		m.Submenu(a.tr.FieldStatus(), func(m *ui.Menu) {
 			for _, s := range statuses {
@@ -209,6 +279,13 @@ func (a *app) projectRow(c *ui.Context, pr *Project) {
 			}
 		})
 		m.Separator()
+		label := a.tr.Archive()
+		if pr.Archived {
+			label = a.tr.Unarchive()
+		}
+		if m.Item(label).Chosen() {
+			a.archive(c, pr, !pr.Archived)
+		}
 		if m.Item(a.tr.ProjectDelete()).Chosen() {
 			a.openProject(pr.ID)
 			a.askProject = true
@@ -238,10 +315,19 @@ func (a *app) projectPage(c *ui.Context) {
 			a.projOpen = ""
 		}
 		ui.Spacer(c)
+		if !pr.Archived && a.iconLabel(c, a.btn(c, "", btnSecondary), iconArchive, a.tr.Archive()).Clicked() {
+			a.archive(c, pr, true)
+		}
 		if a.iconBtn(c, iconTrash, a.tr.ProjectDelete()).Clicked() {
 			a.askProject = true
 		}
 	}, func() {
+		switch {
+		case pr.Archived:
+			a.notice(c, iconArchive, a.tr.ArchivedOn(a.fmt(pr.ArchivedAt, "yMMMd")), a.tr.Unarchive(), func() { a.archive(c, pr, false) })
+		case pr.Status == StatusDone:
+			a.notice(c, iconArchive, a.tr.ArchiveSuggest(), a.tr.Archive(), func() { a.archive(c, pr, true) })
+		}
 		a.card(c).Padding(16, 18).Gap(10).Margin(4, 0, 0, 0).Children(func() {
 			ui.Row(c).Gap(14).AlignItems(ui.Center).Children(func() {
 				icon, col := a.categoryLook(pr.Category)

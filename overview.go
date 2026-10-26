@@ -48,7 +48,7 @@ func (a *app) overview(c *ui.Context) {
 	sortTasks(myDay)
 	var overdue, dueWeek int
 	for _, t := range a.data.Tasks {
-		if t.Done || t.Due.IsZero() {
+		if t.Done || t.Due.IsZero() || a.data.shelved(t) {
 			continue
 		}
 		if d := daysBetween(today, t.Due); d < 0 {
@@ -60,7 +60,7 @@ func (a *app) overview(c *ui.Context) {
 	todays := a.data.eventsBetween(today, addDays(today, 1))
 	var active []*Project
 	for _, pr := range a.data.Projects {
-		if pr.Status == StatusActive {
+		if pr.Status == StatusActive && !pr.Archived {
 			active = append(active, pr)
 		}
 	}
@@ -296,7 +296,7 @@ func (a *app) deadlines(c *ui.Context, today time.Time) {
 	}
 	var items []item
 	for _, t := range a.data.Tasks {
-		if t.Done || t.Due.IsZero() || daysBetween(today, t.Due) > 14 {
+		if t.Done || t.Due.IsZero() || daysBetween(today, t.Due) > 14 || a.data.shelved(t) {
 			continue
 		}
 		sub := a.tr.NoProject()
@@ -306,7 +306,7 @@ func (a *app) deadlines(c *ui.Context, today time.Time) {
 		items = append(items, item{date: day(t.Due), title: orUntitled(t.Title, a.tr.Untitled()), sub: sub, task: t})
 	}
 	for _, pr := range a.data.Projects {
-		if pr.End.IsZero() || pr.Status == StatusDone {
+		if pr.End.IsZero() || pr.Status == StatusDone || pr.Archived {
 			continue
 		}
 		if d := daysBetween(today, pr.End); d >= 0 && d <= 60 {

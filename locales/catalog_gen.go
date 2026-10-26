@@ -1484,6 +1484,76 @@ func (msgs Messages) Done() string {
 	return Catalog.Format(msgs.locale, "done", nil)
 }
 
+// Archive says "Archive"
+// in the language the app shows.
+func Archive() string { return In(i18n.Locale()).Archive() }
+
+// Archive says "Archive"
+// in the language of msgs.
+func (msgs Messages) Archive() string {
+	return Catalog.Format(msgs.locale, "archive", nil)
+}
+
+// Unarchive says "Unarchive"
+// in the language the app shows.
+func Unarchive() string { return In(i18n.Locale()).Unarchive() }
+
+// Unarchive says "Unarchive"
+// in the language of msgs.
+func (msgs Messages) Unarchive() string {
+	return Catalog.Format(msgs.locale, "unarchive", nil)
+}
+
+// Archived says "Archived"
+// in the language the app shows.
+func Archived() string { return In(i18n.Locale()).Archived() }
+
+// Archived says "Archived"
+// in the language of msgs.
+func (msgs Messages) Archived() string {
+	return Catalog.Format(msgs.locale, "archived", nil)
+}
+
+// ArchivedOn says "Archived {date}. It and its tasks are out of your lists; its events stay on the calendar."
+// in the language the app shows.
+func ArchivedOn(date string) string { return In(i18n.Locale()).ArchivedOn(date) }
+
+// ArchivedOn says "Archived {date}. It and its tasks are out of your lists; its events stay on the calendar."
+// in the language of msgs.
+func (msgs Messages) ArchivedOn(date string) string {
+	return Catalog.Format(msgs.locale, "archivedOn", map[string]any{"date": date})
+}
+
+// ArchiveSuggest says "This project is completed. Archive it to put it and its tasks away."
+// in the language the app shows.
+func ArchiveSuggest() string { return In(i18n.Locale()).ArchiveSuggest() }
+
+// ArchiveSuggest says "This project is completed. Archive it to put it and its tasks away."
+// in the language of msgs.
+func (msgs Messages) ArchiveSuggest() string {
+	return Catalog.Format(msgs.locale, "archiveSuggest", nil)
+}
+
+// ArchivedToast says "Archived “{title}”"
+// in the language the app shows.
+func ArchivedToast(title string) string { return In(i18n.Locale()).ArchivedToast(title) }
+
+// ArchivedToast says "Archived “{title}”"
+// in the language of msgs.
+func (msgs Messages) ArchivedToast(title string) string {
+	return Catalog.Format(msgs.locale, "archivedToast", map[string]any{"title": title})
+}
+
+// Undo says "Undo"
+// in the language the app shows.
+func Undo() string { return In(i18n.Locale()).Undo() }
+
+// Undo says "Undo"
+// in the language of msgs.
+func (msgs Messages) Undo() string {
+	return Catalog.Format(msgs.locale, "undo", nil)
+}
+
 // NoDirection says "No direction"
 // in the language the app shows.
 func NoDirection() string { return In(i18n.Locale()).NoDirection() }

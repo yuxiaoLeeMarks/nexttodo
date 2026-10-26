@@ -69,13 +69,14 @@ type app struct {
 	colW          float32 // the width of a day in the week, as last painted
 
 	// Projects.
-	projGroup     int // by category, direction or status
-	projQuery     string
-	projShowDone  bool
-	projOpen      string // the project shown, "" for the list
-	projTaskDraft string
-	journalDraft  string
-	askProject    bool
+	projGroup        int // by category, direction or status
+	projQuery        string
+	projShowDone     bool
+	projShowArchived bool
+	projOpen         string // the project shown, "" for the list
+	projTaskDraft    string
+	journalDraft     string
+	askProject       bool
 
 	// Categories.
 	catOpen  bool
@@ -99,7 +100,10 @@ type app struct {
 	alerted   map[string]bool // events alerted, by ID and start
 	alertedTo time.Time       // alerts up to this time have been looked at
 
-	toast     string // a message to show in the next frame
+	toast string // a message to show in the next frame
+	// later runs in the next build of the main window, for what a menu
+	// chooses and needs the window's context for, as a toast.
+	later     []func(c *ui.Context)
 	dirty     bool
 	saveTimer *time.Timer
 }
@@ -257,6 +261,18 @@ func (a *app) projectName(id string) string {
 		return orUntitled(p.Title, a.tr.Untitled())
 	}
 	return a.tr.NoProject()
+}
+
+// projectChoices are the projects a picker offers: none, those not
+// archived, and current even if it is.
+func (a *app) projectChoices(current string) []string {
+	ids := []string{""}
+	for _, pr := range a.data.Projects {
+		if !pr.Archived || pr.ID == current {
+			ids = append(ids, pr.ID)
+		}
+	}
+	return ids
 }
 
 func (a *app) directionName(id string) string {
