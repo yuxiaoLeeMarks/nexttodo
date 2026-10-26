@@ -393,7 +393,11 @@ func (a *app) view(c *ui.Context) {
 	}
 	ui.Column(c).Fill().Children(func() {
 		a.header(c)
-		ui.Column(c).Grow(1).MinHeight(0).Children(func() {
+		key := any(a.page)
+		if a.page == PageProjects && a.projOpen != "" {
+			key = a.projOpen
+		}
+		ui.Column(c.Key(key)).Grow(1).MinHeight(0).Transition(pageMotion).Children(func() {
 			switch a.page {
 			case PageOverview:
 				a.overview(c)
@@ -419,6 +423,14 @@ func (a *app) view(c *ui.Context) {
 	a.directionDialog(c)
 	a.categoriesSheet(c)
 	a.searchSheet(c)
+}
+
+// pageMotion brings a page in as magpie's views come: rising a little
+// into place as it shows.
+var pageMotion = ui.ElementTransition{
+	Duration: 220 * time.Millisecond,
+	Position: true,
+	Enter:    &ui.Motion{Y: 6},
 }
 
 // header is the title bar: the app's mark after the window's controls,
@@ -477,31 +489,23 @@ func (a *app) header(c *ui.Context) {
 // pageSwitch is the switch of pages in the middle of the title bar: no
 // track, a white thumb under the page shown, none on the settings.
 func (a *app) pageSwitch(c *ui.Context) ui.Element {
-	p := &a.p
-	return ui.Row(c).Padding(2).Gap(1).AlignItems(ui.Center).FocusGroup(ui.Horizontal).Role(ui.RoleTabList).Children(func() {
-		for _, pg := range pages {
-			on := a.page == pg
-			b := ui.ButtonBase(c.Key(pg)).Height(24).Padding(0, 12).Radius(6).Center().Role(ui.RoleTab).Selected(on)
-			hover := b.Hovered()
-			if on {
-				b.Background(p.segThumb).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.14)).Shadow(0, 0, 0, 0.5, ui.RGBA(0, 0, 0, 0.08))
-			}
-			b.Children(func() {
-				t := ui.Text(c, a.navLabel(pg)).FontSize(12.5).SingleLine()
-				switch {
-				case on:
-					t.TextColor(p.fg).FontWeight(500)
-				case hover:
-					t.TextColor(p.fg2)
-				default:
-					t.TextColor(p.ctl)
-				}
-			})
-			if b.Clicked() {
-				a.navigate(pg)
-			}
+	labels := make([]string, len(pages))
+	chosen := -1
+	for i, pg := range pages {
+		labels[i] = a.navLabel(pg)
+		if pg == a.page {
+			chosen = i
 		}
+	}
+	track := ui.Box(c).FocusGroup(ui.Horizontal).Role(ui.RoleTabList)
+	a.segments(c, track, labels, chosen, func(i int) ui.Element {
+		b := ui.ButtonBase(c.Key(pages[i])).Role(ui.RoleTab).Selected(i == chosen)
+		if b.Clicked() {
+			a.navigate(pages[i])
+		}
+		return b
 	})
+	return track
 }
 
 // navigate shows a page; the pages keep their own state.

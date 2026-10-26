@@ -207,6 +207,14 @@ func (a *app) taskKeys(c *ui.Context, tasks []*Task, sel *Task) {
 	}
 }
 
+// rowMotion grows a row in as it is added and folds it away as it goes,
+// as a task done leaving its list.
+var rowMotion = ui.ElementTransition{
+	Duration: 200 * time.Millisecond,
+	Enter:    &ui.Motion{Collapse: true},
+	Exit:     &ui.Motion{Collapse: true},
+}
+
 // Where a task row shows.
 const (
 	rowInTasks   = iota // the tasks page, where a click chooses the task
@@ -222,7 +230,7 @@ func (a *app) taskRow(c *ui.Context, t *Task, where int) {
 	inTasks := where == rowInTasks
 	on := inTasks && a.taskSel == t.ID
 	row := ui.ButtonBase(c.Key(t.ID)).MinHeight(46).Padding(6, 10, 6, 14).Gap(11).AlignItems(ui.Center).Radius(0).
-		FocusRing(false).Label(orUntitled(t.Title, a.tr.Untitled()))
+		FocusRing(false).Label(orUntitled(t.Title, a.tr.Untitled())).Transition(rowMotion)
 	hover := row.Hovered()
 	switch {
 	case on:

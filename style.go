@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"strings"
 	"time"
 
@@ -296,31 +297,60 @@ func (a *app) iconBtn(c *ui.Context, icon *ui.SVG, label string) ui.Element {
 // segTrack is a segmented control on a gray track, its choice on a white
 // thumb, as magpie's in-page switches.
 func (a *app) segTrack(c *ui.Context, key string, chosen *int, labels ...string) ui.Element {
-	p := &a.p
 	s := ui.SegmentedBase(c.Key(key), chosen, len(labels))
-	s.Track.Padding(2).Gap(1).Radius(8).AlignItems(ui.Center).Shrink(0).Background(p.segTrack)
-	s.Track.Children(func() {
-		for i, l := range labels {
-			seg := s.Segment(i).Height(24).Padding(0, 11).Radius(6).Center()
-			on := i == *chosen
-			hover := seg.Hovered()
-			if on {
-				seg.Background(p.segThumb).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.14)).Shadow(0, 0, 0, 0.5, ui.RGBA(0, 0, 0, 0.08))
-			}
-			seg.Children(func() {
-				t := ui.Text(c, l).FontSize(12.5).SingleLine()
-				switch {
-				case on:
-					t.TextColor(p.fg).FontWeight(500)
-				case hover:
-					t.TextColor(p.fg2)
-				default:
-					t.TextColor(p.ctl)
-				}
-			})
-		}
-	})
+	s.Track.Radius(8).Shrink(0).Background(a.p.segTrack)
+	a.segments(c, s.Track, labels, *chosen, func(i int) ui.Element { return s.Segment(i) })
 	return s.Track
+}
+
+// thumbMotion slides a segmented control's thumb to the segment chosen.
+var thumbMotion = ui.ElementTransition{
+	Animation: &ui.Snappy,
+	Enter:     &ui.Motion{Scale: 0.92},
+	Exit:      &ui.Motion{Scale: 0.92},
+}
+
+// segments fills track with the segments of labels, which build makes,
+// over a white thumb that slides to the one chosen (none when chosen is
+// -1). Each is as wide as its label in the chosen weight, so nothing shifts
+// as the choice moves. The thumb and the row of segments are both placed,
+// the row after, so that it paints over the thumb.
+func (a *app) segments(c *ui.Context, track ui.Element, labels []string, chosen int, build func(i int) ui.Element) {
+	p := &a.p
+	widths := make([]float32, len(labels))
+	x, thumbX := float32(0), float32(0)
+	for i, l := range labels {
+		w, _ := c.MeasureText(0, ui.Span{Text: l, Size: 12.5, Weight: 500})
+		widths[i] = float32(math.Ceil(float64(w))) + 22
+		if i == chosen {
+			thumbX = x
+		}
+		x += widths[i] + 1
+	}
+	track.Size(x+3, 28).Children(func() {
+		if chosen >= 0 && chosen < len(labels) {
+			ui.Box(c.Key("thumb")).Absolute().Top(2).Left(2+thumbX).Size(widths[chosen], 24).Radius(6).PassThrough().
+				Background(p.segThumb).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.14)).Shadow(0, 0, 0, 0.5, ui.RGBA(0, 0, 0, 0.08)).
+				Transition(thumbMotion)
+		}
+		ui.Row(c.Key("segments")).Absolute().Top(2).Left(2).Gap(1).Children(func() {
+			for i, l := range labels {
+				seg := build(i).Width(widths[i]).Height(24).Radius(6).Center().Background(ui.Transparent)
+				on, hover := i == chosen, seg.Hovered()
+				seg.Children(func() {
+					t := ui.Text(c, l).FontSize(12.5).SingleLine()
+					switch {
+					case on:
+						t.TextColor(p.fg).FontWeight(500)
+					case hover:
+						t.TextColor(p.fg2)
+					default:
+						t.TextColor(p.ctl)
+					}
+				})
+			}
+		})
+	})
 }
 
 // selectOf is a pop-up button choosing one of options, named by name:
@@ -356,11 +386,19 @@ func selectOf[T comparable](a *app, c *ui.Context, key string, chosen *T, option
 	return sel.Trigger
 }
 
+// popMotion grows a popover or a sheet out of a little smaller, quickly,
+// as magpie's pickers and macOS's sheets come.
+var popMotion = ui.ElementTransition{
+	Animation: &ui.Snappy,
+	Enter:     &ui.Motion{Scale: 0.96, Y: -4},
+	Exit:      &ui.Motion{Scale: 0.98},
+}
+
 // popover gives a floating panel magpie's look: a card with its soft
 // shadow and a hairline ring.
 func popover(a *app, panel ui.Element) ui.Element {
 	p := &a.p
-	return panel.Radius(11).Background(p.card).
+	return panel.Radius(11).Background(p.card).Transition(popMotion).
 		Shadow(0, 16, 44, 0, p.shadow).Shadow(0, 2, 8, 0, p.shadow.Alpha(0.06)).Border(0.5, p.fg.Alpha(0.12))
 }
 

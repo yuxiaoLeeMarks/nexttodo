@@ -317,6 +317,7 @@ func TestAddAndFinishTask(t *testing.T) {
 	if !added.inMyDay(monday) || !tt.HasText("Write the rebuttal") {
 		t.Error("a task added to My Day is not in it")
 	}
+	tt.Advance(time.Second) // its row grows in
 	if err := tt.Click("Write the rebuttal"); err != nil {
 		t.Fatal(err)
 	}
