@@ -17,6 +17,19 @@
 
 - Reminders: a task can remind you on a day at a time, set beside its due date or typed with it ("Call Lin tomorrow 3pm"). A click on the notification opens the task; a bell in its row, and in the menu bar, says when.
 
+**Typing the time**
+
+- Fewer words are read as times or dates: 一点, 第2点, a task's 1:50, "1/3 of", "2 may". Chinese hours in words need their part of the day or more than 点 (下午三点, 三点半).
+- The night: 晚上12点, "tonight at 12" and "at midnight" are the midnight coming; 05:30 is as written; ranges over midnight (10pm-2am, 晚上11点到凌晨1点) keep their length.
+- A time already gone today is tomorrow's, and the chip says so.
+- Years (2026年10月30日, 10/30/2026, Nov 3rd 2027), "Friday next week", the weekend and 下周末.
+- In the menu bar, an event's day no longer carries over to the next line.
+
+**Fixed**
+
+- Undo puts back each field the deletion changed and nothing changed since, and the days a series skips one by one; undoing a large erase is quick.
+- Calendars: repeat rules follow their own zone's days, every-other-week rules start in the right week, cancelled and changed occurrences are skipped even when they come in a file of their own, and odd files (a byte-order mark, an unreadable start, Windows zone names) import.
+
 ## 0.3.0
 
 **Projects**

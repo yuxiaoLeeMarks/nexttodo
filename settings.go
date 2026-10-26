@@ -241,7 +241,7 @@ func appVersion() string {
 	if v := mygo.App.Version(); v != "" {
 		return v
 	}
-	return "0.3.0"
+	return "0.4.0"
 }
 
 func (a *app) setLanguage(tag string) {
