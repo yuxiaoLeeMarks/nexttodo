@@ -325,6 +325,7 @@ func (a *app) menu() *mygo.Menu {
 			{Label: tr.NavProjects(), Accelerator: "CmdOrCtrl+4", Click: page(PageProjects)},
 			{Label: tr.NavDirections(), Accelerator: "CmdOrCtrl+5", Click: page(PageDirections)},
 			mygo.Separator(),
+			{Label: tr.Search(), Accelerator: "CmdOrCtrl+F", Click: run(a.openSearch)},
 			{Label: tr.NavSettings(), Accelerator: "CmdOrCtrl+,", Click: page(PageSettings)},
 		}},
 		{Role: mygo.RoleWindowMenu},

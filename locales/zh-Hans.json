@@ -274,6 +274,9 @@
   "minutesShort": "{n} 分钟",
   "hoursShort": "{n, plural, other {# 小时}}",
 
+  "search": "搜索",
+  "searchPlaceholder": "搜索待办、日程、项目与方向",
+  "searchNone": "没有找到",
   "menuNewTask": "新建待办",
   "menuNewEvent": "新建日程",
   "menuNewProject": "新建项目",

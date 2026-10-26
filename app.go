@@ -92,6 +92,13 @@ type app struct {
 
 	undo []*undoStep // deletions to undo, the last last
 
+	// Search.
+	searchOpen  bool
+	searchQuery string
+	searchSel   int
+	searchMoved bool // the arrows moved the choice in this frame
+	searchField ui.Handle
+
 	// Settings.
 	askErase   bool
 	notifyNote string // what the test notification found
@@ -381,6 +388,9 @@ func (a *app) view(c *ui.Context) {
 		a.toast = ""
 	}
 	a.undoShortcut(c)
+	if c.Shortcut(ui.Cmd, ui.KeyF) {
+		a.openSearch()
+	}
 	ui.Column(c).Fill().Children(func() {
 		a.header(c)
 		ui.Column(c).Grow(1).MinHeight(0).Children(func() {
@@ -408,6 +418,7 @@ func (a *app) view(c *ui.Context) {
 	a.eventDialog(c)
 	a.directionDialog(c)
 	a.categoriesSheet(c)
+	a.searchSheet(c)
 }
 
 // header is the title bar: the app's mark after the window's controls,
@@ -424,6 +435,9 @@ func (a *app) header(c *ui.Context) {
 			ui.Text(c, a.tr.AppName()).FontSize(13).FontWeight(600).TextColor(p.fg).SingleLine()
 		})
 		ui.Spacer(c)
+		if a.iconBtn(c, iconSearch, a.tr.Search()+"  ⌘F").Clicked() {
+			a.openSearch()
+		}
 		add := a.iconBtn(c, iconPlus, a.tr.MenuNewTask()+" / "+a.tr.NewEvent())
 		if add.Clicked() {
 			a.addOpen = !a.addOpen

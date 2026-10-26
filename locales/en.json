@@ -291,6 +291,9 @@
   "hoursShort": "{n, plural, one {# hour} other {# hours}}",
   "@hoursShort": { "placeholders": { "n": { "type": "int", "example": "2" } } },
 
+  "search": "Search",
+  "searchPlaceholder": "Search tasks, events, projects and directions",
+  "searchNone": "Nothing found",
   "menuNewTask": "New Task",
   "menuNewEvent": "New Event",
   "menuNewProject": "New Project",

@@ -2636,6 +2636,36 @@ func (msgs Messages) HoursShort(n int) string {
 	return Catalog.Format(msgs.locale, "hoursShort", map[string]any{"n": n})
 }
 
+// Search says "Search"
+// in the language the app shows.
+func Search() string { return In(i18n.Locale()).Search() }
+
+// Search says "Search"
+// in the language of msgs.
+func (msgs Messages) Search() string {
+	return Catalog.Format(msgs.locale, "search", nil)
+}
+
+// SearchPlaceholder says "Search tasks, events, projects and directions"
+// in the language the app shows.
+func SearchPlaceholder() string { return In(i18n.Locale()).SearchPlaceholder() }
+
+// SearchPlaceholder says "Search tasks, events, projects and directions"
+// in the language of msgs.
+func (msgs Messages) SearchPlaceholder() string {
+	return Catalog.Format(msgs.locale, "searchPlaceholder", nil)
+}
+
+// SearchNone says "Nothing found"
+// in the language the app shows.
+func SearchNone() string { return In(i18n.Locale()).SearchNone() }
+
+// SearchNone says "Nothing found"
+// in the language of msgs.
+func (msgs Messages) SearchNone() string {
+	return Catalog.Format(msgs.locale, "searchNone", nil)
+}
+
 // MenuNewTask says "New Task"
 // in the language the app shows.
 func MenuNewTask() string { return In(i18n.Locale()).MenuNewTask() }

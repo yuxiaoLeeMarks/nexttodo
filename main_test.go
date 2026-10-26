@@ -364,6 +364,34 @@ func TestUndoDelete(t *testing.T) {
 	}
 }
 
+func TestSearch(t *testing.T) {
+	a := testApp("en")
+	tt := newTester(t, a, "en")
+	tt.Key(ui.Cmd, ui.KeyF)
+	if !a.searchOpen {
+		t.Fatal("⌘F did not open the search")
+	}
+	tt.Type("tpami")
+	hits := a.searchHits(a.searchQuery)
+	if len(hits) < 2 || hits[0].group != "Tasks" || !strings.Contains(hits[0].title, "TPAMI") {
+		t.Fatalf("hits %+v", hits)
+	}
+	// The second, an event, opens on Return.
+	tt.Key(0, ui.KeyDown)
+	tt.Key(0, ui.KeyEnter)
+	if a.searchOpen || !a.evtOpen && a.page != PageTasks {
+		t.Errorf("Return: search open %v, page %v", a.searchOpen, a.page)
+	}
+	// A project found by its journal.
+	found := false
+	for _, h := range a.searchHits("spectroscopy") {
+		found = found || h.group == "Projects"
+	}
+	if !found {
+		t.Error("no project found by its journal")
+	}
+}
+
 func TestCreateEvent(t *testing.T) {
 	a := testApp("en")
 	a.page = PageSchedule
@@ -732,6 +760,7 @@ func TestSnapshots(t *testing.T) {
 			a.page = PageSchedule
 			a.sketch = sketch{day: addDays(day(monday), 2), y0: 12.6 * hourHeight, y: 14.4 * hourHeight}
 		}, 1280, 820},
+		{"search", func(a *app) { a.page, a.searchOpen, a.searchQuery = PageTasks, true, "re" }, 1280, 820},
 		{"panel", nil, 340, 480},
 	}
 	only := os.Getenv("NT_PAGE")
