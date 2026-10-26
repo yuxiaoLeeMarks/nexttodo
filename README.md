@@ -77,6 +77,15 @@ English and 简体中文. Light and dark.
       <p><b>Menu bar.</b> Today's events and tasks, checked off where they are, and a field that adds a task to My Day or an event today.</p>
     </td>
   </tr>
+  <tr>
+    <td colspan="2">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/img/timeline-dark.png">
+        <img src="docs/img/timeline-light.png" alt="The projects on a timeline, over the months they run">
+      </picture>
+      <p><b>Timeline.</b> Every project over the months it runs, in its category's color, filled as far as its tasks are done, with a line at today: which grant ends when, and what overlaps.</p>
+    </td>
+  </tr>
 </table>
 
 And: type the day and the time with what you add ("Seminar fri 3-4pm", "明天下午3点 组会"), reminders for tasks, search everything with ⌘F, research directions with their projects, reminders before events (a default and one per event), a Dock badge for what is due, open at login, ⌘1–⌘5 for the pages, daily backups you can restore, and sample data on first launch to show the way.
