@@ -16,12 +16,12 @@ jobs:
         with:
           go-version: "1.27.x"
       - run: go test ./...
-      - name: Build for Apple silicon and Intel
-        run: go tool mygo build -platform darwin/arm64,darwin/amd64
+      - name: Build for Apple silicon and Intel, in one app
+        run: go tool mygo build -platform darwin/universal
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${GITHUB_REF_NAME#v}"
           awk -v v="$version" '$0 == "## " v {f=1; next} /^## / {f=0} f' CHANGELOG.md > notes.md
-          gh release create "$GITHUB_REF_NAME" build/darwin-*/*.dmg --title "NextTodo $version" --notes-file notes.md
+          gh release create "$GITHUB_REF_NAME" build/darwin-universal/*.dmg --title "NextTodo $version" --notes-file notes.md

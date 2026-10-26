@@ -7,7 +7,7 @@
 <h3 align="center">Your research, planned. On your Mac.</h3>
 
 <p align="center">
-  <b>Schedules, tasks and projects in one quiet app,<br>sorted by how they're funded and the questions they serve.</b>
+  <b>Schedules, tasks and projects in one quiet app,<br>sorted the way you think about your work.</b>
 </p>
 
 <p align="center">
@@ -33,10 +33,10 @@
 
 A research life lives in too many places: grants in a spreadsheet, meetings in a calendar, to-dos in another app, and the notes on how an experiment went nowhere at all. NextTodo keeps them together, on your Mac:
 
-- **Projects, sorted your way.** Group them by funding (government grants, industry contracts, your own inquiry, academic service), by research direction or by status, and keep each one's tasks, events, dated journal and particulars (grant number, lead, funder, dates) in one place.
-- **A calendar that moves with you.** Week and month views, drag to reschedule, drag an edge to change how long, and a notification before each event starts.
-- **Today, from the menu bar.** What is left of the day, and a field to add a task or an event, one click away.
-- **Yours, offline.** No account, no cloud. One JSON file in your Library, saved as you type, with backups you can export.
+- **Projects, sorted your way.** Make your own categories (by funding, by lab, by anything) with a color and an icon, or group by research direction or status. Each project keeps its tasks, events, dated journal and particulars (grant number, lead, funder, dates) in one place, and goes to the archive when it ends.
+- **A calendar that moves with you.** Week and month views, events that repeat, drag to reschedule or to sketch a new one, and a notification before each event starts.
+- **Today, from the menu bar.** What is left of the day, and a field to add a task or an event, one click or ⌃⌥Space away.
+- **Yours, offline.** No account, no cloud. One JSON file in your Library, saved as you type, copied every day, with Undo for every deletion.
 
 It's for you if you juggle more than one project and more than one kind of commitment. If one list of to-dos is enough, Reminders will do.
 
@@ -51,14 +51,14 @@ English and 简体中文. Light and dark.
         <source media="(prefers-color-scheme: dark)" srcset="docs/img/schedule-dark.png">
         <img src="docs/img/schedule-light.png" alt="The week, with events by kind">
       </picture>
-      <p><b>Schedule.</b> Drag an event to move it, in whole days and quarter hours; drag its bottom edge to resize it; double-click to add one. In the month, drag events and due tasks between days.</p>
+      <p><b>Schedule.</b> Drag an event to move it, in whole days and quarter hours; drag its bottom edge to resize it; drag down empty hours to add one. Events repeat daily, on weekdays, weekly or monthly. In the month, drag events and due tasks between days.</p>
     </td>
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/img/tasks-dark.png">
         <img src="docs/img/tasks-light.png" alt="My Day, with a task's details beside it">
       </picture>
-      <p><b>Tasks.</b> My Day gathers what you planned for today and what is due or late. Important, Planned, All and Completed, with priorities, due dates, notes and projects.</p>
+      <p><b>Tasks.</b> My Day gathers what you planned for today and what is due or late. Important, Planned (by day, as in Reminders), All and Completed, with priorities, due dates, notes and projects. ↑↓ to choose, ⌘K to finish.</p>
     </td>
   </tr>
   <tr>
@@ -67,7 +67,7 @@ English and 简体中文. Light and dark.
         <source media="(prefers-color-scheme: dark)" srcset="docs/img/projects-dark.png">
         <img src="docs/img/projects-light.png" alt="Projects grouped by category">
       </picture>
-      <p><b>Projects.</b> Grouped by category, direction or status, each with its progress and when it ends. Open one for its summary, tasks, research journal and upcoming events.</p>
+      <p><b>Projects.</b> Grouped by your categories, direction or status, each with its progress and when it ends. Open one for its summary, tasks, research journal and upcoming events; archive it when it's done.</p>
     </td>
     <td width="50%" align="center">
       <picture>
@@ -79,7 +79,7 @@ English and 简体中文. Light and dark.
   </tr>
 </table>
 
-And: research directions with their projects, reminders before events (a default and one per event), a pop-up of new things in the title bar, ⌘1–⌘5 for the pages, JSON backups, and sample data on first launch to show the way.
+And: search everything with ⌘F, research directions with their projects, reminders before events (a default and one per event), a Dock badge for what is due, open at login, ⌘1–⌘5 for the pages, daily backups you can restore, and sample data on first launch to show the way.
 
 ## Quick start
 
@@ -101,6 +101,8 @@ NextTodo is written in Go with [MyGo](https://mygo.egoist.dev/)'s native UI: no 
 | `style.go`, `icons.go`, `art.go` | the palette, the components, the icons |
 | `app.go` | the app's state, saving, the title bar |
 | `overview.go`, `tasks.go`, `schedule.go`, `projects.go`, `directions.go`, `settings.go` | the pages |
+| `repeat.go` | events that repeat, and their occurrences |
+| `categories.go`, `search.go`, `undo.go`, `backups.go` | categories, search, Undo, daily copies |
 | `panel.go`, `alerts.go` | the menu bar panel, and when events alert |
 | `locales/` | every string, in English and Chinese |
 
@@ -113,6 +115,7 @@ git clone https://github.com/yuxiaoLeeMarks/nexttodo.git && cd nexttodo
 go tool mygo dev      # run, reloading as you edit
 go test ./...         # the tests drive every view without a window
 go tool mygo build    # build/darwin-arm64/NextTodo.app and its .dmg
+go tool mygo build -platform darwin/universal   # for Apple silicon and Intel
 ```
 
 `NT_SNAPSHOTS=/tmp/shots go test -run TestSnapshots .` renders every page, light and dark, in both languages. Strings live in `locales/en.json` and `locales/zh-Hans.json`.
