@@ -179,3 +179,25 @@ func TestWhenRolls(t *testing.T) {
 		t.Errorf("tonight at 12 is %v", w.start(evening))
 	}
 }
+
+// The panel's next line does not take the day of the one before.
+func TestPanelNextLine(t *testing.T) {
+	a := testApp("en")
+	pt := ui.NewTester(a.panelView, 340, 480)
+	pt.SetLocale("en")
+	a.quick.start = nextHalfHour(monday)
+	pt.Frame()
+	pt.Click("Event")
+	pt.Click("Add an event today")
+	pt.Type("Coffee with Ada tomorrow 3pm")
+	pt.Key(0, ui.KeyEnter)
+	pt.Type("Call Bob")
+	pt.Key(0, ui.KeyEnter)
+	ada, bob := eventTitled(a, "Coffee with Ada"), eventTitled(a, "Call Bob")
+	if ada == nil || !ada.Start.Equal(at(addDays(monday, 1), 15, 0)) {
+		t.Fatalf("Ada %+v", ada)
+	}
+	if bob == nil || !sameDay(bob.Start, monday) {
+		t.Fatalf("Bob %+v, want today", bob)
+	}
+}

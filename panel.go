@@ -55,14 +55,23 @@ func (a *app) quickAddNow(first time.Weekday) {
 	if q.mode == 0 {
 		a.addTaskWhen(w, "", listMyDay)
 	} else {
-		// The panel's time is on its day, tomorrow's after 23:30.
+		// At the time the pickers show, on its day: today's, tomorrow's
+		// after 23:30, the day the line names, or the day its time comes.
 		start := q.start
-		if !w.day.IsZero() {
-			start = at(w.day, q.start.Hour(), q.start.Minute())
+		switch {
+		case w.clock && q.start.Hour() == w.hour%24 && q.start.Minute() == w.minute:
+			start = w.start(a.now())
+		case w.clock || !w.day.IsZero():
+			on := w.day
+			if on.IsZero() {
+				on = w.start(a.now())
+			}
+			start = at(on, q.start.Hour(), q.start.Minute())
 		}
 		a.data.Events = append(a.data.Events, &Event{ID: newID(), Title: w.title, Kind: KindMeeting,
 			Start: start, End: start.Add(time.Duration(q.minutes) * time.Minute)})
 		a.changed()
+		q.start, q.minutes = nextHalfHour(a.now()), 60
 	}
 	q.title, q.added = "", w.title
 	delete(a.literal, &q.title)
@@ -120,7 +129,7 @@ func (a *app) panelView(c *ui.Context) {
 				// The time the line says shows in the pickers, to change.
 				if w := a.quickWhen(first); q.mode == 1 {
 					if w.clock {
-						q.start = w.start(now)
+						q.start = at(q.start, w.hour%24, w.minute) // its day stays the panel's
 					}
 					if w.minutes > 0 {
 						q.minutes = w.minutes
