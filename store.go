@@ -120,7 +120,7 @@ type Task struct {
 	Notes    string    `json:"notes,omitempty"`
 	Project  string    `json:"project,omitempty"`
 	Due      time.Time `json:"due,omitzero"`
-	Remind   time.Time `json:"remind,omitzero"` // when a notification reminds of it
+	Remind   time.Time `json:"remind,omitzero"`    // when a notification reminds of it
 	Priority int       `json:"priority,omitempty"` // 0 none, 1 low, 2 medium, 3 high
 	Starred  bool      `json:"starred,omitempty"`
 	MyDay    time.Time `json:"myDay,omitzero"`
