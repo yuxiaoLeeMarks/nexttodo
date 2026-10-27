@@ -522,3 +522,50 @@ func TestWelcomeAndSample(t *testing.T) {
 		t.Error("Undo did not bring the sample back")
 	}
 }
+
+// A repeating task done comes again, due the next time, and undone at
+// once takes that back.
+func TestRepeatingTask(t *testing.T) {
+	a := testApp("en")
+	friday := addDays(day(monday), 4)
+	x := a.addTask("Weekly report", "", listAll)
+	x.Due, x.Repeat, x.Remind = friday, RepeatWeekly, at(friday, 9, 0)
+	a.setDone(x, true)
+	var next *Task
+	for _, y := range a.data.Tasks {
+		if y.Title == "Weekly report" && !y.Done {
+			next = y
+		}
+	}
+	if next == nil || !next.Due.Equal(addDays(friday, 7)) || next.Repeat != RepeatWeekly || !next.Remind.Equal(at(addDays(friday, 7), 9, 0)) {
+		t.Fatalf("next %+v", next)
+	}
+	if !x.Done || x.Repeat != RepeatNone {
+		t.Errorf("the one done: %+v", x)
+	}
+	a.setDone(x, false)
+	if a.data.task(next.ID) != nil || x.Repeat != RepeatWeekly || x.Done {
+		t.Errorf("undone, the next stays or the repeat is lost: %+v", x)
+	}
+	// Late, it comes again on the next of its days still to come.
+	x.Due = addDays(day(monday), -7)
+	a.setDone(x, true)
+	for _, y := range a.data.Tasks {
+		if y.Title == "Weekly report" && !y.Done && !y.Due.Equal(day(monday)) {
+			t.Errorf("a late weekly task comes again %v", y.Due)
+		}
+	}
+	// A monthly one on the 31st comes on the last of a shorter month.
+	if got := nextDay(RepeatMonthly, time.Date(2027, 1, 31, 0, 0, 0, 0, time.Local)); got.Day() != 28 || got.Month() != 2 {
+		t.Errorf("after Jan 31: %v", got)
+	}
+	// Typed: due Friday, every week.
+	a.page = PageTasks
+	tt := newTester(t, a, "en")
+	tt.Click("Add a task")
+	tt.Type("Group seminar every friday")
+	tt.Key(0, ui.KeyEnter)
+	if y := taskTitled(a, "Group seminar"); y == nil || y.Repeat != RepeatWeekly || !y.Due.Equal(friday) {
+		t.Errorf("typed: %+v", y)
+	}
+}

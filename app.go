@@ -87,6 +87,10 @@ type app struct {
 
 	picturing bool // drawing the README's pictures, of the sample data as one's own
 
+	// repeated holds, by task, the next a repeating task done brought, to
+	// take back as it is undone again: its ID and how it repeated.
+	repeated map[string]repeated
+
 	// The tags of events.
 	kindsOpen bool
 	kindDraft string

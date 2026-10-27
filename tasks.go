@@ -145,6 +145,36 @@ func (a *app) listName(list int) string {
 }
 
 // addTask adds a task titled title, placed by where it was added.
+// repeated is the next a repeating task done brought.
+type repeated struct {
+	next   string
+	repeat Repeat
+}
+
+// setDone marks a task done, or not. A repeating task done comes again,
+// due the next time; undone at once, it takes that back.
+func (a *app) setDone(t *Task, done bool) {
+	switch {
+	case done && !t.Done && t.Repeat != RepeatNone:
+		r := t.Repeat
+		next := a.data.repeatTask(t, a.now())
+		if a.repeated == nil {
+			a.repeated = map[string]repeated{}
+		}
+		a.repeated[t.ID] = repeated{next: next.ID, repeat: r}
+	case !done && t.Done:
+		if r, ok := a.repeated[t.ID]; ok {
+			if n := a.data.task(r.next); n != nil && !n.Done {
+				a.data.deleteTask(n.ID)
+			}
+			t.Repeat = r.repeat
+			delete(a.repeated, t.ID)
+		}
+	}
+	t.setDone(done, a.now())
+	a.changed()
+}
+
 // addTaskWhen adds a task as addTask does, due on the day w names and
 // reminding at its time.
 func (a *app) addTaskWhen(w when, project string, list int) *Task {
@@ -154,6 +184,9 @@ func (a *app) addTaskWhen(w when, project string, list int) *Task {
 	}
 	if w.clock {
 		t.Remind = w.start(a.now())
+	}
+	if t.Repeat = w.repeat; t.Repeat != RepeatNone && t.Due.IsZero() {
+		t.Due = day(a.now()) // a repeating task comes due, from today
 	}
 	return t
 }
@@ -283,8 +316,7 @@ func (a *app) taskKeys(c *ui.Context, tasks []*Task, sel *Task) {
 		a.taskSel = tasks[max(i-1, 0)].ID
 	case sel == nil:
 	case c.Shortcut(ui.Cmd, ui.KeyK):
-		sel.setDone(!sel.Done, a.now())
-		a.changed()
+		a.setDone(sel, !sel.Done)
 	case c.Shortcut(0, ui.KeyBackspace) || c.Shortcut(0, ui.KeyDelete):
 		next := ""
 		if i+1 < len(tasks) {
@@ -331,8 +363,7 @@ func (a *app) taskRow(c *ui.Context, t *Task, where int) {
 	row.Children(func() {
 		done := t.Done
 		if a.check(c, &done, a.tr.MarkDone()+": "+orUntitled(t.Title, a.tr.Untitled())).Changed() {
-			t.setDone(done, a.now())
-			a.changed()
+			a.setDone(t, done)
 		}
 		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 			ui.Row(c).Gap(5).AlignItems(ui.Center).Children(func() {
@@ -371,6 +402,9 @@ func (a *app) taskRow(c *ui.Context, t *Task, where int) {
 			if !t.Remind.IsZero() && !t.Done {
 				item(iconBell, a.remindText(t.Remind), p.muted)
 			}
+			if t.Repeat != RepeatNone && !t.Done {
+				item(iconRepeat, a.repeatName(t.Repeat), p.muted)
+			}
 			if strings.TrimSpace(t.Notes) != "" {
 				item(iconNote, "", p.faint)
 			}
@@ -394,8 +428,7 @@ func (a *app) taskRow(c *ui.Context, t *Task, where int) {
 			label = a.tr.MarkOpen()
 		}
 		if m.Item(label).Shortcut(ui.Cmd, ui.KeyK).Chosen() {
-			t.setDone(!t.Done, a.now())
-			a.changed()
+			a.setDone(t, !t.Done)
 		}
 		myDay := a.tr.AddToMyDay()
 		if t.inMyDay(today) {
@@ -474,8 +507,7 @@ func (a *app) taskDetail(c *ui.Context, t *Task) {
 				label = a.tr.MarkOpen()
 			}
 			if a.labeledCheck(c, &done, label).Changed() {
-				t.setDone(done, a.now())
-				a.changed()
+				a.setDone(t, done)
 			}
 			ui.Spacer(c)
 			if a.iconBtn(c, iconClose, a.tr.Close()).Clicked() {
@@ -490,6 +522,14 @@ func (a *app) taskDetail(c *ui.Context, t *Task) {
 			ui.Column(c).Dividers(1, p.line2).Gap(1).Margin(4, 0, 0, 0).Children(func() {
 				a.formRow(c, a.tr.FieldDue(), func() { a.dateField(c, "due", &t.Due) })
 				a.formRow(c, a.tr.FieldRemind(), func() { a.remindField(c, t) })
+				a.formRow(c, a.tr.FieldRepeat(), func() {
+					if selectOf(a, c, "repeat", &t.Repeat, repeats, a.repeatName).Label(a.tr.FieldRepeat()).Changed() {
+						if t.Repeat != RepeatNone && t.Due.IsZero() {
+							t.Due = day(a.now()) // a repeating task comes due, from today
+						}
+						a.changed()
+					}
+				})
 				a.formRow(c, a.tr.FieldPriority(), func() {
 					if selectOf(a, c, "priority", &t.Priority, []int{0, 1, 2, 3}, a.priorityName).Label(a.tr.FieldPriority()).Changed() {
 						a.changed()

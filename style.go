@@ -623,6 +623,9 @@ func (a *app) readWhen(draft *string, line string, first time.Weekday, reads int
 // whenText writes what a line says of its time: Tomorrow · 3:00 – 4:00 PM.
 func (a *app) whenText(w when) string {
 	var parts []string
+	if w.repeat != RepeatNone {
+		parts = append(parts, a.repeatName(w.repeat))
+	}
 	on := w.day
 	if w.clock {
 		on = day(w.start(a.now())) // 9:00 said in the evening is tomorrow's
@@ -662,7 +665,10 @@ func (a *app) whenChip(c *ui.Context, draft *string, w when, reads int) {
 	}
 	p := &a.p
 	icon := iconCalendar
-	if w.clock && reads == readClock {
+	switch {
+	case w.repeat != RepeatNone:
+		icon = iconRepeat
+	case w.clock && reads == readClock:
 		icon = iconBell
 	}
 	ui.Row(c.Key("when")).Height(22).Gap(5).Padding(0, 3, 0, 8).Radius(999).AlignItems(ui.Center).Shrink(0).

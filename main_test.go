@@ -809,7 +809,7 @@ func TestSnapshots(t *testing.T) {
 			a.page = PageTasks
 			for _, x := range a.data.Tasks {
 				if x.Priority == 3 && !x.Done {
-					a.taskSel, x.Remind = x.ID, at(monday, 16, 30)
+					a.taskSel, x.Remind, x.Repeat = x.ID, at(monday, 16, 30), RepeatWeekly
 					break
 				}
 			}

@@ -80,6 +80,28 @@ func TestParseWhen(t *testing.T) {
 		{"下午5点前 提交报告", readClock, "提交报告", time.Time{}, "17:00", 0},
 		{"Meeting 9:30", readSpan, "Meeting", time.Time{}, "09:30", 0},
 	}
+	repeats := []struct {
+		in     string
+		title  string
+		repeat Repeat
+		day    time.Time
+	}{
+		{"Weekly report every friday", "Weekly report", RepeatWeekly, d(10, 30)},
+		{"组会 每周一", "组会", RepeatWeekly, d(10, 26)},
+		{"Water the plants every day", "Water the plants", RepeatDaily, time.Time{}},
+		{"每个月 报销", "报销", RepeatMonthly, time.Time{}},
+		{"每两周 组内分享", "组内分享", RepeatBiweekly, time.Time{}},
+		{"Standup every weekday", "Standup", RepeatWeekdays, time.Time{}},
+		{"Read every paper", "Read every paper", RepeatNone, time.Time{}},
+		{"Check every day's logs", "Check every day's logs", RepeatNone, time.Time{}},
+		{"整理工作日志", "整理工作日志", RepeatNone, time.Time{}},
+	}
+	for _, c := range repeats {
+		w := parseWhen(c.in, now, time.Monday, readClock)
+		if w.title != c.title || w.repeat != c.repeat || !w.day.Equal(c.day) {
+			t.Errorf("%q: got %q %q %v, want %q %q %v", c.in, w.title, w.repeat, w.day.Format(time.DateOnly), c.title, c.repeat, c.day.Format(time.DateOnly))
+		}
+	}
 	for _, c := range cases {
 		w := parseWhen(c.in, now, time.Monday, c.reads)
 		clock := ""

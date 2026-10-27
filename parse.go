@@ -17,10 +17,11 @@ type when struct {
 	hour    int
 	minute  int
 	minutes int // how long, 0 when it does not say
+	repeat  Repeat
 }
 
 // said reports whether the line says anything of its time.
-func (w when) said() bool { return !w.day.IsZero() || w.clock || w.minutes > 0 }
+func (w when) said() bool { return !w.day.IsZero() || w.clock || w.minutes > 0 || w.repeat != RepeatNone }
 
 // start returns when the line says a thing starts: on its day, or at the
 // time's next coming, today or tomorrow.
@@ -47,6 +48,7 @@ const (
 	ruleDay = iota
 	ruleClock
 	ruleLength
+	ruleRepeat
 )
 
 // parseState is what the rules read besides the match.
@@ -98,8 +100,45 @@ func year(s string) int {
 	return n
 }
 
-// rules are tried in order, ranges before the times they hold.
+// rules are tried in order, ranges before the times they hold, and how
+// a thing repeats before the days it names, as 每周一.
 var rules = []rule{
+	// How it repeats.
+	{regexp.MustCompile(`(?i)\bevery\s+(?:other|second)\s+week\b|\bbiweekly\b|\bfortnightly\b|每两周|每隔一周|隔周|双周`), ruleRepeat, func(m []string, w *when, s *parseState) bool {
+		w.repeat = RepeatBiweekly
+		return true
+	}},
+	{regexp.MustCompile(`(?i)\bevery\s+weekday\b|\bon\s+weekdays\b|每个?工作日`), ruleRepeat, func(m []string, w *when, s *parseState) bool {
+		w.repeat = RepeatWeekdays
+		return true
+	}},
+	{regexp.MustCompile(`(?i)\bevery\s+` + weekdayNames + `\b`), ruleRepeat, func(m []string, w *when, s *parseState) bool {
+		w.repeat = RepeatWeekly
+		if w.day.IsZero() {
+			w.day = weekday(s, weekdaysEN[strings.ToLower(m[1][:3])], "")
+		}
+		return true
+	}},
+	{regexp.MustCompile(`每(?:周|星期|礼拜)([一二三四五六日天])`), ruleRepeat, func(m []string, w *when, s *parseState) bool {
+		w.repeat = RepeatWeekly
+		if w.day.IsZero() {
+			w.day = weekday(s, weekdaysZH[m[1]], "")
+		}
+		return true
+	}},
+	{regexp.MustCompile(`(?i)\b(?:every\s+day|daily)\b|每天|每日`), ruleRepeat, func(m []string, w *when, s *parseState) bool {
+		w.repeat = RepeatDaily
+		return true
+	}},
+	{regexp.MustCompile(`(?i)\b(?:every\s+week|weekly)\b|每周|每星期|每个?礼拜`), ruleRepeat, func(m []string, w *when, s *parseState) bool {
+		w.repeat = RepeatWeekly
+		return true
+	}},
+	{regexp.MustCompile(`(?i)\b(?:every\s+month|monthly)\b|每个?月`), ruleRepeat, func(m []string, w *when, s *parseState) bool {
+		w.repeat = RepeatMonthly
+		return true
+	}},
+
 	// Days.
 	{regexp.MustCompile(`(?i)` + onEN + `\b(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
 		return w.setDate(atoi(m[1]), atoi(m[2]), atoi(m[3]), s.now)

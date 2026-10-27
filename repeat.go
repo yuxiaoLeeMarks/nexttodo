@@ -137,6 +137,53 @@ func (d *Data) detach(occ *Event) *Event {
 	return &e
 }
 
+// nextDay returns the day after d on which a thing repeating as r comes
+// again: a monthly one on the same day of the month, or its last.
+func nextDay(r Repeat, d time.Time) time.Time {
+	d = day(d)
+	switch r {
+	case RepeatDaily:
+		return addDays(d, 1)
+	case RepeatWeekdays:
+		d = addDays(d, 1)
+		for d.Weekday() == time.Saturday || d.Weekday() == time.Sunday {
+			d = addDays(d, 1)
+		}
+		return d
+	case RepeatWeekly:
+		return addDays(d, 7)
+	case RepeatBiweekly:
+		return addDays(d, 14)
+	case RepeatMonthly:
+		y, m, dd := d.Date()
+		last := time.Date(y, m+2, 0, 0, 0, 0, 0, d.Location()).Day()
+		return time.Date(y, m+1, min(dd, last), 0, 0, 0, 0, d.Location())
+	}
+	return d
+}
+
+// repeatTask adds the next of a repeating task, done now: a copy of it
+// due the next of its days still to come, reminding as many days later,
+// which it returns. The task done stops repeating, its next going on.
+func (d *Data) repeatTask(t *Task, now time.Time) *Task {
+	due := t.Due
+	if due.IsZero() {
+		due = day(now)
+	}
+	next := nextDay(t.Repeat, due)
+	for next.Before(day(now)) {
+		next = nextDay(t.Repeat, next)
+	}
+	n := *t
+	n.ID, n.Created, n.Done, n.DoneAt, n.MyDay, n.Due = newID(), now, false, time.Time{}, time.Time{}, next
+	if !t.Remind.IsZero() {
+		n.Remind = t.Remind.AddDate(0, 0, daysBetween(due, next))
+	}
+	t.Repeat = RepeatNone
+	d.Tasks = append(d.Tasks, &n)
+	return &n
+}
+
 // occurrenceRef names an occurrence for a notification: its series and
 // its start.
 func occurrenceRef(ref string) (id string, start time.Time) {

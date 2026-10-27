@@ -69,7 +69,7 @@ func (a *app) quickAddNow(first time.Weekday) {
 			start = at(on, q.start.Hour(), q.start.Minute())
 		}
 		a.data.Events = append(a.data.Events, &Event{ID: newID(), Title: w.title, Kind: a.data.newKind(),
-			Start: start, End: start.Add(time.Duration(q.minutes) * time.Minute)})
+			Start: start, End: start.Add(time.Duration(q.minutes) * time.Minute), Repeat: w.repeat})
 		a.changed()
 		q.start, q.minutes = nextHalfHour(a.now()), 60
 	}
@@ -235,8 +235,7 @@ func (a *app) panelTaskRow(c *ui.Context, t *Task) {
 	ui.Row(c.Key(t.ID)).MinHeight(38).Padding(5, 12).Gap(10).AlignItems(ui.Center).Children(func() {
 		done := t.Done
 		if a.check(c, &done, a.tr.MarkDone()+": "+orUntitled(t.Title, a.tr.Untitled())).Changed() {
-			t.setDone(done, a.now())
-			a.changed()
+			a.setDone(t, done)
 		}
 		if t.Priority > 0 {
 			a.priorityMarks(c, t.Priority).FontSize(12)
