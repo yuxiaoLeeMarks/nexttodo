@@ -92,7 +92,7 @@ And: type the day and the time with what you add ("Seminar fri 3-4pm", "明天�
 
 ## Quick start
 
-**1 · Install.** Download the disk image from [Releases](../../releases/latest), open it and drag NextTodo to Applications. The build is signed ad hoc: the first time, right-click the app and choose Open.
+**1 · Install.** Download the disk image from [Releases](../../releases/latest), open it and drag NextTodo to Applications. NextTodo is not notarized by Apple yet, so the first time you open it macOS says it cannot: click Done, double-click **Privacy & Security** in the disk image's window, scroll to Security and click **Open Anyway** beside NextTodo. Only once. (Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/NextTodo.app`.)
 
 **2 · Plan today.** Add tasks to My Day, events to the week, and let the reminders come. The menu bar icon keeps today one click away.
 

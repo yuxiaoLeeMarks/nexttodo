@@ -52,7 +52,7 @@
 
 ## 快速开始
 
-**1 · 安装。** 从 [Releases](../../releases/latest) 下载磁盘映像，打开后把 NextTodo 拖入「应用程序」。当前为 ad-hoc 签名，首次打开请右键点按应用并选择「打开」。
+**1 · 安装。** 从 [Releases](../../releases/latest) 下载磁盘映像，打开后把 NextTodo 拖入「应用程序」。NextTodo 暂未经过 Apple 公证，首次打开时 macOS 会提示无法打开：点「完成」，再双击磁盘映像窗口中的 **Privacy & Security**（隐私与安全性），下滑到「安全性」，在 NextTodo 旁点 **仍要打开**。只需一次。（也可在终端运行：`xattr -dr com.apple.quarantine /Applications/NextTodo.app`）
 
 **2 · 规划今天。** 把待办加入「我的一天」，把日程放进本周，提醒会按时到来。菜单栏图标让今天的安排随时可见。
 
