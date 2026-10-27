@@ -1,0 +1,11 @@
+#!/bin/sh
+# Keeps unformatted Go out of commits: git config core.hooksPath .githooks
+gofmt=$(command -v gofmt || echo "$HOME/.local/go/bin/gofmt")
+files=$(git diff --cached --name-only --diff-filter=ACM -- '*.go')
+[ -z "$files" ] && exit 0
+bad=$($gofmt -l $files)
+if [ -n "$bad" ]; then
+	echo "gofmt these first:" >&2
+	echo "$bad" >&2
+	exit 1
+fi
