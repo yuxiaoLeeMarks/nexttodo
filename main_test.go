@@ -783,6 +783,10 @@ func TestSnapshots(t *testing.T) {
 		{"event", func(a *app) { a.page = PageSchedule; a.editEvent(a.data.Events[1]) }, 1280, 820},
 		{"categories", func(a *app) { a.page, a.catOpen = PageProjects, true }, 1280, 820},
 		{"kinds", func(a *app) { a.page, a.kindsOpen = PageSchedule, true }, 1280, 820},
+		{"subscriptions", func(a *app) {
+			a.page = PageSettings
+			a.data.Subscriptions = []*Subscription{{ID: "s", Name: "Department", URL: "https://example.edu/dept.ics", Kind: "seminar", Updated: monday}}
+		}, 1280, 1500},
 		{"welcome", func(a *app) { a.data, a.page = freshData(a.lang), PageOverview }, 1280, 820},
 		{"archived", func(a *app) {
 			a.page, a.projShowArchived = PageProjects, true

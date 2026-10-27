@@ -152,6 +152,7 @@ type icsImport struct {
 	skips  []icsSkip
 	simple int
 	tags   map[*Event]string // the categories of events, which name their tags
+	name   string            // the calendar's own, as X-WR-CALNAME says
 }
 
 // icsSkip is a day the series of a UID skips.
@@ -185,6 +186,9 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 		switch {
 		case l.name == "BEGIN" && strings.EqualFold(l.value, "VEVENT"):
 			cur = &vevent{e: &Event{ID: newID()}}
+			continue
+		case cur == nil && l.name == "X-WR-CALNAME":
+			out.name = icsText(l.value)
 			continue
 		case l.name == "END" && strings.EqualFold(l.value, "VEVENT"):
 			if cur != nil && cur.start != nil {
@@ -462,6 +466,9 @@ func writeICS(events []*Event, now time.Time, tag func(KindID) string) []byte {
 	line("PRODID:-//NextTodo//NextTodo//EN")
 	line("CALSCALE:GREGORIAN")
 	for _, e := range events {
+		if e.Sub != "" {
+			continue // the calendar it comes from has it
+		}
 		line("BEGIN:VEVENT")
 		uid := e.UID
 		if uid == "" {

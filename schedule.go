@@ -86,6 +86,10 @@ func (a *app) newEvent(start time.Time, project string) {
 // editEvent opens the dialog for an event, or for an occurrence of a
 // repeating one, which changes it alone unless the user says all.
 func (a *app) editEvent(e *Event) {
+	if e.Sub != "" {
+		a.info, a.infoOpen = e, true // read only: its calendar has it
+		return
+	}
 	alert := alertDefault
 	if e.Alert != nil {
 		alert = *e.Alert
@@ -571,8 +575,8 @@ func (a *app) eventBlock(c *ui.Context, pl placed, d time.Time) {
 	key := e.key() // one occurrence of a series drags alone
 	b := ui.ButtonBase(c.Key(key)).Absolute().Top(top+1).LeftPercent(w*float32(pl.lane)).WidthPercent(w).
 		Height(h-2).Padding(0, 2).FocusRing(false).Cursor(ui.CursorPointer).Label(orUntitled(e.Title, a.tr.Untitled()))
-	// A drag of the block moves the event.
-	if dx, dy, ok := b.Dragged(); ok && (dx != 0 || dy != 0) && !(a.drag.id == key && a.drag.resize) {
+	// A drag of the block moves the event, unless a subscription has it.
+	if dx, dy, ok := b.Dragged(); ok && (dx != 0 || dy != 0) && !(a.drag.id == key && a.drag.resize) && e.Sub == "" {
 		if a.drag.id != key {
 			a.drag = eventDrag{id: key}
 		}
@@ -616,6 +620,9 @@ func (a *app) eventBlock(c *ui.Context, pl placed, d time.Time) {
 			}
 		})
 		// The bottom edge resizes the event.
+		if e.Sub != "" {
+			return
+		}
 		edge := ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(7).Cursor(ui.CursorResizeNS)
 		if _, dy, ok := edge.Dragged(); ok && dy != 0 {
 			if a.drag.id != key || !a.drag.resize {
@@ -686,6 +693,9 @@ func (a *app) timeBlock(v dated, start time.Time) {
 		a.data.Events = append(a.data.Events, &Event{ID: newID(), Title: v.Title, Kind: kind, Project: v.Project,
 			Start: start, End: start.Add(time.Hour)})
 	case *Event:
+		if v.Sub != "" {
+			return
+		}
 		e := a.data.detach(v)
 		e.AllDay, e.Start, e.End = false, start, start.Add(time.Hour)
 	}
@@ -701,7 +711,9 @@ func (a *app) dropDay(cell ui.Element, d time.Time) {
 	}
 	switch v, _ := ui.Drop[dated](cell); v := v.(type) {
 	case *Event:
-		a.moveToDay(v, d)
+		if v.Sub == "" {
+			a.moveToDay(v, d)
+		}
 	case *Task:
 		v.Due = day(d)
 		a.changed()
@@ -712,6 +724,9 @@ func (a *app) eventMenu(c *ui.Context, b ui.Element, e *Event) {
 	b.ContextMenu(func(m *ui.Menu) {
 		if m.Item(a.tr.Edit()).Chosen() {
 			a.editEvent(e)
+		}
+		if e.Sub != "" {
+			return // read only
 		}
 		m.Separator()
 		if e.series != nil {
@@ -734,7 +749,10 @@ func (a *app) eventMenu(c *ui.Context, b ui.Element, e *Event) {
 func (a *app) eventChip(c *ui.Context, e *Event, withTime bool) {
 	p := &a.p
 	b := ui.ButtonBase(c.Key(e.key())).Height(20).Gap(5).Padding(0, 5).AlignItems(ui.Center).Justify(ui.Start).AlignSelf(ui.Stretch).
-		Radius(4).FocusRing(false).Drag(e).Label(orUntitled(e.Title, a.tr.Untitled()))
+		Radius(4).FocusRing(false).Label(orUntitled(e.Title, a.tr.Untitled()))
+	if e.Sub == "" {
+		b.Drag(e) // to another day; a subscription's stays
+	}
 	col := a.kindColor(e.Kind)
 	switch {
 	case e.AllDay:

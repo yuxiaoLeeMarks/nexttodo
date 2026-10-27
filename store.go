@@ -191,6 +191,9 @@ type Event struct {
 	// UID names an event imported from a calendar file there, which
 	// importing it again changes.
 	UID string `json:"uid,omitempty"`
+	// Sub is the subscription an event comes from, which keeps it, read
+	// only.
+	Sub string `json:"sub,omitempty"`
 
 	series *Event // the event an occurrence repeats
 }
@@ -213,15 +216,17 @@ type Prefs struct {
 
 // Data is everything the app keeps, as written to disk and to backups.
 type Data struct {
-	Format     string       `json:"format"`
-	Version    int          `json:"version"`
-	Categories []*Category  `json:"categories"`
-	Kinds      []*Kind      `json:"kinds"`
-	Directions []*Direction `json:"directions"`
-	Projects   []*Project   `json:"projects"`
-	Tasks      []*Task      `json:"tasks"`
-	Events     []*Event     `json:"events"`
-	Prefs      Prefs        `json:"prefs"`
+	Format     string      `json:"format"`
+	Version    int         `json:"version"`
+	Categories []*Category `json:"categories"`
+	Kinds      []*Kind     `json:"kinds"`
+	// Subscriptions are calendars on the web the app follows.
+	Subscriptions []*Subscription `json:"subscriptions,omitempty"`
+	Directions    []*Direction    `json:"directions"`
+	Projects      []*Project      `json:"projects"`
+	Tasks         []*Task         `json:"tasks"`
+	Events        []*Event        `json:"events"`
+	Prefs         Prefs           `json:"prefs"`
 }
 
 const (

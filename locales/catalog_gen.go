@@ -1184,6 +1184,166 @@ func (msgs Messages) KindsTitle() string {
 	return Catalog.Format(msgs.locale, "kindsTitle", nil)
 }
 
+// SubsTitle says "Calendar subscriptions"
+// in the language the app shows.
+func SubsTitle() string { return In(i18n.Locale()).SubsTitle() }
+
+// SubsTitle says "Calendar subscriptions"
+// in the language of msgs.
+func (msgs Messages) SubsTitle() string {
+	return Catalog.Format(msgs.locale, "subsTitle", nil)
+}
+
+// SubsHint says "Calendars on the web, as a university’s or Google Calendar’s iCal address, refreshed every hour. Their events are…"
+// in the language the app shows.
+func SubsHint() string { return In(i18n.Locale()).SubsHint() }
+
+// SubsHint says "Calendars on the web, as a university’s or Google Calendar’s iCal address, refreshed every hour. Their events are…"
+// in the language of msgs.
+func (msgs Messages) SubsHint() string {
+	return Catalog.Format(msgs.locale, "subsHint", nil)
+}
+
+// SubName says "Name"
+// in the language the app shows.
+func SubName() string { return In(i18n.Locale()).SubName() }
+
+// SubName says "Name"
+// in the language of msgs.
+func (msgs Messages) SubName() string {
+	return Catalog.Format(msgs.locale, "subName", nil)
+}
+
+// SubURLPlaceholder says "The address of a calendar, webcal:// or https://"
+// in the language the app shows.
+func SubURLPlaceholder() string { return In(i18n.Locale()).SubURLPlaceholder() }
+
+// SubURLPlaceholder says "The address of a calendar, webcal:// or https://"
+// in the language of msgs.
+func (msgs Messages) SubURLPlaceholder() string {
+	return Catalog.Format(msgs.locale, "subURLPlaceholder", nil)
+}
+
+// Subscribe says "Subscribe"
+// in the language the app shows.
+func Subscribe() string { return In(i18n.Locale()).Subscribe() }
+
+// Subscribe says "Subscribe"
+// in the language of msgs.
+func (msgs Messages) Subscribe() string {
+	return Catalog.Format(msgs.locale, "subscribe", nil)
+}
+
+// SubNever says "Not updated yet"
+// in the language the app shows.
+func SubNever() string { return In(i18n.Locale()).SubNever() }
+
+// SubNever says "Not updated yet"
+// in the language of msgs.
+func (msgs Messages) SubNever() string {
+	return Catalog.Format(msgs.locale, "subNever", nil)
+}
+
+// SubUpdating says "Updating…"
+// in the language the app shows.
+func SubUpdating() string { return In(i18n.Locale()).SubUpdating() }
+
+// SubUpdating says "Updating…"
+// in the language of msgs.
+func (msgs Messages) SubUpdating() string {
+	return Catalog.Format(msgs.locale, "subUpdating", nil)
+}
+
+// SubUpdated says "Updated {when}"
+// in the language the app shows.
+func SubUpdated(when string) string { return In(i18n.Locale()).SubUpdated(when) }
+
+// SubUpdated says "Updated {when}"
+// in the language of msgs.
+func (msgs Messages) SubUpdated(when string) string {
+	return Catalog.Format(msgs.locale, "subUpdated", map[string]any{"when": when})
+}
+
+// SubFailed says "Could not update: {error}"
+// in the language the app shows.
+func SubFailed(error string) string { return In(i18n.Locale()).SubFailed(error) }
+
+// SubFailed says "Could not update: {error}"
+// in the language of msgs.
+func (msgs Messages) SubFailed(error string) string {
+	return Catalog.Format(msgs.locale, "subFailed", map[string]any{"error": error})
+}
+
+// SubTag says "Tag of its events"
+// in the language the app shows.
+func SubTag() string { return In(i18n.Locale()).SubTag() }
+
+// SubTag says "Tag of its events"
+// in the language of msgs.
+func (msgs Messages) SubTag() string {
+	return Catalog.Format(msgs.locale, "subTag", nil)
+}
+
+// SubAlerts says "Alerts for its events"
+// in the language the app shows.
+func SubAlerts() string { return In(i18n.Locale()).SubAlerts() }
+
+// SubAlerts says "Alerts for its events"
+// in the language of msgs.
+func (msgs Messages) SubAlerts() string {
+	return Catalog.Format(msgs.locale, "subAlerts", nil)
+}
+
+// SubRefresh says "Refresh"
+// in the language the app shows.
+func SubRefresh() string { return In(i18n.Locale()).SubRefresh() }
+
+// SubRefresh says "Refresh"
+// in the language of msgs.
+func (msgs Messages) SubRefresh() string {
+	return Catalog.Format(msgs.locale, "subRefresh", nil)
+}
+
+// Unsubscribe says "Unsubscribe"
+// in the language the app shows.
+func Unsubscribe() string { return In(i18n.Locale()).Unsubscribe() }
+
+// Unsubscribe says "Unsubscribe"
+// in the language of msgs.
+func (msgs Messages) Unsubscribe() string {
+	return Catalog.Format(msgs.locale, "unsubscribe", nil)
+}
+
+// SubFrom says "From {name}."
+// in the language the app shows.
+func SubFrom(name string) string { return In(i18n.Locale()).SubFrom(name) }
+
+// SubFrom says "From {name}."
+// in the language of msgs.
+func (msgs Messages) SubFrom(name string) string {
+	return Catalog.Format(msgs.locale, "subFrom", map[string]any{"name": name})
+}
+
+// SubReadOnly says "Change it in the calendar it comes from."
+// in the language the app shows.
+func SubReadOnly() string { return In(i18n.Locale()).SubReadOnly() }
+
+// SubReadOnly says "Change it in the calendar it comes from."
+// in the language of msgs.
+func (msgs Messages) SubReadOnly() string {
+	return Catalog.Format(msgs.locale, "subReadOnly", nil)
+}
+
+// NoKind says "No tag"
+// in the language the app shows.
+func NoKind() string { return In(i18n.Locale()).NoKind() }
+
+// NoKind says "No tag"
+// in the language of msgs.
+func (msgs Messages) NoKind() string {
+	return Catalog.Format(msgs.locale, "noKind", nil)
+}
+
 // KindsIntro says "Tag events your way: what they are, with whom, where. Drag to order them; the first is the tag of new events."
 // in the language the app shows.
 func KindsIntro() string { return In(i18n.Locale()).KindsIntro() }

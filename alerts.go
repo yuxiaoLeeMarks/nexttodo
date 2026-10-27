@@ -26,6 +26,13 @@ func (a *app) alertLead(e *Event) (time.Duration, bool) {
 	if n < 0 || e.AllDay {
 		return 0, false
 	}
+	if e.Sub != "" {
+		// A subscription's events alert only if it says so: its calendar
+		// alerts too, where it comes from.
+		if s := a.data.subscription(e.Sub); s == nil || !s.Alerts {
+			return 0, false
+		}
+	}
 	return time.Duration(n) * time.Minute, true
 }
 

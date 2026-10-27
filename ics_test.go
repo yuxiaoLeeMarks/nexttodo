@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -239,5 +241,71 @@ func TestICSTags(t *testing.T) {
 		if e.Kind != a.data.Events[i].Kind {
 			t.Errorf("%q came back tagged %q, not %q", e.Title, e.Kind, a.data.Events[i].Kind)
 		}
+	}
+}
+
+// A calendar on the web, followed: its events come, read only, come again
+// as it changes, keep their IDs, stay when it cannot be had, and go with
+// it.
+func TestSubscriptions(t *testing.T) {
+	a := testApp("en")
+	feed := "BEGIN:VCALENDAR\r\nX-WR-CALNAME:Department\r\n" +
+		"BEGIN:VEVENT\r\nUID:talk\r\nDTSTART:20261028T060000Z\r\nDURATION:PT1H\r\nSUMMARY:Talk\r\nEND:VEVENT\r\n" +
+		"BEGIN:VEVENT\r\nUID:retreat\r\nDTSTART;VALUE=DATE:20261030\r\nSUMMARY:Retreat\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+	var fail error
+	a.fetch = func(_ context.Context, u string) ([]byte, error) {
+		if u != "https://example.edu/dept.ics" {
+			t.Errorf("fetched %q", u)
+		}
+		return []byte(feed), fail
+	}
+	if err := a.subscribe("webcal://example.edu/dept.ics"); err != nil {
+		t.Fatal(err)
+	}
+	s := a.data.Subscriptions[0]
+	talk := eventTitled(a, "Talk")
+	if s.Name != "Department" || talk == nil || talk.Sub != s.ID || talk.Kind != a.data.newKind() || s.Updated.IsZero() {
+		t.Fatalf("subscription %+v, talk %+v", s, talk)
+	}
+	// Changed there, changed here, the same event.
+	feed = strings.Replace(feed, "SUMMARY:Talk", "SUMMARY:Talk moved", 1)
+	a.refreshSubscription(s)
+	if moved := eventTitled(a, "Talk moved"); moved == nil || moved.ID != talk.ID || eventTitled(a, "Talk") != nil {
+		t.Fatalf("after a refresh: %+v", moved)
+	}
+	// Unreachable, it keeps what it had and says why.
+	fail = errors.New("offline")
+	a.refreshSubscription(s)
+	if eventTitled(a, "Talk moved") == nil || a.subErr[s.ID] != "offline" {
+		t.Errorf("failed refresh lost events, or no error: %q", a.subErr[s.ID])
+	}
+	fail = nil
+	// Read only: a click shows it, its alerts wait for a yes, it is not
+	// exported.
+	e := eventTitled(a, "Talk moved")
+	a.editEvent(e)
+	if a.evtOpen || !a.infoOpen || a.info != e {
+		t.Error("a subscription's event opened for editing")
+	}
+	if _, ok := a.alertLead(e); ok {
+		t.Error("a subscription's event alerts unasked")
+	}
+	if strings.Contains(string(writeICS(a.data.Events, monday, a.kindName)), "Talk moved") {
+		t.Error("a subscription's event was exported")
+	}
+	// Unsubscribed, its events go, until Undo.
+	n := len(a.data.Events)
+	step := a.remember()
+	a.data.unsubscribe(s.ID)
+	a.settle(step)
+	if len(a.data.Events) != n-2 || len(a.data.Subscriptions) != 0 {
+		t.Fatalf("%d events left of %d", len(a.data.Events), n)
+	}
+	a.restore(step)
+	if len(a.data.Events) != n || len(a.data.Subscriptions) != 1 {
+		t.Errorf("after Undo, %d events, %d subscriptions", len(a.data.Events), len(a.data.Subscriptions))
+	}
+	if _, err := calendarURL("not a url at all"); err == nil {
+		t.Error("an address of nothing was taken")
 	}
 }

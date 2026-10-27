@@ -70,6 +70,13 @@ func main() {
 		})
 		a.updateBadge()
 		go a.watchAlerts()
+		// The subscriptions, a little after launch and every hour.
+		go func() {
+			for wait := 3 * time.Second; ; wait = subscriptionEvery {
+				time.Sleep(wait)
+				mygo.RunOnMain(a.refreshSubscriptions)
+			}
+		}()
 		a.captureForCheck()
 	})
 	mygo.App.OnLocaleChanged(func(string) {

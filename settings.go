@@ -101,6 +101,9 @@ func (a *app) settingsPage(c *ui.Context) {
 					}
 				})
 			})
+			a.section(c, a.tr.SubsTitle(), "", nil)
+			ui.Text(c, a.tr.SubsHint()).FontSize(12).TextColor(p.muted).Margin(0, 4, 6)
+			a.list(c, func() { a.subscriptionsRows(c) })
 
 			a.section(c, a.tr.SettingsNotifications(), "", nil)
 			a.list(c, func() {

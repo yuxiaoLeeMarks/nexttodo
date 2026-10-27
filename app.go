@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"strings"
@@ -92,6 +93,16 @@ type app struct {
 	repeated map[string]repeated
 
 	stepDraft string // the step being typed into a task's checklist
+
+	// Subscriptions: those being refreshed, why one could not be, the
+	// address being typed, and how calendars are fetched (tests fake it).
+	subBusy  map[string]bool
+	subErr   map[string]string
+	subDraft string
+	fetch    func(context.Context, string) ([]byte, error)
+	// info is the event of a subscription shown, read only, while infoOpen.
+	info     *Event
+	infoOpen bool
 
 	// The tags of events.
 	kindsOpen bool
@@ -450,6 +461,7 @@ func (a *app) view(c *ui.Context) {
 	a.directionDialog(c)
 	a.categoriesSheet(c)
 	a.kindsSheet(c) // over the event's dialog, which opens it
+	a.eventInfo(c)
 	a.searchSheet(c)
 }
 
