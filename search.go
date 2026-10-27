@@ -52,7 +52,11 @@ func (a *app) searchHits(query string) []hit {
 	}
 	var found []hit
 	for _, t := range a.data.Tasks {
-		r := rank(t.Title, t.Notes)
+		more := []string{t.Notes}
+		for _, st := range t.Steps {
+			more = append(more, st.Title)
+		}
+		r := rank(t.Title, more...)
 		if r < 0 {
 			continue
 		}

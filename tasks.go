@@ -405,6 +405,13 @@ func (a *app) taskRow(c *ui.Context, t *Task, where int) {
 			if t.Repeat != RepeatNone && !t.Done {
 				item(iconRepeat, a.repeatName(t.Repeat), p.muted)
 			}
+			if len(t.Steps) > 0 {
+				col := p.muted
+				if t.stepsDone() == len(t.Steps) {
+					col = p.green
+				}
+				item(iconChecklist, itoa(t.stepsDone())+"/"+itoa(len(t.Steps)), col)
+			}
 			if strings.TrimSpace(t.Notes) != "" {
 				item(iconNote, "", p.faint)
 			}
@@ -452,6 +459,59 @@ func (a *app) taskRow(c *ui.Context, t *Task, where int) {
 		} else {
 			a.openTask(t.ID)
 		}
+	}
+}
+
+// taskSteps is the checklist of a task, under its title: each step
+// ticked off, renamed in place or deleted, and a field adding the next,
+// which stays for the one after.
+func (a *app) taskSteps(c *ui.Context, t *Task) {
+	p := &a.p
+	var remove *Step
+	ui.Column(c.Key("steps:"+t.ID)).Padding(0, 10, 4, 14).Gap(0).Children(func() {
+		for i, s := range t.Steps {
+			row := ui.Row(c.Key(i)).MinHeight(30).Gap(10).AlignItems(ui.Center)
+			hover := row.Hovered()
+			row.Children(func() {
+				done := s.Done
+				if a.check(c, &done, a.tr.MarkDone()+": "+s.Title).Size(16, 16).Changed() {
+					s.Done = done
+					a.changed()
+				}
+				in := ui.TextInputBase(c, &s.Title).Label(a.tr.Step()).FontSize(13).Grow(1).MinWidth(0)
+				if s.Done {
+					in.TextColor(p.muted)
+				} else {
+					in.TextColor(p.fg)
+				}
+				if in.Changed() {
+					a.changed()
+				}
+				x := a.iconBtn(c, iconClose, a.tr.Delete()).Size(22, 22)
+				if !hover {
+					x.Opacity(0)
+				}
+				if x.Clicked() {
+					remove = s
+				}
+			})
+		}
+		// Keyed, to keep the focus as the steps above it grow.
+		ui.Row(c.Key("add")).MinHeight(30).Gap(10).AlignItems(ui.Center).Children(func() {
+			ui.Icon(c, iconPlus).Size(14, 14).TextColor(p.accent).Margin(0, 1)
+			in := ui.TextInputBase(c, &a.stepDraft).Placeholder(a.tr.AddStep()).Label(a.tr.AddStep()).FontSize(13).Grow(1).TextColor(p.fg)
+			if in.Submitted() {
+				if s := strings.TrimSpace(a.stepDraft); s != "" {
+					t.Steps = append(t.Steps, &Step{Title: s})
+					a.changed()
+				}
+				a.stepDraft = ""
+			}
+		})
+	})
+	if remove != nil {
+		t.Steps = slices.DeleteFunc(t.Steps, func(s *Step) bool { return s == remove })
+		a.changed()
 	}
 }
 
@@ -519,6 +579,7 @@ func (a *app) taskDetail(c *ui.Context, t *Task) {
 			ui.Column(c).Padding(12, 14, 4).Children(func() {
 				a.titleInput(c, &t.Title, a.tr.Untitled(), 17)
 			})
+			a.taskSteps(c, t)
 			ui.Column(c).Dividers(1, p.line2).Gap(1).Margin(4, 0, 0, 0).Children(func() {
 				a.formRow(c, a.tr.FieldDue(), func() { a.dateField(c, "due", &t.Due) })
 				a.formRow(c, a.tr.FieldRemind(), func() { a.remindField(c, t) })

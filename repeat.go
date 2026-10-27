@@ -179,6 +179,10 @@ func (d *Data) repeatTask(t *Task, now time.Time) *Task {
 	if !t.Remind.IsZero() {
 		n.Remind = t.Remind.AddDate(0, 0, daysBetween(due, next))
 	}
+	n.Steps = nil // the same steps, none done yet
+	for _, s := range t.Steps {
+		n.Steps = append(n.Steps, &Step{Title: s.Title})
+	}
 	t.Repeat = RepeatNone
 	d.Tasks = append(d.Tasks, &n)
 	return &n

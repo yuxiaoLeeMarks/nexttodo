@@ -569,3 +569,39 @@ func TestRepeatingTask(t *testing.T) {
 		t.Errorf("typed: %+v", y)
 	}
 }
+
+// A task's checklist: steps added one after another, ticked off, counted
+// in its row, found by search, and fresh again in a repeating task's next.
+func TestTaskSteps(t *testing.T) {
+	a := testApp("en")
+	x := taskTitled(a, "Book flights for the December workshop")
+	a.page, a.taskList, a.taskSel = PageTasks, listAll, x.ID
+	tt := newTester(t, a, "en")
+	if err := tt.Click("Add a step"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Type("Compare fares")
+	tt.Key(0, ui.KeyEnter)
+	tt.Type("Ask for the visa letter")
+	tt.Key(0, ui.KeyEnter)
+	if len(x.Steps) != 2 || x.Steps[1].Title != "Ask for the visa letter" {
+		t.Fatalf("steps %+v", x.Steps)
+	}
+	if err := tt.Click("Mark as done: Compare fares"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !x.Steps[0].Done || !tt.HasText("1/2") {
+		t.Errorf("a step ticked off: %+v, texts %q", x.Steps[0], tt.Texts())
+	}
+	if hits := a.searchHits("visa letter"); len(hits) == 0 || hits[0].key != "t"+x.ID {
+		t.Errorf("search %+v", hits)
+	}
+	x.Repeat = RepeatMonthly
+	a.setDone(x, true)
+	for _, y := range a.data.Tasks {
+		if y.Title == x.Title && !y.Done && (len(y.Steps) != 2 || y.stepsDone() != 0) {
+			t.Errorf("the next has steps %+v", y.Steps)
+		}
+	}
+}

@@ -143,12 +143,30 @@ type Task struct {
 	Due      time.Time `json:"due,omitzero"`
 	Remind   time.Time `json:"remind,omitzero"`    // when a notification reminds of it
 	Repeat   Repeat    `json:"repeat,omitempty"`   // done, it comes again, due the next time
+	Steps    []*Step   `json:"steps,omitempty"`    // a checklist of what it takes
 	Priority int       `json:"priority,omitempty"` // 0 none, 1 low, 2 medium, 3 high
 	Starred  bool      `json:"starred,omitempty"`
 	MyDay    time.Time `json:"myDay,omitzero"`
 	Done     bool      `json:"done,omitempty"`
 	DoneAt   time.Time `json:"doneAt,omitzero"`
 	Created  time.Time `json:"created"`
+}
+
+// Step is a step of a task's checklist.
+type Step struct {
+	Title string `json:"title"`
+	Done  bool   `json:"done,omitempty"`
+}
+
+// stepsDone counts the steps of t done.
+func (t *Task) stepsDone() int {
+	n := 0
+	for _, s := range t.Steps {
+		if s.Done {
+			n++
+		}
+	}
+	return n
 }
 
 // Event is something on the schedule.

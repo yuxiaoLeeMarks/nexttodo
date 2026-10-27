@@ -64,6 +64,8 @@
   "fieldNotes": "备注",
   "fieldDue": "截止日期",
   "fieldRemind": "提醒我",
+  "step": "步骤",
+  "addStep": "添加步骤",
   "reminder": "待办提醒",
   "fieldPriority": "优先级",
   "fieldProject": "项目",

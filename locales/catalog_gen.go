@@ -614,6 +614,26 @@ func (msgs Messages) FieldRemind() string {
 	return Catalog.Format(msgs.locale, "fieldRemind", nil)
 }
 
+// Step says "Step"
+// in the language the app shows.
+func Step() string { return In(i18n.Locale()).Step() }
+
+// Step says "Step"
+// in the language of msgs.
+func (msgs Messages) Step() string {
+	return Catalog.Format(msgs.locale, "step", nil)
+}
+
+// AddStep says "Add a step"
+// in the language the app shows.
+func AddStep() string { return In(i18n.Locale()).AddStep() }
+
+// AddStep says "Add a step"
+// in the language of msgs.
+func (msgs Messages) AddStep() string {
+	return Catalog.Format(msgs.locale, "addStep", nil)
+}
+
 // Reminder says "Reminder"
 // in the language the app shows.
 func Reminder() string { return In(i18n.Locale()).Reminder() }

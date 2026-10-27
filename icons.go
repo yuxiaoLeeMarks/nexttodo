@@ -72,6 +72,7 @@ var (
 	iconRepeat        = icon(`<path d="M2.8 7.2V6.6A2.6 2.6 0 0 1 5.4 4h7.4M10.8 2l2 2-2 2M13.2 8.8v.6A2.6 2.6 0 0 1 10.6 12H3.2M5.2 14l-2-2 2-2"/>`)
 	iconCircle        = icon(`<circle cx="8" cy="8" r="5.6"/>`)
 	iconTag           = icon(`<path d="M2.4 8.6V3.2c0-.5.4-.8.8-.8h5.4l5 5c.4.4.4 1 0 1.4l-4.6 4.6c-.4.4-1 .4-1.4 0z"/><circle cx="5.4" cy="5.4" r="1"/>`)
+	iconChecklist     = icon(`<path d="M2.5 4.2l1.2 1.2 2-2.2M2.5 10.2l1.2 1.2 2-2.2M8 4.5h5.5M8 10.5h5.5"/>`)
 	// iconLogo is the app's mark: a page of a calendar with a check, as the
 	// title bar and the menu bar show it.
 	iconLogo = icon(`<rect x="2" y="2.8" width="12" height="11.2" rx="2.6"/><path d="M2 6.2h12M5.4 9.6l1.8 1.8 3.4-3.6"/>`)

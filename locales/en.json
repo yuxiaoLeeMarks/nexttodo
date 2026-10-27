@@ -70,6 +70,8 @@
   "fieldNotes": "Notes",
   "fieldDue": "Due date",
   "fieldRemind": "Reminder",
+  "step": "Step",
+  "addStep": "Add a step",
   "reminder": "Reminder",
   "fieldPriority": "Priority",
   "fieldProject": "Project",

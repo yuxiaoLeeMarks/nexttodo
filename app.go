@@ -91,6 +91,8 @@ type app struct {
 	// take back as it is undone again: its ID and how it repeated.
 	repeated map[string]repeated
 
+	stepDraft string // the step being typed into a task's checklist
+
 	// The tags of events.
 	kindsOpen bool
 	kindDraft string
