@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.0
+
+**Tasks**
+
+- Repeating tasks, as in Reminders: every day, weekday, week, two weeks, month or year. Done, a task comes again, due the next of its days still to come, its reminder as many days later; unchecked at once, it takes that back. Typed too: "every friday", 每周一, 每个月.
+- A checklist of steps in a task's details, counted in its row (1/3) and found by search; a repeating task's next has them fresh.
+
+**Schedule**
+
+- Subscribe to calendars on the web: a university's or Google Calendar's iCal address, a conference's deadlines, or the public holidays of eight regions, a click away in Settings › Schedule. They refresh every hour; their events are read only, tagged as you choose, and alert only if you ask.
+- Events repeat every year too, and a calendar's rules NextTodo cannot repeat by, as the fourth Thursday of November, come as their times from a year ago to two on.
+
+**Fixed**
+
+- Clear sample data took one's own things whose titles matched the sample's: the sample is now marked as such.
+- Right-clicks and Control-clicks on the tabs and switches no longer switch them.
+- Undo of a deletion made with an event's dialog open keeps the dialog and what was typed.
+- A calendar's categories are read whole and in turn, and importing again keeps the tags you gave.
+
 ## 0.6.0
 
 **Installing**
