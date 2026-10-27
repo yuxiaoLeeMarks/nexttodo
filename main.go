@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -59,6 +60,7 @@ func main() {
 			a.openMain()
 		}
 		a.setHotkey(!a.data.Prefs.NoHotkey)
+		a.openAtLogin = mygo.App.OpenAtLogin()
 		a.updateBadge()
 		go a.watchAlerts()
 		a.captureForCheck()
@@ -103,7 +105,7 @@ func (a *app) openMain() {
 		// The traffic lights centered in the 50 points of the title bar, as
 		// magpie's are in its toolbar, beside the name and the pages.
 		TrafficLightPosition: &mygo.Point{X: 18, Y: 18},
-		Content:        ui.View(a.view),
+		Content:              ui.View(a.view),
 	})
 	a.win = win
 	win.OnClose(func(*mygo.CloseEvent) { a.flush() })
@@ -364,6 +366,53 @@ func (a *app) captureForCheck() {
 	}
 	if os.Getenv("NEXTTODO_PANEL") != "" && a.tray != nil {
 		a.togglePanel()
+	}
+	// NEXTTODO_CYCLE steps through the pages, for timing their frames with
+	// MYGO_FRAME_STATS.
+	if os.Getenv("NEXTTODO_CYCLE") != "" {
+		steps := []struct {
+			name string
+			do   func()
+		}{}
+		for _, pg := range []Page{PageOverview, PageTasks, PageSchedule, PageProjects, PageDirections, PageSettings, PageOverview, PageSettings} {
+			steps = append(steps, struct {
+				name string
+				do   func()
+			}{fmt.Sprintf("page %d", pg), func() { a.navigate(pg) }})
+		}
+		for _, st := range []struct {
+			name string
+			do   func()
+		}{
+			{"event dialog", func() { a.navigate(PageSchedule); a.editEvent(a.data.Events[0]) }},
+			{"close dialog", func() { a.evtOpen = false }},
+			{"search", func() { a.openSearch() }},
+			{"close search", func() { a.searchOpen = false }},
+			{"categories", func() { a.navigate(PageProjects); a.catOpen = true }},
+			{"close categories", func() { a.catOpen = false }},
+			{"month", func() { a.navigate(PageSchedule); a.schedMode = 1 }},
+			{"week", func() { a.schedMode = 0 }},
+			{"timeline", func() { a.navigate(PageProjects); a.data.Prefs.Timeline = true }},
+			{"list", func() { a.data.Prefs.Timeline = false }},
+			{"to schedule", func() { a.navigate(PageSchedule) }},
+			{"event dialog on schedule", func() { a.editEvent(a.data.Events[1]) }},
+			{"close dialog 2", func() { a.evtOpen = false }},
+			{"event dialog again", func() { a.editEvent(a.data.Events[2]) }},
+			{"panel", func() { a.togglePanel() }},
+		} {
+			steps = append(steps, st)
+		}
+		go func() {
+			for _, st := range steps {
+				time.Sleep(1200 * time.Millisecond)
+				mygo.RunOnMain(func() {
+					log.Printf("step %s", st.name)
+					st.do()
+					a.redraw()
+				})
+			}
+		}()
+		return
 	}
 	go func() {
 		time.Sleep(2 * time.Second)

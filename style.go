@@ -295,17 +295,28 @@ func (a *app) iconBtn(c *ui.Context, icon *ui.SVG, label string) ui.Element {
 }
 
 // segTrack is a segmented control on a gray track, its choice on a white
-// thumb, as magpie's in-page switches.
-func (a *app) segTrack(c *ui.Context, key string, chosen *int, labels ...string) ui.Element {
+// thumb, as magpie's in-page switches. It chooses as the pointer goes
+// down, and reports whether the choice changed.
+func (a *app) segTrack(c *ui.Context, key string, chosen *int, labels ...string) bool {
+	was := *chosen
 	s := ui.SegmentedBase(c.Key(key), chosen, len(labels))
 	s.Track.Radius(8).Shrink(0).Background(a.p.segTrack)
-	a.segments(c, s.Track, labels, *chosen, func(i int) ui.Element { return s.Segment(i) })
-	return s.Track
+	a.segments(c, s.Track, labels, *chosen, func(i int) ui.Element {
+		seg := s.Segment(i)
+		if seg.Pressed() && *chosen != i {
+			*chosen = i
+			c.Invalidate() // the thumb, built before, moves in the next frame
+		}
+		return seg
+	})
+	return s.Track.Changed() || *chosen != was
 }
 
-// thumbMotion slides a segmented control's thumb to the segment chosen.
+// thumbMotion slides a segmented control's thumb to the segment chosen,
+// quickly and done: a curve ends when it says, where a spring's tail draws
+// frames that move nothing for most of a second.
 var thumbMotion = ui.ElementTransition{
-	Animation: &ui.Snappy,
+	Animation: &ui.Animation{Duration: 200 * time.Millisecond},
 	Enter:     &ui.Motion{Scale: 0.92},
 	Exit:      &ui.Motion{Scale: 0.92},
 }
@@ -389,7 +400,7 @@ func selectOf[T comparable](a *app, c *ui.Context, key string, chosen *T, option
 // popMotion grows a popover or a sheet out of a little smaller, quickly,
 // as magpie's pickers and macOS's sheets come.
 var popMotion = ui.ElementTransition{
-	Animation: &ui.Snappy,
+	Animation: &ui.Animation{Duration: 160 * time.Millisecond},
 	Enter:     &ui.Motion{Scale: 0.96, Y: -4},
 	Exit:      &ui.Motion{Scale: 0.98},
 }

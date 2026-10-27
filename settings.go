@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -48,7 +49,7 @@ func (a *app) settingsPage(c *ui.Context) {
 				})
 				a.formRow(c, a.tr.SettingsAppearance(), func() {
 					i := max(0, indexOf([]string{"", "light", "dark"}, prefs.Appearance))
-					if a.segTrack(c, "appearance", &i, a.tr.AppearanceSystem(), a.tr.AppearanceLight(), a.tr.AppearanceDark()).Changed() {
+					if a.segTrack(c, "appearance", &i, a.tr.AppearanceSystem(), a.tr.AppearanceLight(), a.tr.AppearanceDark()) {
 						prefs.Appearance = []string{"", "light", "dark"}[i]
 						a.changed()
 						if a.live {
@@ -57,10 +58,14 @@ func (a *app) settingsPage(c *ui.Context) {
 					}
 				})
 				a.formRowHint(c, a.tr.SettingsOpenAtLogin(), a.tr.SettingsOpenAtLoginHint(), func() {
-					on := a.live && mygo.App.OpenAtLogin()
+					// As read at launch: asking macOS takes some 16 ms, too long
+					// for a frame.
+					on := a.openAtLogin
 					if ui.Switch(c, &on).Label(a.tr.SettingsOpenAtLogin()).Disabled(!a.live).Changed() {
 						if err := mygo.App.SetOpenAtLogin(on); err != nil {
 							a.toast = err.Error()
+						} else {
+							a.openAtLogin = on
 						}
 					}
 				})
@@ -145,7 +150,10 @@ func (a *app) settingsPage(c *ui.Context) {
 				}
 				if a.path != "" {
 					a.formRowHint(c, a.tr.AutoBackups(), a.tr.AutoBackupsHint(keepBackups), func() {
-						list := backups(a.path)
+						if !a.backupsRead {
+							a.backupList, a.backupsRead = backups(a.path), true
+						}
+						list := a.backupList
 						if len(list) == 0 {
 							return
 						}
@@ -237,12 +245,13 @@ func indexOf(s []string, v string) int {
 	return -1
 }
 
-func appVersion() string {
+// appVersion is the app's version, asked of the bundle once.
+var appVersion = sync.OnceValue(func() string {
 	if v := mygo.App.Version(); v != "" {
 		return v
 	}
 	return "0.4.0"
-}
+})
 
 func (a *app) setLanguage(tag string) {
 	if a.live {

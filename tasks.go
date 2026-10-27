@@ -201,7 +201,7 @@ func (a *app) tasksPage(c *ui.Context) {
 				labels[i] += "  " + itoa(n)
 			}
 		}
-		if a.segTrack(c, "lists", &a.taskList, labels...).Changed() {
+		if a.segTrack(c, "lists", &a.taskList, labels...) {
 			a.taskSel = ""
 		}
 		ui.Spacer(c)

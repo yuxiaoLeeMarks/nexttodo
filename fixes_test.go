@@ -405,3 +405,30 @@ func TestUndoMany(t *testing.T) {
 		t.Errorf("%d events back in %v", len(a.data.Events), took)
 	}
 }
+
+// The pages, and the lists of tasks, change as the pointer goes down.
+func TestSwitchOnPress(t *testing.T) {
+	a := testApp("en")
+	tt := newTester(t, a, "en")
+	r, ok := tt.Find("Tasks")
+	if !ok {
+		t.Fatal("no Tasks tab")
+	}
+	tt.Press(r.X+r.W/2, r.Y+r.H/2)
+	tt.Frame()
+	if a.page != PageTasks {
+		t.Fatalf("pressed, the page is %v", a.page)
+	}
+	tt.Release(r.X+r.W/2, r.Y+r.H/2)
+	tt.Frame()
+	r, ok = tt.Find("Important  3")
+	if !ok {
+		t.Fatalf("no Important list: %q", tt.Texts())
+	}
+	tt.Press(r.X+r.W/2, r.Y+r.H/2)
+	tt.Frame()
+	if a.taskList != listImportant {
+		t.Errorf("pressed, the list is %v", a.taskList)
+	}
+	tt.Release(r.X+r.W/2, r.Y+r.H/2)
+}

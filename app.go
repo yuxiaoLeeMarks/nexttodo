@@ -104,8 +104,11 @@ type app struct {
 	searchField ui.Handle
 
 	// Settings.
-	askErase   bool
-	notifyNote string // what the test notification found
+	openAtLogin bool     // as macOS says, asked once at launch
+	backupList  []backup // the automatic backups, as the settings show them
+	backupsRead bool
+	askErase    bool
+	notifyNote  string // what the test notification found
 
 	// The menu bar's panel.
 	quick quickDraft
@@ -179,6 +182,7 @@ func (a *app) flush() {
 		return
 	}
 	a.dirty = false
+	a.backupsRead = false
 }
 
 // loadData reads the data at path; a first launch gets the sample data.
@@ -411,7 +415,7 @@ func (a *app) view(c *ui.Context) {
 		if a.page == PageProjects && a.projOpen != "" {
 			key = a.projOpen
 		}
-		ui.Column(c.Key(key)).Grow(1).MinHeight(0).Transition(pageMotion).Children(func() {
+		ui.Column(c.Key(key)).Grow(1).MinHeight(0).Children(func() {
 			switch a.page {
 			case PageOverview:
 				a.overview(c)
@@ -437,14 +441,6 @@ func (a *app) view(c *ui.Context) {
 	a.directionDialog(c)
 	a.categoriesSheet(c)
 	a.searchSheet(c)
-}
-
-// pageMotion brings a page in as magpie's views come: rising a little
-// into place as it shows.
-var pageMotion = ui.ElementTransition{
-	Duration: 220 * time.Millisecond,
-	Position: true,
-	Enter:    &ui.Motion{Y: 6},
 }
 
 // header is the title bar: the app's mark after the window's controls,
@@ -514,8 +510,11 @@ func (a *app) pageSwitch(c *ui.Context) ui.Element {
 	track := ui.Box(c).FocusGroup(ui.Horizontal).Role(ui.RoleTabList)
 	a.segments(c, track, labels, chosen, func(i int) ui.Element {
 		b := ui.ButtonBase(c.Key(pages[i])).Role(ui.RoleTab).Selected(i == chosen)
-		if b.Clicked() {
+		// As the pointer goes down, as Safari's tabs do: a click's
+		// hundred milliseconds sooner.
+		if b.Clicked() || b.Pressed() && i != chosen {
 			a.navigate(pages[i])
+			c.Invalidate() // the thumb, built before, moves in the next frame
 		}
 		return b
 	})
@@ -533,6 +532,7 @@ func (a *app) navigate(p Page) {
 	if p == PageProjects {
 		a.projOpen = ""
 	}
+	a.backupsRead = false // read again as the settings show
 }
 
 // startTask shows the tasks page with its field ready for a new task.

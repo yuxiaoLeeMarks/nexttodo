@@ -146,7 +146,7 @@ func (a *app) projectsPage(c *ui.Context) {
 		if a.data.Prefs.Timeline {
 			view = 1
 		}
-		if a.segTrack(c, "view", &view, a.tr.ViewList(), a.tr.ViewTimeline()).Changed() {
+		if a.segTrack(c, "view", &view, a.tr.ViewList(), a.tr.ViewTimeline()) {
 			a.data.Prefs.Timeline = view == 1
 			a.changed()
 		}

@@ -105,7 +105,7 @@ func (a *app) panelView(c *ui.Context) {
 		})
 		a.card(c).Padding(10).Gap(8).Shrink(0).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				if a.segTrack(c, "quickMode", &q.mode, a.tr.PanelTask(), a.tr.PanelEvent()).Changed() {
+				if a.segTrack(c, "quickMode", &q.mode, a.tr.PanelTask(), a.tr.PanelEvent()) {
 					q.field.Focus()
 				}
 				ui.Spacer(c)
