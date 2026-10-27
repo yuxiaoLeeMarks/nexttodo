@@ -21,7 +21,9 @@ type when struct {
 }
 
 // said reports whether the line says anything of its time.
-func (w when) said() bool { return !w.day.IsZero() || w.clock || w.minutes > 0 || w.repeat != RepeatNone }
+func (w when) said() bool {
+	return !w.day.IsZero() || w.clock || w.minutes > 0 || w.repeat != RepeatNone
+}
 
 // start returns when the line says a thing starts: on its day, or at the
 // time's next coming, today or tomorrow.
