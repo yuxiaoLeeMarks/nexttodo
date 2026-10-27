@@ -1234,6 +1234,16 @@ func (msgs Messages) Subscribe() string {
 	return Catalog.Format(msgs.locale, "subscribe", nil)
 }
 
+// SubHolidays says "Holidays of:"
+// in the language the app shows.
+func SubHolidays() string { return In(i18n.Locale()).SubHolidays() }
+
+// SubHolidays says "Holidays of:"
+// in the language of msgs.
+func (msgs Messages) SubHolidays() string {
+	return Catalog.Format(msgs.locale, "subHolidays", nil)
+}
+
 // SubNever says "Not updated yet"
 // in the language the app shows.
 func SubNever() string { return In(i18n.Locale()).SubNever() }
@@ -1592,6 +1602,16 @@ func RepeatMonthly() string { return In(i18n.Locale()).RepeatMonthly() }
 // in the language of msgs.
 func (msgs Messages) RepeatMonthly() string {
 	return Catalog.Format(msgs.locale, "repeatMonthly", nil)
+}
+
+// RepeatYearly says "Every year"
+// in the language the app shows.
+func RepeatYearly() string { return In(i18n.Locale()).RepeatYearly() }
+
+// RepeatYearly says "Every year"
+// in the language of msgs.
+func (msgs Messages) RepeatYearly() string {
+	return Catalog.Format(msgs.locale, "repeatYearly", nil)
 }
 
 // ApplyTo says "Change"

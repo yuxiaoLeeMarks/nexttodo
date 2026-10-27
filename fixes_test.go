@@ -113,7 +113,7 @@ func TestAllDayRepeatOverDST(t *testing.T) {
 // A way of repeating this version does not know is once, not a hang.
 func TestUnknownRepeat(t *testing.T) {
 	d := newData()
-	d.Events = append(d.Events, &Event{ID: "y", Start: at(monday, 9, 0), End: at(monday, 10, 0), Repeat: "yearly"})
+	d.Events = append(d.Events, &Event{ID: "y", Start: at(monday, 9, 0), End: at(monday, 10, 0), Repeat: "hourly"})
 	done := make(chan []*Event)
 	go func() { done <- d.eventsBetween(day(monday), addDays(day(monday), 7)) }()
 	select {

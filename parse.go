@@ -140,6 +140,10 @@ var rules = []rule{
 		w.repeat = RepeatMonthly
 		return true
 	}},
+	{regexp.MustCompile(`(?i)\b(?:every\s+year|yearly|annually)\b|每年`), ruleRepeat, func(m []string, w *when, s *parseState) bool {
+		w.repeat = RepeatYearly
+		return true
+	}},
 
 	// Days.
 	{regexp.MustCompile(`(?i)` + onEN + `\b(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\b`), ruleDay, func(m []string, w *when, s *parseState) bool {

@@ -295,11 +295,28 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 		// the days and the times here.
 		group := []*Event{e}
 		if v.recur.IsZero() && v.rule != "" {
-			more, ok := e.repeatAs(v.rule)
-			if !ok {
+			if more, ok := e.repeatAs(v.rule); ok {
+				group = append(group, more...)
+			} else if starts, ok := expandRule(e, v.rule, icsNow()); ok {
+				// A rule NextTodo cannot repeat by, as the fourth Thursday of
+				// November, comes as its times, from a year ago to two on.
+				group = group[:0]
+				for _, st := range starts {
+					if slices.ContainsFunc(v.exdate, func(t time.Time) bool { return sameDay(t, st.In(loc)) }) {
+						continue
+					}
+					x := *e
+					x.ID, x.UID = newID(), e.UID+"@"+st.Format("20060102")
+					if e.AllDay {
+						x.Start, x.End = st, addDays(st, daysBetween(e.Start, e.End))
+					} else {
+						x.Start, x.End = st, st.Add(e.End.Sub(e.Start))
+					}
+					group = append(group, &x)
+				}
+			} else {
 				out.simple++
 			}
-			group = append(group, more...)
 		}
 		for _, x := range group {
 			if !x.AllDay {
@@ -327,15 +344,214 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 			}
 		}
 	}
-	// An occurrence changed or cancelled on its own, which its series skips.
+	// An occurrence changed or cancelled on its own, which its series skips,
+	// or which goes, of a rule come as its times.
+	gone := map[*Event]bool{}
 	for _, sk := range out.skips {
 		for _, x := range series[sk.uid] {
-			if !x.skipped(sk.day) {
+			switch {
+			case x.Repeat == RepeatNone && sameDay(x.Start, sk.day):
+				gone[x] = true
+			case x.Repeat != RepeatNone && !x.skipped(sk.day):
 				x.Skip = append(x.Skip, sk.day)
 			}
 		}
 	}
+	out.events = slices.DeleteFunc(out.events, func(x *Event) bool { return gone[x] })
 	return out, nil
+}
+
+// icsNow is the time that expanded rules are around: from a year before it
+// to two after.
+var icsNow = time.Now
+
+// expandRule returns the starts of the times of e by a rule NextTodo
+// cannot repeat by, from a year before now to two after, in e's zone: by
+// month, day of the month, day of the week (the fourth Thursday, the last
+// Friday), position in the set, every so many days, weeks, months or
+// years, so many times or until a moment. False for one it cannot read.
+func expandRule(e *Event, rule string, now time.Time) ([]time.Time, bool) {
+	parts := map[string]string{}
+	for _, p := range strings.Split(strings.ToUpper(rule), ";") {
+		if k, v, ok := strings.Cut(p, "="); ok {
+			parts[k] = v
+		}
+	}
+	for _, k := range []string{"BYWEEKNO", "BYYEARDAY", "BYHOUR", "BYMINUTE", "BYSECOND"} {
+		if parts[k] != "" {
+			return nil, false
+		}
+	}
+	freq := parts["FREQ"]
+	if freq != "DAILY" && freq != "WEEKLY" && freq != "MONTHLY" && freq != "YEARLY" {
+		return nil, false
+	}
+	ints := func(s string) ([]int, bool) {
+		var out []int
+		for _, v := range strings.Split(s, ",") {
+			if v == "" {
+				continue
+			}
+			n, err := strconv.Atoi(v)
+			if err != nil || n == 0 {
+				return nil, false
+			}
+			out = append(out, n)
+		}
+		return out, true
+	}
+	interval := 1
+	if n, err := strconv.Atoi(parts["INTERVAL"]); err == nil && n > 0 {
+		interval = n
+	}
+	months, ok1 := ints(parts["BYMONTH"])
+	monthDays, ok2 := ints(parts["BYMONTHDAY"])
+	setPos, ok3 := ints(parts["BYSETPOS"])
+	if !ok1 || !ok2 || !ok3 {
+		return nil, false
+	}
+	type byDay struct {
+		n  int // the nth of the month, from its end if below 0; 0 for every
+		wd time.Weekday
+	}
+	codes := map[string]time.Weekday{"SU": 0, "MO": 1, "TU": 2, "WE": 3, "TH": 4, "FR": 5, "SA": 6}
+	var days []byDay
+	for _, v := range strings.Split(parts["BYDAY"], ",") {
+		if v == "" {
+			continue
+		}
+		wd, ok := codes[v[max(len(v)-2, 0):]]
+		n, err := strconv.Atoi(v[:len(v)-2])
+		if !ok || err != nil && len(v) > 2 {
+			return nil, false
+		}
+		days = append(days, byDay{n, wd})
+	}
+	if freq == "YEARLY" && len(months) == 0 && slices.ContainsFunc(days, func(d byDay) bool { return d.n != 0 }) {
+		return nil, false // the 20th Monday of the year
+	}
+	count, _ := strconv.Atoi(parts["COUNT"])
+	var until time.Time
+	if u := parts["UNTIL"]; u != "" {
+		t, date, err := icsTime(icsLine{params: map[string]string{}, value: u}, e.Start.Location())
+		if err != nil {
+			return nil, false
+		}
+		if until = t; date {
+			until = addDays(t, 1).Add(-time.Second)
+		}
+	}
+	from, to := now.AddDate(-1, 0, 0), now.AddDate(2, 0, 0)
+	loc, start := e.Start.Location(), day(e.Start)
+	inMonths := func(m time.Month) bool { return len(months) == 0 || slices.Contains(months, int(m)) }
+	weekdayOK := func(t time.Time) bool {
+		return len(days) == 0 || slices.ContainsFunc(days, func(d byDay) bool { return d.wd == t.Weekday() })
+	}
+	// The days a month holds of the rule.
+	ofMonth := func(y int, m time.Month) []time.Time {
+		last := time.Date(y, m+1, 0, 0, 0, 0, 0, loc).Day()
+		var out []time.Time
+		switch {
+		case len(monthDays) > 0:
+			for _, md := range monthDays {
+				if md < 0 {
+					md = last + 1 + md
+				}
+				if t := time.Date(y, m, md, 0, 0, 0, 0, loc); md >= 1 && md <= last && weekdayOK(t) {
+					out = append(out, t)
+				}
+			}
+		case len(days) > 0:
+			for _, d := range days {
+				var all []time.Time
+				for md := 1; md <= last; md++ {
+					if t := time.Date(y, m, md, 0, 0, 0, 0, loc); t.Weekday() == d.wd {
+						all = append(all, t)
+					}
+				}
+				switch {
+				case d.n == 0:
+					out = append(out, all...)
+				case d.n > 0 && d.n <= len(all):
+					out = append(out, all[d.n-1])
+				case d.n < 0 && -d.n <= len(all):
+					out = append(out, all[len(all)+d.n])
+				}
+			}
+		case start.Day() <= last:
+			out = append(out, time.Date(y, m, start.Day(), 0, 0, 0, 0, loc))
+		}
+		return out
+	}
+	var out []time.Time
+	n := 0
+	for i := 0; i < 20000; i++ {
+		var set []time.Time
+		var begins time.Time
+		switch freq {
+		case "YEARLY":
+			y := start.Year() + i*interval
+			begins = time.Date(y, 1, 1, 0, 0, 0, 0, loc)
+			ms := months
+			if len(ms) == 0 {
+				ms = []int{int(start.Month())}
+			}
+			for _, m := range ms {
+				set = append(set, ofMonth(y, time.Month(m))...)
+			}
+		case "MONTHLY":
+			begins = time.Date(start.Year(), start.Month()+time.Month(i*interval), 1, 0, 0, 0, 0, loc)
+			if inMonths(begins.Month()) {
+				set = ofMonth(begins.Year(), begins.Month())
+			}
+		case "WEEKLY":
+			begins = addDays(weekStart(start, time.Monday), 7*i*interval)
+			if len(days) == 0 {
+				set = []time.Time{addDays(begins, (int(start.Weekday())+6)%7)}
+			}
+			for _, d := range days {
+				set = append(set, addDays(begins, (int(d.wd)+6)%7))
+			}
+			set = slices.DeleteFunc(set, func(t time.Time) bool { return !inMonths(t.Month()) })
+		case "DAILY":
+			begins = addDays(start, i*interval)
+			if inMonths(begins.Month()) && weekdayOK(begins) &&
+				(len(monthDays) == 0 || slices.Contains(monthDays, begins.Day())) {
+				set = []time.Time{begins}
+			}
+		}
+		if begins.After(to) || !until.IsZero() && begins.After(until) {
+			break
+		}
+		slices.SortFunc(set, time.Time.Compare)
+		set = slices.CompactFunc(set, time.Time.Equal)
+		if len(setPos) > 0 {
+			var picked []time.Time
+			for _, p := range setPos {
+				switch {
+				case p > 0 && p <= len(set):
+					picked = append(picked, set[p-1])
+				case p < 0 && -p <= len(set):
+					picked = append(picked, set[len(set)+p])
+				}
+			}
+			slices.SortFunc(picked, time.Time.Compare)
+			set = picked
+		}
+		for _, d := range set {
+			t := time.Date(d.Year(), d.Month(), d.Day(), e.Start.Hour(), e.Start.Minute(), 0, 0, loc)
+			if t.Before(e.Start) {
+				continue
+			}
+			if n++; count > 0 && n > count || !until.IsZero() && t.After(until) || t.After(to) {
+				return out, true
+			}
+			if !t.Before(from) {
+				out = append(out, t)
+			}
+		}
+	}
+	return out, true
 }
 
 // repeatAs makes e repeat as rule says, and returns the events more it
@@ -346,6 +562,11 @@ func (e *Event) repeatAs(rule string) ([]*Event, bool) {
 	for _, p := range strings.Split(strings.ToUpper(rule), ";") {
 		if k, v, ok := strings.Cut(p, "="); ok {
 			parts[k] = v
+		}
+	}
+	for _, k := range []string{"BYWEEKNO", "BYYEARDAY", "BYHOUR", "BYMINUTE", "BYSECOND"} {
+		if parts[k] != "" {
+			return nil, false
 		}
 	}
 	interval := 1
@@ -361,7 +582,11 @@ func (e *Event) repeatAs(rule string) ([]*Event, bool) {
 			return nil, false // the second Tuesday of the month
 		}
 	}
-	if parts["BYSETPOS"] != "" || parts["BYMONTH"] != "" || parts["BYMONTHDAY"] != "" && parts["BYMONTHDAY"] != strconv.Itoa(e.Start.Day()) {
+	// Every year on its day, as most holidays and birthdays.
+	yearly := parts["FREQ"] == "YEARLY" && interval == 1 && len(days) == 0 && parts["BYSETPOS"] == "" &&
+		(parts["BYMONTH"] == "" || parts["BYMONTH"] == strconv.Itoa(int(e.Start.Month()))) &&
+		(parts["BYMONTHDAY"] == "" || parts["BYMONTHDAY"] == strconv.Itoa(e.Start.Day()))
+	if !yearly && (parts["BYSETPOS"] != "" || parts["BYMONTH"] != "" || parts["BYMONTHDAY"] != "" && parts["BYMONTHDAY"] != strconv.Itoa(e.Start.Day())) {
 		return nil, false
 	}
 	weekdays := []time.Weekday{1, 2, 3, 4, 5}
@@ -416,6 +641,8 @@ func (e *Event) repeatAs(rule string) ([]*Event, bool) {
 		}
 	case parts["FREQ"] == "MONTHLY" && interval == 1 && len(days) == 0:
 		e.Repeat = RepeatMonthly
+	case yearly:
+		e.Repeat = RepeatYearly
 	default:
 		return nil, false
 	}
@@ -514,7 +741,7 @@ func writeICS(events []*Event, now time.Time, tag func(KindID) string) []byte {
 		if e.repeating() {
 			rule := map[Repeat]string{
 				RepeatDaily: "FREQ=DAILY", RepeatWeekdays: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", RepeatWeekly: "FREQ=WEEKLY",
-				RepeatBiweekly: "FREQ=WEEKLY;INTERVAL=2", RepeatMonthly: "FREQ=MONTHLY",
+				RepeatBiweekly: "FREQ=WEEKLY;INTERVAL=2", RepeatMonthly: "FREQ=MONTHLY", RepeatYearly: "FREQ=YEARLY",
 			}[e.Repeat]
 			switch {
 			case !e.Until.IsZero() && e.AllDay:

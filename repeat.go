@@ -17,9 +17,10 @@ const (
 	RepeatWeekly   Repeat = "weekly"
 	RepeatBiweekly Repeat = "biweekly"
 	RepeatMonthly  Repeat = "monthly"
+	RepeatYearly   Repeat = "yearly"
 )
 
-var repeats = []Repeat{RepeatNone, RepeatDaily, RepeatWeekdays, RepeatWeekly, RepeatBiweekly, RepeatMonthly}
+var repeats = []Repeat{RepeatNone, RepeatDaily, RepeatWeekdays, RepeatWeekly, RepeatBiweekly, RepeatMonthly, RepeatYearly}
 
 // repeating reports whether e repeats in a way this version knows: one it
 // does not, from a later version, is taken as once.
@@ -61,6 +62,10 @@ func (e *Event) nth(n int) (time.Time, bool) {
 		y, m, d := e.Start.Date()
 		t := time.Date(y, m+time.Month(n), d, e.Start.Hour(), e.Start.Minute(), 0, 0, e.Start.Location())
 		return t, t.Day() == d
+	case RepeatYearly:
+		y, m, d := e.Start.Date()
+		t := time.Date(y+n, m, d, e.Start.Hour(), e.Start.Minute(), 0, 0, e.Start.Location())
+		return t, t.Day() == d // the 29th of February, in leap years
 	}
 	return e.Start, n == 0
 }
@@ -91,6 +96,8 @@ func (e *Event) occurrences(from, to time.Time) []*Event {
 		n = daysBetween(e.Start, from.Add(-dur))/14 - 1
 	case RepeatMonthly:
 		n = (from.Year()-e.Start.Year())*12 + int(from.Month()-e.Start.Month()) - 1
+	case RepeatYearly:
+		n = from.Year() - e.Start.Year() - 1
 	}
 	var out []*Event
 	for n = max(n, 0); ; n++ {
@@ -158,6 +165,10 @@ func nextDay(r Repeat, d time.Time) time.Time {
 		y, m, dd := d.Date()
 		last := time.Date(y, m+2, 0, 0, 0, 0, 0, d.Location()).Day()
 		return time.Date(y, m+1, min(dd, last), 0, 0, 0, 0, d.Location())
+	case RepeatYearly:
+		y, m, dd := d.Date()
+		last := time.Date(y+1, m+1, 0, 0, 0, 0, 0, d.Location()).Day()
+		return time.Date(y+1, m, min(dd, last), 0, 0, 0, 0, d.Location())
 	}
 	return d
 }

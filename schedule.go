@@ -189,6 +189,8 @@ func (a *app) repeatName(r Repeat) string {
 		return a.tr.RepeatBiweekly()
 	case RepeatMonthly:
 		return a.tr.RepeatMonthly()
+	case RepeatYearly:
+		return a.tr.RepeatYearly()
 	}
 	return a.tr.RepeatNever()
 }

@@ -34,6 +34,8 @@ func TestReadICS(t *testing.T) {
 	if err != nil {
 		t.Skip(err)
 	}
+	defer func(now func() time.Time) { icsNow = now }(icsNow)
+	icsNow = func() time.Time { return monday }
 	got, err := readICS([]byte(sampleICS), sh)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +44,8 @@ func TestReadICS(t *testing.T) {
 	for _, e := range got.events {
 		byTitle[e.Title] = append(byTitle[e.Title], e)
 	}
-	if len(got.events) != 6 || got.simple != 1 || byTitle["Gone"] != nil {
+	board := byTitle["Board"]
+	if len(got.events) != 5+len(board) || got.simple != 0 || byTitle["Gone"] != nil {
 		t.Fatalf("%d events, %d simplified: %v", len(got.events), got.simple, byTitle)
 	}
 	lec := byTitle["Deep learning, lecture"]
@@ -84,8 +87,14 @@ func TestReadICS(t *testing.T) {
 	if !cvpr.AllDay || daysBetween(cvpr.Start, cvpr.End) != 3 {
 		t.Errorf("cvpr %v – %v", cvpr.Start, cvpr.End)
 	}
-	if b := byTitle["Board"][0]; b.Repeat != RepeatNone || b.End.Sub(b.Start) != time.Hour {
-		t.Errorf("board %+v", b)
+	// The second Tuesday of every month comes as its times, two years on.
+	if len(board) != 24 {
+		t.Errorf("%d board meetings", len(board))
+	}
+	for _, b := range board {
+		if b.Repeat != RepeatNone || b.End.Sub(b.Start) != time.Hour || b.Start.Weekday() != time.Tuesday || (b.Start.Day()-1)/7 != 1 {
+			t.Errorf("board %v – %v", b.Start, b.End)
+		}
 	}
 }
 
@@ -134,13 +143,15 @@ func TestAddCalendar(t *testing.T) {
 	a := testApp("en")
 	tt := newTester(t, a, "en")
 	n := len(a.data.Events)
+	defer func(now func() time.Time) { icsNow = now }(icsNow)
+	icsNow = func() time.Time { return monday }
 	got, err := readICS([]byte(sampleICS), time.Local)
 	if err != nil {
 		t.Fatal(err)
 	}
 	a.addCalendar(got)
 	tt.Frame()
-	if len(a.data.Events) != n+6 || !tt.HasText("6 events imported · 1 repeating event kept its first time only") {
+	if len(a.data.Events) != n+29 || !tt.HasText("29 events imported") {
 		t.Fatalf("%d events; %q", len(a.data.Events), tt.Texts())
 	}
 	tt.Click("Undo")
@@ -346,4 +357,57 @@ func TestICSCategories(t *testing.T) {
 			t.Errorf("import took back the user's tag: %q", e.Kind)
 		}
 	}
+}
+
+// Rules NextTodo cannot repeat by come as their times, from a year ago to
+// two on; those it can, as holidays every year, repeat.
+func TestExpandRules(t *testing.T) {
+	defer func(now func() time.Time) { icsNow = now }(icsNow)
+	icsNow = func() time.Time { return monday } // Oct 26, 2026
+	days := func(rule, start string, extra ...string) []string {
+		t.Helper()
+		lines := append([]string{"UID:r", "DTSTART;VALUE=DATE:" + start, "RRULE:" + rule, "SUMMARY:R"}, extra...)
+		got, err := readICS([]byte(icsEvent(lines...)), time.Local)
+		if err != nil || got.simple != 0 {
+			t.Fatalf("%s: %v, %d simplified", rule, err, got.simple)
+		}
+		var out []string
+		for _, e := range got.events {
+			if e.Repeat != RepeatNone {
+				out = append(out, string(e.Repeat))
+				continue
+			}
+			out = append(out, e.Start.Format("2006-01-02"))
+		}
+		return out
+	}
+	eq := func(got []string, want ...string) {
+		t.Helper()
+		if strings.Join(got, " ") != strings.Join(want, " ") {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	}
+	// Thanksgiving: the fourth Thursday of November.
+	eq(days("FREQ=YEARLY;BYMONTH=11;BYDAY=4TH", "20201126"), "2025-11-27", "2026-11-26", "2027-11-25")
+	// Christmas: every year, as NextTodo repeats.
+	eq(days("FREQ=YEARLY", "19991225"), "yearly")
+	// The last Friday of the month, six times, but one.
+	eq(days("FREQ=MONTHLY;BYDAY=-1FR;COUNT=6", "20261030", "EXDATE;VALUE=DATE:20261225"),
+		"2026-10-30", "2026-11-27", "2027-01-29", "2027-02-26", "2027-03-26")
+	// The last weekday of the month, until the year's end.
+	eq(days("FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1;UNTIL=20261231", "20261030"), "2026-10-30", "2026-11-30", "2026-12-31")
+	// Every other month on the 15th.
+	eq(days("FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=15;COUNT=3", "20261015"), "2026-10-15", "2026-12-15", "2027-02-15")
+	// Not readable: by week of the year.
+	got, _ := readICS([]byte(icsEvent("UID:w", "DTSTART;VALUE=DATE:20261026", "RRULE:FREQ=YEARLY;BYWEEKNO=20", "SUMMARY:W")), time.Local)
+	if got.simple != 1 || len(got.events) != 1 {
+		t.Errorf("by week number: %d simplified, %d events", got.simple, len(got.events))
+	}
+	// The 29th of February, in leap years only.
+	e := &Event{Start: time.Date(2024, 2, 29, 0, 0, 0, 0, time.Local), End: time.Date(2024, 3, 1, 0, 0, 0, 0, time.Local), AllDay: true, Repeat: RepeatYearly}
+	var leap []string
+	for _, o := range e.occurrences(e.Start, time.Date(2033, 1, 1, 0, 0, 0, 0, time.Local)) {
+		leap = append(leap, o.Start.Format("2006"))
+	}
+	eq(leap, "2024", "2028", "2032")
 }

@@ -27,6 +27,22 @@ type Subscription struct {
 	Updated time.Time `json:"updated,omitzero"`
 }
 
+// holidays are the public holiday calendars Apple publishes, which the
+// settings suggest, by region: the name of the region, in each language.
+var holidays = []struct {
+	url    string
+	en, zh string
+}{
+	{"https://calendars.icloud.com/holidays/cn_zh.ics", "Mainland China", "中国大陆"},
+	{"https://calendars.icloud.com/holidays/hk_zh.ics", "Hong Kong", "中国香港"},
+	{"https://calendars.icloud.com/holidays/tw_zh.ics", "Taiwan", "中国台湾"},
+	{"https://calendars.icloud.com/holidays/us_en.ics", "United States", "美国"},
+	{"https://calendars.icloud.com/holidays/gb_en.ics", "United Kingdom", "英国"},
+	{"https://calendars.icloud.com/holidays/jp_ja.ics", "Japan", "日本"},
+	{"https://calendars.icloud.com/holidays/sg_en.ics", "Singapore", "新加坡"},
+	{"https://calendars.icloud.com/holidays/de_de.ics", "Germany", "德国"},
+}
+
 // subscriptionEvery is how often subscriptions are refreshed.
 const subscriptionEvery = time.Hour
 
@@ -267,6 +283,29 @@ func (a *app) subscriptionsRows(c *ui.Context) {
 				a.toast = a.tr.SubFailed(err.Error())
 			} else {
 				a.subDraft = ""
+			}
+		}
+	})
+	// The holidays of a region, a click away, those not followed yet.
+	ui.Row(c.Key("holidays")).Padding(2, 14, 10).Gap(6).AlignItems(ui.Center).Wrap().Children(func() {
+		ui.Text(c, a.tr.SubHolidays()).FontSize(11.5).TextColor(p.muted)
+		for _, h := range holidays {
+			if slices.ContainsFunc(a.data.Subscriptions, func(s *Subscription) bool { return s.URL == h.url }) {
+				continue
+			}
+			name := h.en
+			if strings.HasPrefix(a.lang, "zh") {
+				name = h.zh
+			}
+			b := ui.ButtonBase(c.Key(h.url)).Height(22).Padding(0, 9).Radius(999).AlignItems(ui.Center).Label(name)
+			if b.Hovered() {
+				b.Background(p.pillHover)
+			} else {
+				b.Background(p.pill)
+			}
+			b.Children(func() { ui.Text(c, name).FontSize(11.5).TextColor(p.fg2) })
+			if b.Clicked() {
+				a.subscribe(h.url)
 			}
 		}
 	})
