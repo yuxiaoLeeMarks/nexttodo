@@ -20,7 +20,7 @@ const (
 type eventDraft struct {
 	id       string // "" for a new event
 	title    string
-	kind     EventKind
+	kind     KindID
 	project  string
 	location string
 	notes    string
@@ -79,7 +79,7 @@ func (a *app) newEvent(start time.Time, project string) {
 	if a.page != PageSchedule && a.page != PageProjects && a.page != PageOverview {
 		a.navigate(PageSchedule)
 	}
-	a.evt = eventDraft{date: day(start), start: start, end: start.Add(time.Hour), kind: KindMeeting, project: project, alert: alertDefault}
+	a.evt = eventDraft{date: day(start), start: start, end: start.Add(time.Hour), kind: a.data.newKind(), project: project, alert: alertDefault}
 	a.evtOpen = true
 }
 
@@ -679,7 +679,11 @@ func titleOf(v dated) string {
 func (a *app) timeBlock(v dated, start time.Time) {
 	switch v := v.(type) {
 	case *Task:
-		a.data.Events = append(a.data.Events, &Event{ID: newID(), Title: v.Title, Kind: KindFocus, Project: v.Project,
+		kind := kindFocus
+		if a.data.kind(kind) == nil {
+			kind = a.data.newKind()
+		}
+		a.data.Events = append(a.data.Events, &Event{ID: newID(), Title: v.Title, Kind: kind, Project: v.Project,
 			Start: start, End: start.Add(time.Hour)})
 	case *Event:
 		e := a.data.detach(v)
@@ -900,12 +904,15 @@ func (a *app) eventDialog(c *ui.Context) {
 		})
 		ui.TextInput(c, &d.title).Placeholder(a.tr.EventTitlePlaceholder()).Label(a.tr.FieldTitle()).AutoFocus().
 			FontSize(15).Radius(8).Padding(7, 10)
-		ui.Row(c).Gap(6).Wrap().Children(func() {
-			for _, k := range eventKinds {
-				col := a.kindColor(k)
-				b := ui.RadioBase(c.Key(k), &d.kind, k).Height(26).Gap(6).Padding(0, 10).AlignItems(ui.Center).Radius(999)
+		// The tags, of which a click chooses one, or none chosen again.
+		ui.Row(c).Gap(6).Wrap().AlignItems(ui.Center).Children(func() {
+			for _, k := range a.data.Kinds {
+				col := a.kindColor(k.ID)
+				on := d.kind == k.ID
+				b := ui.ButtonBase(c.Key(k.ID)).Height(26).Gap(6).Padding(0, 10).AlignItems(ui.Center).Radius(999).
+					Role(ui.RoleRadio).Selected(on).Label(orUntitled(k.Name, a.tr.Untitled()))
 				switch {
-				case d.kind == k:
+				case on:
 					b.Background(a.tint(col)).Border(1, col.Alpha(0.6))
 				case b.Hovered():
 					b.Background(p.pillHover)
@@ -914,11 +921,21 @@ func (a *app) eventDialog(c *ui.Context) {
 				}
 				b.Children(func() {
 					a.dot(c, col, 8)
-					t := ui.Text(c, a.kindName(k)).FontSize(12.5).TextColor(p.fg2)
-					if d.kind == k {
+					t := ui.Text(c, orUntitled(k.Name, a.tr.Untitled())).FontSize(12.5).TextColor(p.fg2)
+					if on {
 						t.TextColor(a.ink(col)).FontWeight(500)
 					}
 				})
+				if b.Clicked() {
+					if on {
+						d.kind = ""
+					} else {
+						d.kind = k.ID
+					}
+				}
+			}
+			if a.iconBtn(c, iconTag, a.tr.EditKinds()).Clicked() {
+				a.kindsOpen = true
 			}
 		})
 		ui.Column(c).Background(p.card2).Border(1, p.line2).Radius(10).Dividers(1, p.line2).Gap(1).Children(func() {

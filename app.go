@@ -85,6 +85,12 @@ type app struct {
 	catPop   CatID // the category whose look is being chosen
 	askCat   CatID // asking whether to delete it
 
+	// The tags of events.
+	kindsOpen bool
+	kindDraft string
+	kindPop   KindID // the tag whose color is being chosen
+	askKind   KindID // asking whether to delete it
+
 	// Directions.
 	dir     dirDraft
 	dirOpen bool
@@ -198,7 +204,7 @@ func loadData(path string, now time.Time, lang string) *Data {
 	if err == nil {
 		var d *Data
 		if d, err = decodeData(b); err == nil {
-			d.migrate(func() []*Category { return defaultCategories(lang) })
+			d.migrate(lang)
 			return d
 		}
 	}
@@ -252,18 +258,12 @@ func (a *app) statusName(s Status) string {
 	return a.tr.StatusPlanning()
 }
 
-func (a *app) kindName(k EventKind) string {
-	switch k {
-	case KindMeeting:
-		return a.tr.KindMeeting()
-	case KindLab:
-		return a.tr.KindLab()
-	case KindSeminar:
-		return a.tr.KindSeminar()
-	case KindFocus:
-		return a.tr.KindFocus()
+// kindName is the name of an event's tag, "" for none.
+func (a *app) kindName(id KindID) string {
+	if k := a.data.kind(id); k != nil {
+		return orUntitled(k.Name, a.tr.Untitled())
 	}
-	return a.tr.KindOther()
+	return ""
 }
 
 func (a *app) priorityName(p int) string {
@@ -440,6 +440,7 @@ func (a *app) view(c *ui.Context) {
 	a.eventDialog(c)
 	a.directionDialog(c)
 	a.categoriesSheet(c)
+	a.kindsSheet(c) // over the event's dialog, which opens it
 	a.searchSheet(c)
 }
 

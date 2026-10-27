@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"slices"
 	"time"
 
@@ -264,17 +265,20 @@ func (a *app) eventRow(c *ui.Context, e *Event) {
 		ui.Box(c).Width(3).Height(28).Radius(1.5).Background(a.kindColor(e.Kind)).Shrink(0)
 		ui.Column(c).Grow(1).MinWidth(0).Gap(1).Children(func() {
 			ui.Text(c, orUntitled(e.Title, a.tr.Untitled())).FontSize(13).FontWeight(500).TextColor(p.fg).SingleLine()
-			sub := a.kindName(e.Kind)
+			var parts []string
+			if k := a.kindName(e.Kind); k != "" {
+				parts = append(parts, k)
+			}
 			if e.series != nil {
-				sub += " · " + a.repeatName(e.Repeat)
+				parts = append(parts, a.repeatName(e.Repeat))
 			}
 			if e.Location != "" {
-				sub += " · " + e.Location
+				parts = append(parts, e.Location)
 			}
 			if e.Project != "" {
-				sub += " · " + a.projectName(e.Project)
+				parts = append(parts, a.projectName(e.Project))
 			}
-			a.sub(c, sub)
+			a.sub(c, strings.Join(parts, " · "))
 		})
 		if !e.AllDay && !e.Start.After(now) && e.End.After(now) {
 			a.softChip(c, a.tr.HappeningNow(), p.green)

@@ -91,7 +91,7 @@ func TestReadICS(t *testing.T) {
 // change in place.
 func TestWriteICS(t *testing.T) {
 	d := sampleData(monday, "en")
-	b := writeICS(d.Events, monday)
+	b := writeICS(d.Events, monday, func(KindID) string { return "" })
 	for _, l := range strings.Split(string(b), "\r\n") {
 		if len(l) > 75 {
 			t.Fatalf("a line of %d bytes", len(l))
@@ -215,7 +215,29 @@ func TestReadICSEdges(t *testing.T) {
 func TestWriteICSAllDayUntil(t *testing.T) {
 	e := &Event{ID: "a", Title: "Retreat", AllDay: true, Start: day(monday), End: addDays(day(monday), 1),
 		Repeat: RepeatWeekly, Until: addDays(day(monday), 21)}
-	if s := string(writeICS([]*Event{e}, monday)); !strings.Contains(s, "RRULE:FREQ=WEEKLY;UNTIL="+e.Until.Format("20060102")+"\r\n") {
+	if s := string(writeICS([]*Event{e}, monday, func(KindID) string { return "" })); !strings.Contains(s, "RRULE:FREQ=WEEKLY;UNTIL="+e.Until.Format("20060102")+"\r\n") {
 		t.Errorf("%s", s)
+	}
+}
+
+// An event's tag goes out as its category, and comes back to the tag of
+// that name.
+func TestICSTags(t *testing.T) {
+	a := testApp("en")
+	b := writeICS(a.data.Events, monday, a.kindName)
+	if !strings.Contains(string(b), "CATEGORIES:Meeting\r\n") {
+		t.Fatal("no categories")
+	}
+	got, err := readICS(b, time.Local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := newData()
+	other.Kinds = defaultKinds("en")
+	other.importCalendar(got)
+	for i, e := range other.Events {
+		if e.Kind != a.data.Events[i].Kind {
+			t.Errorf("%q came back tagged %q, not %q", e.Title, e.Kind, a.data.Events[i].Kind)
+		}
 	}
 }

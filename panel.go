@@ -68,7 +68,7 @@ func (a *app) quickAddNow(first time.Weekday) {
 			}
 			start = at(on, q.start.Hour(), q.start.Minute())
 		}
-		a.data.Events = append(a.data.Events, &Event{ID: newID(), Title: w.title, Kind: KindMeeting,
+		a.data.Events = append(a.data.Events, &Event{ID: newID(), Title: w.title, Kind: a.data.newKind(),
 			Start: start, End: start.Add(time.Duration(q.minutes) * time.Minute)})
 		a.changed()
 		q.start, q.minutes = nextHalfHour(a.now()), 60

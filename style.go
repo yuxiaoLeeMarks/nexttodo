@@ -96,17 +96,11 @@ func (p *palette) theme(base *ui.Theme) *ui.Theme {
 
 // The colors of kinds of things.
 
-func (a *app) kindColor(k EventKind) ui.Color {
+// kindColor is the color of an event's tag, the series' gray for none.
+func (a *app) kindColor(id KindID) ui.Color {
 	s := &a.p.series
-	switch k {
-	case KindMeeting:
-		return s[0]
-	case KindLab:
-		return s[2]
-	case KindSeminar:
-		return s[3]
-	case KindFocus:
-		return s[5]
+	if k := a.data.kind(id); k != nil {
+		return s[min(max(k.Color, 0), len(s)-1)]
 	}
 	return s[6]
 }

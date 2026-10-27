@@ -329,7 +329,7 @@ func TestTimeBlock(t *testing.T) {
 			block = e
 		}
 	}
-	if block == nil || block.Kind != KindFocus || block.Project != task.Project || !sameDay(block.Start, task.Due) ||
+	if block == nil || block.Kind != kindFocus || block.Project != task.Project || !sameDay(block.Start, task.Due) ||
 		block.Start.Hour() != 12 || block.End.Sub(block.Start) != time.Hour {
 		t.Fatalf("block %+v", block)
 	}
@@ -431,4 +431,55 @@ func TestSwitchOnPress(t *testing.T) {
 		t.Errorf("pressed, the list is %v", a.taskList)
 	}
 	tt.Release(r.X+r.W/2, r.Y+r.H/2)
+}
+
+// Events' tags are the user's: data of 0.4 gets the five it had, and
+// tags are added, renamed, recolored, put first and deleted, with Undo.
+func TestKinds(t *testing.T) {
+	old := `{"format":"nexttodo","version":2,"categories":[],"events":[
+		{"id":"a","title":"Sync","kind":0,"start":"2026-10-26T10:00:00Z","end":"2026-10-26T11:00:00Z"},
+		{"id":"b","title":"Talk","kind":2,"start":"2026-10-27T10:00:00Z","end":"2026-10-27T11:00:00Z"}]}`
+	d, err := decodeData([]byte(old))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.migrate("zh-Hans")
+	if len(d.Kinds) != 5 || d.Kinds[0].Name != "会议" || d.Events[0].Kind != "meeting" || d.Events[1].Kind != "seminar" {
+		t.Fatalf("migrated tags %+v, events %q %q", d.Kinds, d.Events[0].Kind, d.Events[1].Kind)
+	}
+
+	a := testApp("en")
+	a.page, a.kindsOpen = PageSchedule, true
+	tt := newTester(t, a, "en")
+	if !tt.HasText("Event tags") || !tt.HasText("New events") {
+		t.Fatalf("no sheet: %q", tt.Texts())
+	}
+	tt.Click("New tag")
+	tt.Type("Teaching")
+	tt.Key(0, ui.KeyEnter)
+	k := a.data.Kinds[len(a.data.Kinds)-1]
+	if k.Name != "Teaching" {
+		t.Fatalf("added %+v", k)
+	}
+	// First, it tags new events.
+	a.data.moveKind(k, a.data.Kinds[0])
+	a.kindsOpen = false
+	a.newEvent(at(monday, 9, 0), "")
+	if a.evt.kind != k.ID {
+		t.Errorf("a new event is tagged %q", a.evt.kind)
+	}
+	a.evtOpen = false
+	// Deleting a tag of events leaves them untagged, until Undo.
+	meeting := a.data.kind("meeting")
+	n := a.eventsTagged("meeting")
+	step := a.remember()
+	a.data.deleteKind(meeting.ID)
+	a.settle(step)
+	if a.data.kind("meeting") != nil || a.eventsTagged("meeting") != 0 || n == 0 {
+		t.Fatalf("deleted: %d events still tagged", a.eventsTagged("meeting"))
+	}
+	a.restore(step)
+	if a.data.kind("meeting") == nil || a.eventsTagged("meeting") != n {
+		t.Errorf("after Undo, %d of %d events tagged", a.eventsTagged("meeting"), n)
+	}
 }

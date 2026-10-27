@@ -1154,6 +1154,116 @@ func (msgs Messages) KindOther() string {
 	return Catalog.Format(msgs.locale, "kindOther", nil)
 }
 
+// KindsTitle says "Event tags"
+// in the language the app shows.
+func KindsTitle() string { return In(i18n.Locale()).KindsTitle() }
+
+// KindsTitle says "Event tags"
+// in the language of msgs.
+func (msgs Messages) KindsTitle() string {
+	return Catalog.Format(msgs.locale, "kindsTitle", nil)
+}
+
+// KindsIntro says "Tag events your way: what they are, with whom, where. Drag to order them; the first is the tag of new events."
+// in the language the app shows.
+func KindsIntro() string { return In(i18n.Locale()).KindsIntro() }
+
+// KindsIntro says "Tag events your way: what they are, with whom, where. Drag to order them; the first is the tag of new events."
+// in the language of msgs.
+func (msgs Messages) KindsIntro() string {
+	return Catalog.Format(msgs.locale, "kindsIntro", nil)
+}
+
+// KindNew says "New tag"
+// in the language the app shows.
+func KindNew() string { return In(i18n.Locale()).KindNew() }
+
+// KindNew says "New tag"
+// in the language of msgs.
+func (msgs Messages) KindNew() string {
+	return Catalog.Format(msgs.locale, "kindNew", nil)
+}
+
+// KindNamePlaceholder says "Tag name"
+// in the language the app shows.
+func KindNamePlaceholder() string { return In(i18n.Locale()).KindNamePlaceholder() }
+
+// KindNamePlaceholder says "Tag name"
+// in the language of msgs.
+func (msgs Messages) KindNamePlaceholder() string {
+	return Catalog.Format(msgs.locale, "kindNamePlaceholder", nil)
+}
+
+// KindColor says "Color"
+// in the language the app shows.
+func KindColor() string { return In(i18n.Locale()).KindColor() }
+
+// KindColor says "Color"
+// in the language of msgs.
+func (msgs Messages) KindColor() string {
+	return Catalog.Format(msgs.locale, "kindColor", nil)
+}
+
+// KindDefault says "New events"
+// in the language the app shows.
+func KindDefault() string { return In(i18n.Locale()).KindDefault() }
+
+// KindDefault says "New events"
+// in the language of msgs.
+func (msgs Messages) KindDefault() string {
+	return Catalog.Format(msgs.locale, "kindDefault", nil)
+}
+
+// KindDeleteConfirm says "Delete “{name}”?"
+// in the language the app shows.
+func KindDeleteConfirm(name string) string { return In(i18n.Locale()).KindDeleteConfirm(name) }
+
+// KindDeleteConfirm says "Delete “{name}”?"
+// in the language of msgs.
+func (msgs Messages) KindDeleteConfirm(name string) string {
+	return Catalog.Format(msgs.locale, "kindDeleteConfirm", map[string]any{"name": name})
+}
+
+// KindDeleteDetail says "{n, plural, one {# event will have no tag.} other {# events will have no tag.}}"
+// in the language the app shows.
+func KindDeleteDetail(n int) string { return In(i18n.Locale()).KindDeleteDetail(n) }
+
+// KindDeleteDetail says "{n, plural, one {# event will have no tag.} other {# events will have no tag.}}"
+// in the language of msgs.
+func (msgs Messages) KindDeleteDetail(n int) string {
+	return Catalog.Format(msgs.locale, "kindDeleteDetail", map[string]any{"n": n})
+}
+
+// EditKinds says "Edit tags"
+// in the language the app shows.
+func EditKinds() string { return In(i18n.Locale()).EditKinds() }
+
+// EditKinds says "Edit tags"
+// in the language of msgs.
+func (msgs Messages) EditKinds() string {
+	return Catalog.Format(msgs.locale, "editKinds", nil)
+}
+
+// EventsCount says "{n, plural, one {# event} other {# events}}"
+// in the language the app shows.
+func EventsCount(n int) string { return In(i18n.Locale()).EventsCount(n) }
+
+// EventsCount says "{n, plural, one {# event} other {# events}}"
+// in the language of msgs.
+func (msgs Messages) EventsCount(n int) string {
+	return Catalog.Format(msgs.locale, "eventsCount", map[string]any{"n": n})
+}
+
+// KindsCount says "{n, plural, one {# tag} other {# tags}}"
+// in the language the app shows.
+func KindsCount(n int) string { return In(i18n.Locale()).KindsCount(n) }
+
+// KindsCount says "{n, plural, one {# tag} other {# tags}}"
+// in the language of msgs.
+func (msgs Messages) KindsCount(n int) string {
+	return Catalog.Format(msgs.locale, "kindsCount", map[string]any{"n": n})
+}
+
 // AlertDefault says "Default ({lead})"
 // in the language the app shows.
 func AlertDefault(lead string) string { return In(i18n.Locale()).AlertDefault(lead) }

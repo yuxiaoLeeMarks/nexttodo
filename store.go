@@ -61,19 +61,40 @@ const (
 
 var statuses = []Status{StatusPlanning, StatusActive, StatusPaused, StatusDone}
 
-// EventKind is what an event is, drawn as a different engraving fill in the
-// calendar: solid ink, hatching, an outline or a light wash.
-type EventKind int
+// KindID names a tag of events. NextTodo 0.4 wrote a number, one of five
+// fixed kinds, which reads as the ID of its default tag.
+type KindID string
 
-const (
-	KindMeeting EventKind = iota
-	KindLab
-	KindSeminar
-	KindFocus
-	KindOther
-)
+// The default tags: meetings, lab work, seminars, focus and the rest.
+var defaultKindIDs = []KindID{"meeting", "lab", "seminar", "focus", "other"}
 
-var eventKinds = []EventKind{KindMeeting, KindLab, KindSeminar, KindFocus, KindOther}
+// kindFocus is the tag of the time blocked for a task, while there is one.
+const kindFocus KindID = "focus"
+
+func (k *KindID) UnmarshalJSON(b []byte) error {
+	var n int
+	if err := json.Unmarshal(b, &n); err == nil {
+		*k = ""
+		if n >= 0 && n < len(defaultKindIDs) {
+			*k = defaultKindIDs[n]
+		}
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	*k = KindID(s)
+	return nil
+}
+
+// Kind is a tag of events the user names, colors and orders: what they
+// are, with whom or where. The first is the tag of new events.
+type Kind struct {
+	ID    KindID `json:"id"`
+	Name  string `json:"name"`
+	Color int    `json:"color"` // a color of the palette's series
+}
 
 // Direction is a research direction (研究方向) that projects belong to.
 type Direction struct {
@@ -133,7 +154,7 @@ type Task struct {
 type Event struct {
 	ID       string    `json:"id"`
 	Title    string    `json:"title"`
-	Kind     EventKind `json:"kind"`
+	Kind     KindID    `json:"kind,omitempty"`
 	Project  string    `json:"project,omitempty"`
 	Location string    `json:"location,omitempty"`
 	Notes    string    `json:"notes,omitempty"`
@@ -176,6 +197,7 @@ type Data struct {
 	Format     string       `json:"format"`
 	Version    int          `json:"version"`
 	Categories []*Category  `json:"categories"`
+	Kinds      []*Kind      `json:"kinds"`
 	Directions []*Direction `json:"directions"`
 	Projects   []*Project   `json:"projects"`
 	Tasks      []*Task      `json:"tasks"`
@@ -185,18 +207,22 @@ type Data struct {
 
 const (
 	dataFormat  = "nexttodo"
-	dataVersion = 2 // 2: categories of the user's own
+	dataVersion = 3 // 2: categories of the user's own; 3: tags of events
 )
 
 func newData() *Data {
 	return &Data{Format: dataFormat, Version: dataVersion, Prefs: Prefs{WeekStart: -1, AlertMinutes: 10}}
 }
 
-// migrate brings data written by an earlier version up to date: data of
-// 0.2 gets the default categories its projects' numbers stood for.
-func (d *Data) migrate(defaults func() []*Category) {
+// migrate brings data written by an earlier version up to date, in the
+// language lang: data of 0.2 gets the default categories its projects'
+// numbers stood for, and of 0.4 the default tags of its events' numbers.
+func (d *Data) migrate(lang string) {
 	if d.Version < 2 && len(d.Categories) == 0 {
-		d.Categories = defaults()
+		d.Categories = defaultCategories(lang)
+	}
+	if d.Version < 3 && len(d.Kinds) == 0 {
+		d.Kinds = defaultKinds(lang)
 	}
 	d.Version = dataVersion
 }
@@ -280,6 +306,50 @@ func (d *Data) deleteCategory(id CatID) {
 			p.Category = ""
 		}
 	}
+}
+
+func (d *Data) kind(id KindID) *Kind {
+	if id == "" {
+		return nil
+	}
+	for _, k := range d.Kinds {
+		if k.ID == id {
+			return k
+		}
+	}
+	return nil
+}
+
+// deleteKind removes a tag, which its events lose.
+func (d *Data) deleteKind(id KindID) {
+	d.Kinds = slices.DeleteFunc(d.Kinds, func(k *Kind) bool { return k.ID == id })
+	for _, e := range d.Events {
+		if e.Kind == id {
+			e.Kind = ""
+		}
+	}
+}
+
+// moveKind puts the tag moved before the one at, or last.
+func (d *Data) moveKind(moved, at *Kind) {
+	i := slices.Index(d.Kinds, moved)
+	if i < 0 || moved == at {
+		return
+	}
+	d.Kinds = slices.Delete(d.Kinds, i, i+1)
+	j := slices.Index(d.Kinds, at)
+	if j < 0 {
+		j = len(d.Kinds)
+	}
+	d.Kinds = slices.Insert(d.Kinds, j, moved)
+}
+
+// newKind is the tag of new events: the first, or none.
+func (d *Data) newKind() KindID {
+	if len(d.Kinds) > 0 {
+		return d.Kinds[0].ID
+	}
+	return ""
 }
 
 // moveCategory puts the category moved before the one at, or last.

@@ -71,7 +71,7 @@ func (a *app) restoreBackup(b backup) error {
 		return err
 	}
 	lang := a.lang
-	d.migrate(func() []*Category { return defaultCategories(lang) })
+	d.migrate(lang)
 	a.replaceData(d, a.tr.Restored())
 	return nil
 }

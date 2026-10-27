@@ -151,6 +151,7 @@ type icsImport struct {
 	events []*Event
 	skips  []icsSkip
 	simple int
+	tags   map[*Event]string // the categories of events, which name their tags
 }
 
 // icsSkip is a day the series of a UID skips.
@@ -175,6 +176,7 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 		exdate     []time.Time
 		recur      time.Time // the occurrence a changed one replaces
 		cancelled  bool
+		tag        string
 	}
 	var all []*vevent
 	var cur *vevent
@@ -182,7 +184,7 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 	for _, l := range lines {
 		switch {
 		case l.name == "BEGIN" && strings.EqualFold(l.value, "VEVENT"):
-			cur = &vevent{e: &Event{ID: newID(), Kind: KindOther}}
+			cur = &vevent{e: &Event{ID: newID()}}
 			continue
 		case l.name == "END" && strings.EqualFold(l.value, "VEVENT"):
 			if cur != nil && cur.start != nil {
@@ -219,6 +221,8 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 			e.Notes = icsText(l.value)
 		case "STATUS":
 			cur.cancelled = strings.EqualFold(l.value, "CANCELLED")
+		case "CATEGORIES":
+			cur.tag, _, _ = strings.Cut(icsText(l.value), ",")
 		case "DTSTART":
 			cur.start = &l
 		case "DTEND":
@@ -287,6 +291,14 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 			e.UID += "/" + v.recur.Format("20060102")
 		}
 		out.events = append(out.events, group...)
+		if v.tag != "" {
+			if out.tags == nil {
+				out.tags = map[*Event]string{}
+			}
+			for _, x := range group {
+				out.tags[x] = strings.TrimSpace(v.tag)
+			}
+		}
 	}
 	// An occurrence changed or cancelled on its own, which its series skips.
 	for _, sk := range out.skips {
@@ -423,7 +435,7 @@ func sorted(days []time.Weekday) []time.Weekday {
 }
 
 // writeICS writes events as a calendar file, in the time of this Mac.
-func writeICS(events []*Event, now time.Time) []byte {
+func writeICS(events []*Event, now time.Time, tag func(KindID) string) []byte {
 	var b bytes.Buffer
 	line := func(s string) {
 		// Lines of at most 75 bytes, folded, not within a character.
@@ -466,6 +478,9 @@ func writeICS(events []*Event, now time.Time) []byte {
 		if e.Notes != "" {
 			line("DESCRIPTION:" + text.Replace(e.Notes))
 		}
+		if name := tag(e.Kind); name != "" {
+			line("CATEGORIES:" + text.Replace(name))
+		}
 		if e.repeating() {
 			rule := map[Repeat]string{
 				RepeatDaily: "FREQ=DAILY", RepeatWeekdays: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR", RepeatWeekly: "FREQ=WEEKLY",
@@ -501,8 +516,12 @@ func (d *Data) importEvents(events []*Event) (added, changed int) {
 	}
 	for _, e := range events {
 		if old := byUID[e.UID]; e.UID != "" && old != nil {
-			// What is NextTodo's own stays: its kind, project and alert.
-			e.ID, e.Kind, e.Project = old.ID, old.Kind, old.Project
+			// What is NextTodo's own stays: its project and alert, and its
+			// tag unless the file names one.
+			e.ID, e.Project = old.ID, old.Project
+			if e.Kind == "" {
+				e.Kind = old.Kind
+			}
 			if strings.HasSuffix(e.UID, "@nexttodo") && old.UID == "" {
 				e.UID = "" // its own, back
 			}
@@ -516,6 +535,22 @@ func (d *Data) importEvents(events []*Event) (added, changed int) {
 		d.Events = append(d.Events, e)
 		added++
 	}
+	return added, changed
+}
+
+// importCalendar adds the events of a calendar file as importEvents does,
+// each new one with the tag its category names, if there is one, and has
+// the series imported before skip what the file changed on its own.
+func (d *Data) importCalendar(got icsImport) (added, changed int) {
+	for e, name := range got.tags {
+		for _, k := range d.Kinds {
+			if strings.EqualFold(k.Name, name) {
+				e.Kind = k.ID
+			}
+		}
+	}
+	added, changed = d.importEvents(got.events)
+	d.skipImported(got.skips)
 	return added, changed
 }
 

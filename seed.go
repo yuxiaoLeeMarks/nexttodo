@@ -19,6 +19,18 @@ func defaultCategories(lang string) []*Category {
 	}
 }
 
+// defaultKinds are the tags events start with, in the language lang.
+func defaultKinds(lang string) []*Kind {
+	tr := locales.In(lang)
+	return []*Kind{
+		{ID: defaultKindIDs[0], Name: tr.KindMeeting(), Color: 0},
+		{ID: defaultKindIDs[1], Name: tr.KindLab(), Color: 2},
+		{ID: defaultKindIDs[2], Name: tr.KindSeminar(), Color: 3},
+		{ID: defaultKindIDs[3], Name: tr.KindFocus(), Color: 5},
+		{ID: defaultKindIDs[4], Name: tr.KindOther(), Color: 6},
+	}
+}
+
 // sampleData is the almanac of an imagined researcher's season, around
 // now, in English or Chinese, for a first launch to show what the app
 // keeps.
@@ -32,7 +44,7 @@ func sampleData(now time.Time, lang string) *Data {
 	}
 	today := day(now)
 	d := newData()
-	d.Categories = defaultCategories(lang)
+	d.Categories, d.Kinds = defaultCategories(lang), defaultKinds(lang)
 	funded, industry, independent, service := defaultCatIDs[0], defaultCatIDs[1], defaultCatIDs[2], defaultCatIDs[3]
 	created := now.Add(-90 * 24 * time.Hour)
 
@@ -118,7 +130,7 @@ func sampleData(now time.Time, lang string) *Data {
 	vpn.MyDay = today
 	vpn.setDone(true, now.Add(-time.Hour))
 
-	event := func(title string, k EventKind, p *Project, dayOffset, h, m, minutes int, place string) *Event {
+	event := func(title string, k KindID, p *Project, dayOffset, h, m, minutes int, place string) *Event {
 		start := at(addDays(today, dayOffset), h, m)
 		e := &Event{ID: newID(), Title: title, Kind: k, Location: place, Start: start, End: start.Add(time.Duration(minutes) * time.Minute)}
 		if p != nil {
@@ -127,19 +139,19 @@ func sampleData(now time.Time, lang string) *Data {
 		d.Events = append(d.Events, e)
 		return e
 	}
-	event(s("Group meeting", "组会"), KindMeeting, nil, 0, 9, 30, 60, s("Room 402", "402 会议室")).Repeat = RepeatWeekly
-	event(s("GPU cluster: alignment runs", "GPU 集群：对齐实验"), KindLab, nsfc, 0, 14, 0, 180, s("Cluster B", "B 区集群"))
-	event(s("Writing: TPAMI revision", "写作：TPAMI 修改稿"), KindFocus, nsfc, 0, 19, 30, 90, "")
-	event(s("Seminar: world models", "学术报告：世界模型"), KindSeminar, nil, -1, 10, 0, 60, s("Lecture hall 2", "第二报告厅"))
-	event(s("Hangxin weekly sync", "杭芯周例会"), KindMeeting, hangxin, 1, 10, 0, 90, s("Video call", "腾讯会议")).Repeat = RepeatWeekly
-	event(s("Reading group: diffusion", "读书会：扩散模型"), KindSeminar, nil, 1, 15, 0, 90, s("Library 3F", "图书馆三楼")).Repeat = RepeatBiweekly
-	event(s("Deep work: survey outline", "专注：综述提纲"), KindFocus, survey, 2, 9, 0, 180, "")
-	event(s("Advising: Lin's proposal", "指导：林同学开题"), KindMeeting, nil, 2, 14, 0, 60, s("Office", "办公室"))
-	event(s("Data collection with Dr. Zhou", "与周老师采集数据"), KindLab, nsfc, 3, 13, 30, 240, s("Spectroscopy lab", "光谱实验室"))
-	event(s("Department colloquium", "院系学术讲座"), KindSeminar, nil, 4, 16, 0, 60, s("Lecture hall 1", "第一报告厅"))
-	event(s("Review papers", "集中审稿"), KindFocus, reviewing, 5, 10, 0, 120, "")
+	event(s("Group meeting", "组会"), "meeting", nil, 0, 9, 30, 60, s("Room 402", "402 会议室")).Repeat = RepeatWeekly
+	event(s("GPU cluster: alignment runs", "GPU 集群：对齐实验"), "lab", nsfc, 0, 14, 0, 180, s("Cluster B", "B 区集群"))
+	event(s("Writing: TPAMI revision", "写作：TPAMI 修改稿"), "focus", nsfc, 0, 19, 30, 90, "")
+	event(s("Seminar: world models", "学术报告：世界模型"), "seminar", nil, -1, 10, 0, 60, s("Lecture hall 2", "第二报告厅"))
+	event(s("Hangxin weekly sync", "杭芯周例会"), "meeting", hangxin, 1, 10, 0, 90, s("Video call", "腾讯会议")).Repeat = RepeatWeekly
+	event(s("Reading group: diffusion", "读书会：扩散模型"), "seminar", nil, 1, 15, 0, 90, s("Library 3F", "图书馆三楼")).Repeat = RepeatBiweekly
+	event(s("Deep work: survey outline", "专注：综述提纲"), "focus", survey, 2, 9, 0, 180, "")
+	event(s("Advising: Lin's proposal", "指导：林同学开题"), "meeting", nil, 2, 14, 0, 60, s("Office", "办公室"))
+	event(s("Data collection with Dr. Zhou", "与周老师采集数据"), "lab", nsfc, 3, 13, 30, 240, s("Spectroscopy lab", "光谱实验室"))
+	event(s("Department colloquium", "院系学术讲座"), "seminar", nil, 4, 16, 0, 60, s("Lecture hall 1", "第一报告厅"))
+	event(s("Review papers", "集中审稿"), "focus", reviewing, 5, 10, 0, 120, "")
 	retreat := at(addDays(today, 3), 0, 0)
-	d.Events = append(d.Events, &Event{ID: newID(), Title: s("Faculty retreat", "系务研讨日"), Kind: KindOther, AllDay: true, Start: retreat, End: addDays(retreat, 1)})
+	d.Events = append(d.Events, &Event{ID: newID(), Title: s("Faculty retreat", "系务研讨日"), Kind: "other", AllDay: true, Start: retreat, End: addDays(retreat, 1)})
 	return d
 }
 

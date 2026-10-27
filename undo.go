@@ -68,6 +68,7 @@ func (a *app) restore(step *undoStep) {
 	}
 	d := a.data
 	d.Categories = unchange(d.Categories, before.Categories, after.Categories, func(k *Category) string { return string(k.ID) })
+	d.Kinds = unchange(d.Kinds, before.Kinds, after.Kinds, func(k *Kind) string { return string(k.ID) })
 	d.Directions = unchange(d.Directions, before.Directions, after.Directions, func(x *Direction) string { return x.ID })
 	d.Projects = unchange(d.Projects, before.Projects, after.Projects, func(p *Project) string { return p.ID })
 	d.Tasks = unchange(d.Tasks, before.Tasks, after.Tasks, func(t *Task) string { return t.ID })

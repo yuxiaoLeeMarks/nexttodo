@@ -93,6 +93,15 @@ func (a *app) settingsPage(c *ui.Context) {
 				})
 			})
 
+			a.section(c, a.tr.NavSchedule(), "", nil)
+			a.list(c, func() {
+				a.formRowHint(c, a.tr.KindsTitle(), a.tr.KindsCount(len(a.data.Kinds)), func() {
+					if a.iconLabel(c, a.btn(c, "", btnSecondary), iconTag, a.tr.EditKinds()).Clicked() {
+						a.kindsOpen = true
+					}
+				})
+			})
+
 			a.section(c, a.tr.SettingsNotifications(), "", nil)
 			a.list(c, func() {
 				a.formRowHint(c, a.tr.SettingsEventAlerts(), a.tr.SettingsEventAlertsHint(), func() {
@@ -195,6 +204,9 @@ func (a *app) settingsPage(c *ui.Context) {
 							if len(a.data.Categories) > 0 {
 								d.Categories = a.data.Categories
 							}
+							if len(a.data.Kinds) > 0 {
+								d.Kinds = a.data.Kinds
+							}
 							a.replaceData(d, a.tr.SampleLoaded())
 						}
 					})
@@ -224,7 +236,7 @@ func (a *app) settingsPage(c *ui.Context) {
 	})
 	if ui.AlertDialog(c, &a.askErase, a.tr.EraseConfirm(), "", a.tr.Cancel(), a.tr.Erase()) == 1 {
 		d := newData()
-		d.Categories = a.data.Categories
+		d.Categories, d.Kinds = a.data.Categories, a.data.Kinds
 		a.replaceData(d, a.tr.Erased())
 	}
 }
@@ -330,7 +342,7 @@ func (a *app) exportCalendar() {
 	if a.win == nil {
 		return
 	}
-	b := writeICS(a.data.Events, a.now())
+	b := writeICS(a.data.Events, a.now(), a.kindName)
 	win, done := a.win, a.tr.CalendarExported()
 	go func() {
 		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
@@ -383,8 +395,7 @@ func (a *app) importCalendar() {
 // addCalendar adds the events of a calendar file, and says how many.
 func (a *app) addCalendar(got icsImport) {
 	step := a.remember()
-	added, changed := a.data.importEvents(got.events)
-	a.data.skipImported(got.skips)
+	added, changed := a.data.importCalendar(got)
 	a.settle(step)
 	a.changed()
 	msg := a.tr.CalendarImported(added + changed)
@@ -416,7 +427,7 @@ func (a *app) importBackup() {
 		var d *Data
 		if err == nil {
 			if d, err = decodeData(b); err == nil {
-				d.migrate(func() []*Category { return defaultCategories(lang) })
+				d.migrate(lang)
 			}
 		}
 		if err != nil {

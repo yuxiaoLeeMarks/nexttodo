@@ -782,6 +782,7 @@ func TestSnapshots(t *testing.T) {
 		{"settings", func(a *app) { a.page = PageSettings }, 1280, 900},
 		{"event", func(a *app) { a.page = PageSchedule; a.editEvent(a.data.Events[1]) }, 1280, 820},
 		{"categories", func(a *app) { a.page, a.catOpen = PageProjects, true }, 1280, 820},
+		{"kinds", func(a *app) { a.page, a.kindsOpen = PageSchedule, true }, 1280, 820},
 		{"archived", func(a *app) {
 			a.page, a.projShowArchived = PageProjects, true
 			a.data.Projects[4].Archived, a.data.Projects[4].ArchivedAt = true, monday
