@@ -88,7 +88,7 @@ English and 简体中文. Light and dark.
   </tr>
 </table>
 
-And: type the day and the time with what you add ("Seminar fri 3-4pm", "明天下午3点 组会"), reminders for tasks, search everything with ⌘F, research directions with their projects, reminders before events (a default and one per event), a Dock badge for what is due, open at login, ⌘1–⌘5 for the pages, daily backups you can restore, and sample data on first launch to show the way.
+And: type the day and the time with what you add ("Seminar fri 3-4pm", "明天下午3点 组会"), reminders for tasks, search everything with ⌘F, research directions with their projects, reminders before events (a default and one per event), a Dock badge for what is due, open at login, ⌘1–⌘5 for the pages, daily backups you can restore, and a clean start: the first launch welcomes you with where to begin, and sample data is a click away if you would rather look around first.
 
 ## Quick start
 

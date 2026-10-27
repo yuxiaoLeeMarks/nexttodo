@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+**Installing**
+
+- The disk image shows how to install: drag NextTodo to Applications, and if macOS will not open it the first time (NextTodo is not yet notarized by Apple), double-click Privacy & Security in the image's window and click Open Anyway. In English and Chinese.
+
+**A clean start**
+
+- The first launch starts empty, but for the default categories of projects and tags of events, and the overview welcomes you with where to begin: a first task, an event, a project, a calendar to import. Sample data is a click away, to look around first.
+- Data that still holds the sample data says so, with Clear sample data, which keeps what you made, and can be undone.
+
 ## 0.5.0
 
 **Schedule**
