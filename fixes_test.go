@@ -605,3 +605,40 @@ func TestTaskSteps(t *testing.T) {
 		}
 	}
 }
+
+// A right-click, or a Control-click, on a tab or a switch opens its menu,
+// not the page or the choice.
+func TestRightClickDoesNotSwitch(t *testing.T) {
+	a := testApp("en")
+	tt := newTester(t, a, "en")
+	tt.RightClick("Tasks")
+	tt.ClickWith(ui.Ctrl, "Schedule")
+	if a.page != PageOverview {
+		t.Errorf("a right-click went to %v", a.page)
+	}
+	tt.Click("Tasks")
+	if a.page != PageTasks {
+		t.Fatal("a click did not go to the tasks")
+	}
+	tt.Frame()
+	tt.RightClick("Important  3")
+	tt.ClickWith(ui.Ctrl, "Planned  10")
+	if a.taskList != listMyDay {
+		t.Errorf("a right-click chose list %v", a.taskList)
+	}
+}
+
+// Undo of a deletion made with the event's dialog open keeps the dialog
+// and what is typed in it.
+func TestUndoKeepsDialog(t *testing.T) {
+	a := testApp("en")
+	a.newEvent(at(monday, 9, 0), "")
+	a.evt.title = "Half typed"
+	step := a.remember()
+	a.data.deleteKind("seminar")
+	a.settle(step)
+	a.restore(step)
+	if !a.evtOpen || a.evt.title != "Half typed" || a.data.kind("seminar") == nil {
+		t.Errorf("dialog open %v, title %q", a.evtOpen, a.evt.title)
+	}
+}

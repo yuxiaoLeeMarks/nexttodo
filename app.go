@@ -92,7 +92,8 @@ type app struct {
 	// take back as it is undone again: its ID and how it repeated.
 	repeated map[string]repeated
 
-	stepDraft string // the step being typed into a task's checklist
+	stepDraft   string // the step being typed into a task's checklist
+	primaryDown bool   // the last press was of the primary button, without Control
 
 	// Subscriptions: those being refreshed, why one could not be, the
 	// address being typed, and how calendars are fetched (tests fake it).
@@ -511,7 +512,7 @@ func (a *app) header(c *ui.Context) {
 		if a.page == PageSettings {
 			gear.Background(p.pill).TextColor(p.fg)
 		}
-		if gear.Clicked() || gear.Pressed() && a.page != PageSettings {
+		if pressed := a.pressedDown(gear); clicked(gear) || a.page != PageSettings && pressed {
 			a.navigate(PageSettings) // as the pointer goes down, as the pages do
 		}
 		a.pageSwitch(c).Attach(ui.AnchorCenter, ui.AnchorCenter)
@@ -534,7 +535,7 @@ func (a *app) pageSwitch(c *ui.Context) ui.Element {
 		b := ui.ButtonBase(c.Key(pages[i])).Role(ui.RoleTab).Selected(i == chosen)
 		// As the pointer goes down, as Safari's tabs do: a click's
 		// hundred milliseconds sooner.
-		if b.Clicked() || b.Pressed() && i != chosen {
+		if pressed := a.pressedDown(b); clicked(b) || i != chosen && pressed {
 			a.navigate(pages[i])
 			c.Invalidate() // the thumb, built before, moves in the next frame
 		}

@@ -288,6 +288,23 @@ func (a *app) iconBtn(c *ui.Context, icon *ui.SVG, label string) ui.Element {
 	return b
 }
 
+// pressedDown reports whether e is pressed with the primary button, and
+// not with Control, which makes a click a right-click on the Mac: for a
+// choice made as the pointer goes down. The element tells, as the press
+// comes, which button it is, and lets it go on.
+func (a *app) pressedDown(e ui.Element) bool {
+	e.HandleInput(func(ev ui.InputEvent) bool {
+		if ev.Kind == ui.InputPointerDown {
+			a.primaryDown = ev.Button == 0 && ev.Mods&ui.Ctrl == 0
+		}
+		return false
+	})
+	return e.Pressed() && a.primaryDown
+}
+
+// clicked reports a click of e, but a Control-click, a right-click.
+func clicked(e ui.Element) bool { return e.Clicked() && e.ClickModifiers()&ui.Ctrl == 0 }
+
 // segTrack is a segmented control on a gray track, its choice on a white
 // thumb, as magpie's in-page switches. It chooses as the pointer goes
 // down, and reports whether the choice changed.
@@ -295,15 +312,20 @@ func (a *app) segTrack(c *ui.Context, key string, chosen *int, labels ...string)
 	was := *chosen
 	s := ui.SegmentedBase(c.Key(key), chosen, len(labels))
 	s.Track.Radius(8).Shrink(0).Background(a.p.segTrack)
+	ctrl := false
 	a.segments(c, s.Track, labels, *chosen, func(i int) ui.Element {
 		seg := s.Segment(i)
-		if seg.Pressed() && *chosen != i {
+		if *chosen != i && a.pressedDown(seg) {
 			*chosen = i
 			c.Invalidate() // the thumb, built before, moves in the next frame
 		}
+		ctrl = ctrl || seg.Clicked() && seg.ClickModifiers()&ui.Ctrl != 0
 		return seg
 	})
-	return s.Track.Changed() || *chosen != was
+	if ctrl {
+		*chosen = was // a Control-click is a right-click
+	}
+	return s.Track.Changed() && !ctrl || *chosen != was
 }
 
 // thumbMotion slides a segmented control's thumb to the segment chosen,

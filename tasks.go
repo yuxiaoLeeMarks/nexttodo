@@ -69,11 +69,16 @@ type taskGroup struct {
 func (a *app) taskGroups(tasks []*Task, first time.Weekday) []taskGroup {
 	today := day(a.now())
 	var groups []taskGroup
+	// A group each title, in the order they first come, whatever the
+	// order of the tasks: one list's, as the list changes in a frame.
+	at := map[string]int{}
 	put := func(title string, late bool, t *Task) {
-		if len(groups) == 0 || groups[len(groups)-1].title != title {
+		i, ok := at[title]
+		if !ok {
+			i, at[title] = len(groups), len(groups)
 			groups = append(groups, taskGroup{title: title, late: late})
 		}
-		groups[len(groups)-1].tasks = append(groups[len(groups)-1].tasks, t)
+		groups[i].tasks = append(groups[i].tasks, t)
 	}
 	switch a.taskList {
 	case listPlanned:

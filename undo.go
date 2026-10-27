@@ -75,7 +75,13 @@ func (a *app) restore(step *undoStep) {
 	d.Tasks = unchange(d.Tasks, before.Tasks, after.Tasks, func(t *Task) string { return t.ID })
 	d.Events = unchange(d.Events, before.Events, after.Events, func(e *Event) string { return e.ID })
 	a.drag = eventDrag{}
-	a.evtOpen, a.dirOpen = false, false
+	// A dialog stays, with what is typed, unless what it edits went.
+	if a.evtOpen && a.evt.id != "" && a.data.event(a.evt.id) == nil {
+		a.evtOpen = false
+	}
+	if a.dirOpen && a.dir.id != "" && a.data.direction(a.dir.id) == nil {
+		a.dirOpen = false
+	}
 	a.changed()
 }
 
