@@ -103,6 +103,7 @@ type Direction struct {
 	Summary string    `json:"summary,omitempty"`
 	Primary bool      `json:"primary,omitempty"`
 	Created time.Time `json:"created"`
+	Sample  bool      `json:"sample,omitempty"` // of the sample data, which clears it
 }
 
 // Entry is a dated line of a project's journal.
@@ -131,6 +132,9 @@ type Project struct {
 	// the overview and the pickers, kept as they were.
 	Archived   bool      `json:"archived,omitempty"`
 	ArchivedAt time.Time `json:"archivedAt,omitzero"`
+	// Sample marks a project of the sample data, until the user puts a
+	// task or an entry of their own in it.
+	Sample bool `json:"sample,omitempty"`
 }
 
 // Task is a to-do. Due is a date (local midnight), zero for none; the task
@@ -150,6 +154,7 @@ type Task struct {
 	Done     bool      `json:"done,omitempty"`
 	DoneAt   time.Time `json:"doneAt,omitzero"`
 	Created  time.Time `json:"created"`
+	Sample   bool      `json:"sample,omitempty"` // of the sample data
 }
 
 // Step is a step of a task's checklist.
@@ -193,7 +198,8 @@ type Event struct {
 	UID string `json:"uid,omitempty"`
 	// Sub is the subscription an event comes from, which keeps it, read
 	// only.
-	Sub string `json:"sub,omitempty"`
+	Sub    string `json:"sub,omitempty"`
+	Sample bool   `json:"sample,omitempty"` // of the sample data
 
 	series *Event // the event an occurrence repeats
 }
@@ -231,7 +237,7 @@ type Data struct {
 
 const (
 	dataFormat  = "nexttodo"
-	dataVersion = 3 // 2: categories of the user's own; 3: tags of events
+	dataVersion = 4 // 2: categories of the user's own; 3: tags of events; 4: the sample marked
 )
 
 func newData() *Data {
@@ -247,6 +253,9 @@ func (d *Data) migrate(lang string) {
 	}
 	if d.Version < 3 && len(d.Kinds) == 0 {
 		d.Kinds = defaultKinds(lang)
+	}
+	if d.Version < 4 {
+		d.markSample()
 	}
 	d.Version = dataVersion
 }

@@ -65,29 +65,67 @@ var sampleTitles = sync.OnceValue(func() map[string]bool {
 
 // hasSample reports whether the data still holds things of the sample data.
 func (d *Data) hasSample() bool {
-	is := sampleTitles()
-	return slices.ContainsFunc(d.Projects, func(x *Project) bool { return is[x.Title] }) ||
-		slices.ContainsFunc(d.Tasks, func(x *Task) bool { return is[x.Title] }) ||
-		slices.ContainsFunc(d.Events, func(x *Event) bool { return is[x.Title] }) ||
-		slices.ContainsFunc(d.Directions, func(x *Direction) bool { return is[x.Title] })
+	return slices.ContainsFunc(d.Projects, func(x *Project) bool { return x.Sample }) ||
+		slices.ContainsFunc(d.Tasks, func(x *Task) bool { return x.Sample }) ||
+		slices.ContainsFunc(d.Events, func(x *Event) bool { return x.Sample }) ||
+		slices.ContainsFunc(d.Directions, func(x *Direction) bool { return x.Sample })
 }
 
 // clearSample deletes the things of the sample data, leaving those the
 // user made, those of a sample project without one.
 func (d *Data) clearSample() {
-	is := sampleTitles()
 	for _, x := range slices.Clone(d.Projects) {
-		if is[x.Title] {
+		if x.Sample {
 			d.deleteProject(x.ID)
 		}
 	}
 	for _, x := range slices.Clone(d.Directions) {
-		if is[x.Title] {
+		if x.Sample {
 			d.deleteDirection(x.ID)
 		}
 	}
-	d.Tasks = slices.DeleteFunc(d.Tasks, func(x *Task) bool { return is[x.Title] })
-	d.Events = slices.DeleteFunc(d.Events, func(x *Event) bool { return is[x.Title] })
+	d.Tasks = slices.DeleteFunc(d.Tasks, func(x *Task) bool { return x.Sample })
+	d.Events = slices.DeleteFunc(d.Events, func(x *Event) bool { return x.Sample })
+}
+
+// markSample marks the sample data of earlier versions, which did not:
+// the things of its titles, if there are enough of them to be it, and not
+// the user's own 组会 alone.
+func (d *Data) markSample() {
+	is := sampleTitles()
+	n := 0
+	count := func(title string) {
+		if is[title] {
+			n++
+		}
+	}
+	for _, x := range d.Projects {
+		count(x.Title)
+	}
+	for _, x := range d.Tasks {
+		count(x.Title)
+	}
+	for _, x := range d.Events {
+		count(x.Title)
+	}
+	for _, x := range d.Directions {
+		count(x.Title)
+	}
+	if n < 10 {
+		return
+	}
+	for _, x := range d.Projects {
+		x.Sample = is[x.Title]
+	}
+	for _, x := range d.Tasks {
+		x.Sample = is[x.Title]
+	}
+	for _, x := range d.Events {
+		x.Sample = is[x.Title]
+	}
+	for _, x := range d.Directions {
+		x.Sample = is[x.Title]
+	}
 }
 
 // sampleData is the almanac of an imagined researcher's season, around
@@ -211,6 +249,19 @@ func sampleData(now time.Time, lang string) *Data {
 	event(s("Review papers", "集中审稿"), "focus", reviewing, 5, 10, 0, 120, "")
 	retreat := at(addDays(today, 3), 0, 0)
 	d.Events = append(d.Events, &Event{ID: newID(), Title: s("Faculty retreat", "系务研讨日"), Kind: "other", AllDay: true, Start: retreat, End: addDays(retreat, 1)})
+	// Marked, to be told from one's own and cleared.
+	for _, x := range d.Directions {
+		x.Sample = true
+	}
+	for _, x := range d.Projects {
+		x.Sample = true
+	}
+	for _, x := range d.Tasks {
+		x.Sample = true
+	}
+	for _, x := range d.Events {
+		x.Sample = true
+	}
 	return d
 }
 

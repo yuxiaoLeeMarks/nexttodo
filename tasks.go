@@ -199,6 +199,9 @@ func (a *app) addTaskWhen(w when, project string, list int) *Task {
 func (a *app) addTask(title, project string, list int) *Task {
 	now := a.now()
 	t := &Task{ID: newID(), Title: strings.TrimSpace(title), Project: project, Created: now}
+	if pr := a.data.project(project); pr != nil {
+		pr.Sample = false // one's own now, as a task of one's own is in it
+	}
 	switch list {
 	case listMyDay:
 		t.MyDay = day(now)

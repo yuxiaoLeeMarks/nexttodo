@@ -511,10 +511,15 @@ func TestWelcomeAndSample(t *testing.T) {
 	if !tt.HasText("This is sample data, to show what NextTodo keeps.") {
 		t.Fatalf("no notice of the sample data: %q", tt.Texts())
 	}
-	// Things of one's own stay as the sample goes; Undo brings it back.
-	mine := a.addTask("Mine", a.data.Projects[0].ID, listAll)
+	// Things of one's own stay as the sample goes, and a sample project
+	// one put a task in, with the task; Undo brings it back.
+	adopted := a.data.Projects[0]
+	mine := a.addTask("Mine", adopted.ID, listAll)
+	own := &Event{ID: "own", Title: "组会", Start: at(monday, 9, 0), End: at(monday, 10, 0)}
+	a.data.Events = append(a.data.Events, own)
 	tt.Click("Clear sample data")
-	if a.data.hasSample() || len(a.data.Tasks) != 1 || a.data.Tasks[0] != mine || mine.Project != "" || len(a.data.Kinds) != 5 {
+	if a.data.hasSample() || len(a.data.Tasks) != 1 || a.data.Tasks[0] != mine || mine.Project != adopted.ID ||
+		len(a.data.Projects) != 1 || len(a.data.Events) != 1 || a.data.Events[0] != own || len(a.data.Kinds) != 5 {
 		t.Fatalf("after clearing: %d projects, %d tasks, %d events", len(a.data.Projects), len(a.data.Tasks), len(a.data.Events))
 	}
 	a.restore(a.undo[len(a.undo)-1])
@@ -640,5 +645,38 @@ func TestUndoKeepsDialog(t *testing.T) {
 	a.restore(step)
 	if !a.evtOpen || a.evt.title != "Half typed" || a.data.kind("seminar") == nil {
 		t.Errorf("dialog open %v, title %q", a.evtOpen, a.evt.title)
+	}
+}
+
+// Data of 0.6 and before had its sample unmarked: it is marked as such
+// only if there is enough of it, and one's own 组会 alone is not.
+func TestMarkSample(t *testing.T) {
+	d := sampleData(monday, "zh-Hans")
+	own := &Task{ID: "own", Title: "我的待办"}
+	d.Tasks = append(d.Tasks, own)
+	for _, x := range d.Tasks {
+		x.Sample = false
+	}
+	for _, x := range d.Events {
+		x.Sample = false
+	}
+	for _, x := range d.Projects {
+		x.Sample = false
+	}
+	for _, x := range d.Directions {
+		x.Sample = false
+	}
+	d.Version = 3
+	d.migrate("zh-Hans")
+	if !d.hasSample() || own.Sample {
+		t.Errorf("legacy sample: marked %v, own %v", d.hasSample(), own.Sample)
+	}
+	alone := freshData("zh-Hans")
+	alone.Events = append(alone.Events, &Event{ID: "g", Title: "组会"})
+	alone.Directions = append(alone.Directions, &Direction{ID: "d", Title: "科学智能"})
+	alone.Version = 3
+	alone.migrate("zh-Hans")
+	if alone.hasSample() {
+		t.Error("one's own 组会 was taken for the sample")
 	}
 }

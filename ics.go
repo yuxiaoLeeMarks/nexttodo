@@ -60,6 +60,29 @@ func icsText(s string) string {
 	return strings.TrimSpace(r.Replace(s))
 }
 
+// icsList reads a list of texts, split at the commas not escaped.
+func icsList(s string) []string {
+	var out []string
+	start := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '\\':
+			i++
+		case ',':
+			out = append(out, s[start:i])
+			start = i + 1
+		}
+	}
+	out = append(out, s[start:])
+	var texts []string
+	for _, v := range out {
+		if v = icsText(v); v != "" {
+			texts = append(texts, v)
+		}
+	}
+	return texts
+}
+
 // icsTime reads a date or a date and time: in its zone, UTC or the one
 // its TZID names, or else in loc; and whether it is a date alone.
 func icsTime(l icsLine, loc *time.Location) (time.Time, bool, error) {
@@ -151,8 +174,8 @@ type icsImport struct {
 	events []*Event
 	skips  []icsSkip
 	simple int
-	tags   map[*Event]string // the categories of events, which name their tags
-	name   string            // the calendar's own, as X-WR-CALNAME says
+	tags   map[*Event][]string // the categories of events, which name their tags
+	name   string              // the calendar's own, as X-WR-CALNAME says
 }
 
 // icsSkip is a day the series of a UID skips.
@@ -177,7 +200,7 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 		exdate     []time.Time
 		recur      time.Time // the occurrence a changed one replaces
 		cancelled  bool
-		tag        string
+		tags       []string
 	}
 	var all []*vevent
 	var cur *vevent
@@ -226,7 +249,7 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 		case "STATUS":
 			cur.cancelled = strings.EqualFold(l.value, "CANCELLED")
 		case "CATEGORIES":
-			cur.tag, _, _ = strings.Cut(icsText(l.value), ",")
+			cur.tags = append(cur.tags, icsList(l.value)...)
 		case "DTSTART":
 			cur.start = &l
 		case "DTEND":
@@ -295,12 +318,12 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 			e.UID += "/" + v.recur.Format("20060102")
 		}
 		out.events = append(out.events, group...)
-		if v.tag != "" {
+		if len(v.tags) > 0 {
 			if out.tags == nil {
-				out.tags = map[*Event]string{}
+				out.tags = map[*Event][]string{}
 			}
 			for _, x := range group {
-				out.tags[x] = strings.TrimSpace(v.tag)
+				out.tags[x] = v.tags
 			}
 		}
 	}
@@ -514,19 +537,13 @@ func writeICS(events []*Event, now time.Time, tag func(KindID) string) []byte {
 // exported before changed in place by their UIDs, and returns how many it
 // added and changed.
 func (d *Data) importEvents(events []*Event) (added, changed int) {
-	byUID := map[string]*Event{}
-	for _, e := range d.Events {
-		byUID[e.ID+"@nexttodo"] = e
-		if e.UID != "" {
-			byUID[e.UID] = e
-		}
-	}
+	byUID := d.byUID()
 	for _, e := range events {
 		if old := byUID[e.UID]; e.UID != "" && old != nil {
-			// What is NextTodo's own stays: its project and alert, and its
-			// tag unless the file names one.
+			// What is NextTodo's own stays: its project, its alert and the
+			// tag the user gave it.
 			e.ID, e.Project = old.ID, old.Project
-			if e.Kind == "" {
+			if old.Kind != "" || e.Kind == "" {
 				e.Kind = old.Kind
 			}
 			if strings.HasSuffix(e.UID, "@nexttodo") && old.UID == "" {
@@ -546,19 +563,44 @@ func (d *Data) importEvents(events []*Event) (added, changed int) {
 }
 
 // importCalendar adds the events of a calendar file as importEvents does,
-// each new one with the tag its category names, if there is one, and has
-// the series imported before skip what the file changed on its own.
+// each new one, or untagged yet, with the first tag its categories name,
+// and has the series imported before skip what the file changed on its
+// own. A tag the user gave an event stays.
 func (d *Data) importCalendar(got icsImport) (added, changed int) {
-	for e, name := range got.tags {
-		for _, k := range d.Kinds {
-			if strings.EqualFold(k.Name, name) {
-				e.Kind = k.ID
-			}
+	known := d.byUID()
+	for e, names := range got.tags {
+		if old := known[e.UID]; e.UID == "" || old == nil || old.Kind == "" {
+			e.Kind = d.kindNamed(names)
 		}
 	}
 	added, changed = d.importEvents(got.events)
 	d.skipImported(got.skips)
 	return added, changed
+}
+
+// kindNamed is the first tag of the first of names there is one of.
+func (d *Data) kindNamed(names []string) KindID {
+	for _, name := range names {
+		for _, k := range d.Kinds {
+			if strings.EqualFold(k.Name, name) {
+				return k.ID
+			}
+		}
+	}
+	return ""
+}
+
+// byUID finds the events by the UIDs calendar files know them by: those
+// imported by theirs, and NextTodo's own by ID@nexttodo.
+func (d *Data) byUID() map[string]*Event {
+	m := map[string]*Event{}
+	for _, e := range d.Events {
+		m[e.ID+"@nexttodo"] = e
+		if e.UID != "" {
+			m[e.UID] = e
+		}
+	}
+	return m
 }
 
 // skipImported makes the series of earlier imports skip the occurrences a

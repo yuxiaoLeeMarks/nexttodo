@@ -343,11 +343,18 @@ func (a *app) exportBackup() {
 // categories and tags of now, with Undo.
 func (a *app) loadSample() {
 	d := sampleData(a.now(), a.lang)
-	if len(a.data.Categories) > 0 {
-		d.Categories = a.data.Categories
+	// The user's categories and tags, as they are, even none: the sample's
+	// things of those gone have none.
+	d.Categories, d.Kinds = a.data.Categories, a.data.Kinds
+	for _, p := range d.Projects {
+		if d.category(p.Category) == nil {
+			p.Category = ""
+		}
 	}
-	if len(a.data.Kinds) > 0 {
-		d.Kinds = a.data.Kinds
+	for _, e := range d.Events {
+		if d.kind(e.Kind) == nil {
+			e.Kind = ""
+		}
 	}
 	a.replaceData(d, a.tr.SampleLoaded())
 }

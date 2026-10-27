@@ -309,3 +309,41 @@ func TestSubscriptions(t *testing.T) {
 		t.Error("an address of nothing was taken")
 	}
 }
+
+// Categories: split at the commas not escaped, the first named tag wins,
+// and a tag the user gave an event stays as the file comes again.
+func TestICSCategories(t *testing.T) {
+	if got := icsList(`Lab\, Room 2,Seminar`); len(got) != 2 || got[0] != "Lab, Room 2" || got[1] != "Seminar" {
+		t.Fatalf("list %q", got)
+	}
+	d := freshData("en")
+	d.Kinds = append(d.Kinds, &Kind{ID: "room", Name: "Lab, Room 2"}, &Kind{ID: "dup", Name: "Meeting"})
+	file := icsEvent("UID:x", "DTSTART:20261028T060000Z", `CATEGORIES:Work,Seminar`, "SUMMARY:X") +
+		icsEvent("UID:y", "DTSTART:20261028T080000Z", `CATEGORIES:Lab\, Room 2`, "SUMMARY:Y") +
+		icsEvent("UID:z", "DTSTART:20261028T090000Z", `CATEGORIES:Meeting`, "SUMMARY:Z")
+	got, err := readICS([]byte(file), time.Local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.importCalendar(got)
+	kinds := map[string]KindID{}
+	for _, e := range d.Events {
+		kinds[e.Title] = e.Kind
+	}
+	if kinds["X"] != "seminar" || kinds["Y"] != "room" || kinds["Z"] != "meeting" {
+		t.Fatalf("tags %v", kinds)
+	}
+	// Retagged by the user, kept as the file comes again.
+	for _, e := range d.Events {
+		if e.Title == "X" {
+			e.Kind = "focus"
+		}
+	}
+	got, _ = readICS([]byte(file), time.Local)
+	d.importCalendar(got)
+	for _, e := range d.Events {
+		if e.Title == "X" && e.Kind != "focus" {
+			t.Errorf("import took back the user's tag: %q", e.Kind)
+		}
+	}
+}

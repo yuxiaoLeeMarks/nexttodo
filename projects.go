@@ -415,6 +415,7 @@ func (a *app) projectJournal(c *ui.Context, pr *Project) {
 				}
 				if !empty && (add.Clicked() || c.Shortcut(ui.Cmd, ui.KeyEnter)) {
 					pr.Journal = append([]Entry{{ID: newID(), Date: a.now(), Text: strings.TrimSpace(a.journalDraft)}}, pr.Journal...)
+					pr.Sample = false // one's own now, as an entry of one's own is in it
 					a.journalDraft = ""
 					a.changed()
 				}
