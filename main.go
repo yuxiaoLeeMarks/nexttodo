@@ -61,7 +61,13 @@ func main() {
 			a.openMain()
 		}
 		a.setHotkey(!a.data.Prefs.NoHotkey)
-		a.openAtLogin = mygo.App.OpenAtLogin()
+		// Asked after the first frames, which its 16 ms would delay.
+		time.AfterFunc(time.Second, func() {
+			mygo.RunOnMain(func() {
+				a.openAtLogin = mygo.App.OpenAtLogin()
+				a.redraw()
+			})
+		})
 		a.updateBadge()
 		go a.watchAlerts()
 		a.captureForCheck()
