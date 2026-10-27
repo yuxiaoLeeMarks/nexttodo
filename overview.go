@@ -67,6 +67,13 @@ func (a *app) overview(c *ui.Context) {
 	}
 
 	a.pageBody(c, nil, func() {
+		if a.data.empty() {
+			a.welcome(c)
+			return
+		}
+		if a.data.hasSample() && !a.picturing {
+			a.notice(c, iconFlask, a.tr.SampleNotice(), a.tr.ClearSample(), a.clearSample)
+		}
 		a.overviewHero(c, now, wk, a.openCount(myDay), len(todays), overdue, dueWeek, len(active))
 		ui.Row(c).Gap(16).AlignItems(ui.Start).Children(func() {
 			ui.Column(c).Grow(3).Basis(0).MinWidth(0).Children(func() {
@@ -397,4 +404,52 @@ func itoa(n int) string {
 		b[i] = '-'
 	}
 	return string(b[i:])
+}
+
+// welcome is the overview while there is nothing yet: where to begin, and
+// the sample data to look around with first.
+func (a *app) welcome(c *ui.Context) {
+	p := &a.p
+	a.card(c).Padding(26, 26, 20).Gap(18).Children(func() {
+		ui.Row(c).Gap(14).AlignItems(ui.Center).Children(func() {
+			ui.Box(c).Size(48, 48).Shrink(0).Draw(func(pt *ui.Painter, r ui.Rect) { drawAppIcon(pt, r) })
+			ui.Column(c).Gap(3).MinWidth(0).Children(func() {
+				ui.Text(c, a.tr.WelcomeTitle()).FontSize(20).FontWeight(600).TextColor(p.fg)
+				ui.Text(c, a.tr.WelcomeSub()).FontSize(13).TextColor(p.muted)
+			})
+		})
+		ui.Grid(c).Columns(2).Gap(10).Children(func() {
+			tile := func(key string, icon *ui.SVG, col ui.Color, title, hint string, run func()) {
+				b := ui.ButtonBase(c.Key(key)).Padding(14, 14, 14, 16).Gap(12).Radius(12).AlignItems(ui.Center).
+					Border(1, p.line2).FocusRing(false).Label(title)
+				if b.Hovered() {
+					b.Background(p.pill)
+				} else {
+					b.Background(p.card2)
+				}
+				b.Children(func() {
+					a.disc(c, icon, col, 36)
+					ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
+						ui.Text(c, title).FontSize(13.5).FontWeight(500).TextColor(p.fg)
+						ui.Text(c, hint).FontSize(12).LineHeight(1.4).TextColor(p.muted)
+					})
+					ui.Icon(c, iconChevronRight).Size(13, 13).TextColor(p.faint)
+				})
+				if b.Clicked() {
+					run()
+				}
+			}
+			tile("task", iconCheck, p.accent, a.tr.WelcomeTask(), a.tr.WelcomeTaskHint(), a.startTask)
+			tile("event", iconCalendar, p.series[1], a.tr.WelcomeEvent(), a.tr.WelcomeEventHint(), func() { a.newEvent(a.nextSlot(), "") })
+			tile("project", iconFolder, p.series[2], a.tr.WelcomeProject(), a.tr.WelcomeProjectHint(), a.newProject)
+			tile("import", iconUpload, p.series[3], a.tr.WelcomeImport(), a.tr.WelcomeImportHint(), a.importCalendar)
+		})
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Icon(c, iconLogo).Size(13, 13).TextColor(p.muted)
+			ui.Text(c, a.tr.WelcomeMenuBar("⌃⌥Space")).FontSize(12).TextColor(p.muted).Grow(1).MinWidth(0)
+			if a.btn(c, a.tr.WelcomeSample(), btnLink).Clicked() {
+				a.loadSample()
+			}
+		})
+	})
 }

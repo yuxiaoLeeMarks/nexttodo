@@ -232,8 +232,8 @@ func TestArchive(t *testing.T) {
 func TestSaveAndLoad(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data.json")
 	d := loadData(path, monday, "zh-Hans")
-	if len(d.Projects) == 0 {
-		t.Fatal("a first launch has no sample data")
+	if !d.empty() || len(d.Categories) != 4 || len(d.Kinds) != 5 || d.Kinds[0].Name != "会议" {
+		t.Fatalf("a first launch has %d projects, %d tasks, %d categories, %d tags", len(d.Projects), len(d.Tasks), len(d.Categories), len(d.Kinds))
 	}
 	a := newApp(d, path)
 	a.data.Tasks = append(a.data.Tasks, &Task{ID: "x", Title: "written"})
@@ -783,6 +783,7 @@ func TestSnapshots(t *testing.T) {
 		{"event", func(a *app) { a.page = PageSchedule; a.editEvent(a.data.Events[1]) }, 1280, 820},
 		{"categories", func(a *app) { a.page, a.catOpen = PageProjects, true }, 1280, 820},
 		{"kinds", func(a *app) { a.page, a.kindsOpen = PageSchedule, true }, 1280, 820},
+		{"welcome", func(a *app) { a.data, a.page = freshData(a.lang), PageOverview }, 1280, 820},
 		{"archived", func(a *app) {
 			a.page, a.projShowArchived = PageProjects, true
 			a.data.Projects[4].Archived, a.data.Projects[4].ArchivedAt = true, monday
@@ -822,6 +823,7 @@ func TestSnapshots(t *testing.T) {
 					continue
 				}
 				a := testApp(lang)
+				a.picturing = true
 				view := a.view
 				if s.set == nil {
 					view = a.panelView

@@ -85,6 +85,8 @@ type app struct {
 	catPop   CatID // the category whose look is being chosen
 	askCat   CatID // asking whether to delete it
 
+	picturing bool // drawing the README's pictures, of the sample data as one's own
+
 	// The tags of events.
 	kindsOpen bool
 	kindDraft string
@@ -191,11 +193,12 @@ func (a *app) flush() {
 	a.backupsRead = false
 }
 
-// loadData reads the data at path; a first launch gets the sample data.
+// loadData reads the data at path; a first launch starts with nothing but
+// the default categories and tags, for the user's own things.
 func loadData(path string, now time.Time, lang string) *Data {
 	b, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		d := sampleData(now, lang)
+		d := freshData(lang)
 		if b, err := d.encode(); err == nil {
 			writeFile(path, b)
 		}
@@ -211,7 +214,7 @@ func loadData(path string, now time.Time, lang string) *Data {
 	// Keep what could not be read, and start afresh.
 	log.Printf("reading %s: %v", path, err)
 	os.Rename(path, strings.TrimSuffix(path, ".json")+".unreadable-"+now.Format("20060102-150405")+".json")
-	return newData()
+	return freshData(lang)
 }
 
 // Names.

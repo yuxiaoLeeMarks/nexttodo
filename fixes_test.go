@@ -483,3 +483,42 @@ func TestKinds(t *testing.T) {
 		t.Errorf("after Undo, %d of %d events tagged", a.eventsTagged("meeting"), n)
 	}
 }
+
+// A first launch welcomes with where to begin; the sample data comes and
+// goes on a click, leaving what the user made.
+func TestWelcomeAndSample(t *testing.T) {
+	a := newApp(freshData("en"), "")
+	a.now = func() time.Time { return monday }
+	tt := newTester(t, a, "en")
+	for _, s := range []string{"Welcome to NextTodo", "Add your first task", "Plan an event", "Start a project", "Import a calendar"} {
+		if !tt.HasText(s) {
+			t.Fatalf("no %q in %q", s, tt.Texts())
+		}
+	}
+	if err := tt.Click("Add your first task"); err != nil {
+		t.Fatal(err)
+	}
+	if a.page != PageTasks {
+		t.Fatalf("the first task's tile went to %v", a.page)
+	}
+	a.navigate(PageOverview)
+	tt.Frame()
+	tt.Click("Look around with sample data first")
+	if a.data.empty() || !a.data.hasSample() {
+		t.Fatal("no sample data")
+	}
+	tt.Frame()
+	if !tt.HasText("This is sample data, to show what NextTodo keeps.") {
+		t.Fatalf("no notice of the sample data: %q", tt.Texts())
+	}
+	// Things of one's own stay as the sample goes; Undo brings it back.
+	mine := a.addTask("Mine", a.data.Projects[0].ID, listAll)
+	tt.Click("Clear sample data")
+	if a.data.hasSample() || len(a.data.Tasks) != 1 || a.data.Tasks[0] != mine || mine.Project != "" || len(a.data.Kinds) != 5 {
+		t.Fatalf("after clearing: %d projects, %d tasks, %d events", len(a.data.Projects), len(a.data.Tasks), len(a.data.Events))
+	}
+	a.restore(a.undo[len(a.undo)-1])
+	if !a.data.hasSample() || a.data.task(mine.ID) == nil {
+		t.Error("Undo did not bring the sample back")
+	}
+}

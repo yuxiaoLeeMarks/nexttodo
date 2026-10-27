@@ -196,21 +196,21 @@ func (a *app) settingsPage(c *ui.Context) {
 						a.importBackup()
 					}
 				})
-				empty := len(a.data.Projects)+len(a.data.Tasks)+len(a.data.Events)+len(a.data.Directions) == 0
-				if empty {
+				switch {
+				case a.data.empty():
 					a.formRow(c, a.tr.SettingsSampleData(), func() {
 						if a.btn(c, a.tr.LoadSample(), btnSecondary).Clicked() {
-							d := sampleData(a.now(), a.lang)
-							if len(a.data.Categories) > 0 {
-								d.Categories = a.data.Categories
-							}
-							if len(a.data.Kinds) > 0 {
-								d.Kinds = a.data.Kinds
-							}
-							a.replaceData(d, a.tr.SampleLoaded())
+							a.loadSample()
 						}
 					})
-				} else {
+				case a.data.hasSample():
+					a.formRowHint(c, a.tr.SettingsSampleData(), a.tr.SampleNotice(), func() {
+						if a.btn(c, a.tr.ClearSample(), btnSecondary).Clicked() {
+							a.clearSample()
+						}
+					})
+				}
+				if !a.data.empty() {
 					a.formRow(c, a.tr.EraseAll(), func() {
 						if a.btn(c, a.tr.EraseButton(), btnDanger).Clicked() {
 							a.askErase = true
@@ -334,6 +334,30 @@ func (a *app) exportBackup() {
 			}
 		})
 	}()
+}
+
+// loadSample shows the sample data, to look around with, keeping the
+// categories and tags of now, with Undo.
+func (a *app) loadSample() {
+	d := sampleData(a.now(), a.lang)
+	if len(a.data.Categories) > 0 {
+		d.Categories = a.data.Categories
+	}
+	if len(a.data.Kinds) > 0 {
+		d.Kinds = a.data.Kinds
+	}
+	a.replaceData(d, a.tr.SampleLoaded())
+}
+
+// clearSample deletes the sample data, leaving what the user made, with
+// Undo.
+func (a *app) clearSample() {
+	step := a.remember()
+	a.data.clearSample()
+	a.resetSelection()
+	a.settle(step)
+	a.changed()
+	a.replaced, a.replacedMsg = step, a.tr.SampleCleared()
 }
 
 // exportCalendar asks where to save the events as a calendar file, and

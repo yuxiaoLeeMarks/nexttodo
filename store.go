@@ -344,6 +344,11 @@ func (d *Data) moveKind(moved, at *Kind) {
 	d.Kinds = slices.Insert(d.Kinds, j, moved)
 }
 
+// empty reports whether the data has nothing of the user's yet.
+func (d *Data) empty() bool {
+	return len(d.Projects)+len(d.Tasks)+len(d.Events)+len(d.Directions) == 0
+}
+
 // newKind is the tag of new events: the first, or none.
 func (d *Data) newKind() KindID {
 	if len(d.Kinds) > 0 {

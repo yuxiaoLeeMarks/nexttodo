@@ -2756,6 +2756,156 @@ func (msgs Messages) LoadSample() string {
 	return Catalog.Format(msgs.locale, "loadSample", nil)
 }
 
+// WelcomeTitle says "Welcome to NextTodo"
+// in the language the app shows.
+func WelcomeTitle() string { return In(i18n.Locale()).WelcomeTitle() }
+
+// WelcomeTitle says "Welcome to NextTodo"
+// in the language of msgs.
+func (msgs Messages) WelcomeTitle() string {
+	return Catalog.Format(msgs.locale, "welcomeTitle", nil)
+}
+
+// WelcomeSub says "Your schedule, tasks and research projects, in one quiet place. Begin with any of these."
+// in the language the app shows.
+func WelcomeSub() string { return In(i18n.Locale()).WelcomeSub() }
+
+// WelcomeSub says "Your schedule, tasks and research projects, in one quiet place. Begin with any of these."
+// in the language of msgs.
+func (msgs Messages) WelcomeSub() string {
+	return Catalog.Format(msgs.locale, "welcomeSub", nil)
+}
+
+// WelcomeTask says "Add your first task"
+// in the language the app shows.
+func WelcomeTask() string { return In(i18n.Locale()).WelcomeTask() }
+
+// WelcomeTask says "Add your first task"
+// in the language of msgs.
+func (msgs Messages) WelcomeTask() string {
+	return Catalog.Format(msgs.locale, "welcomeTask", nil)
+}
+
+// WelcomeTaskHint says "Type a time with it, as “tomorrow 3pm”, and it reminds you then."
+// in the language the app shows.
+func WelcomeTaskHint() string { return In(i18n.Locale()).WelcomeTaskHint() }
+
+// WelcomeTaskHint says "Type a time with it, as “tomorrow 3pm”, and it reminds you then."
+// in the language of msgs.
+func (msgs Messages) WelcomeTaskHint() string {
+	return Catalog.Format(msgs.locale, "welcomeTaskHint", nil)
+}
+
+// WelcomeEvent says "Plan an event"
+// in the language the app shows.
+func WelcomeEvent() string { return In(i18n.Locale()).WelcomeEvent() }
+
+// WelcomeEvent says "Plan an event"
+// in the language of msgs.
+func (msgs Messages) WelcomeEvent() string {
+	return Catalog.Format(msgs.locale, "welcomeEvent", nil)
+}
+
+// WelcomeEventHint says "Or drag down the empty hours of the week."
+// in the language the app shows.
+func WelcomeEventHint() string { return In(i18n.Locale()).WelcomeEventHint() }
+
+// WelcomeEventHint says "Or drag down the empty hours of the week."
+// in the language of msgs.
+func (msgs Messages) WelcomeEventHint() string {
+	return Catalog.Format(msgs.locale, "welcomeEventHint", nil)
+}
+
+// WelcomeProject says "Start a project"
+// in the language the app shows.
+func WelcomeProject() string { return In(i18n.Locale()).WelcomeProject() }
+
+// WelcomeProject says "Start a project"
+// in the language of msgs.
+func (msgs Messages) WelcomeProject() string {
+	return Catalog.Format(msgs.locale, "welcomeProject", nil)
+}
+
+// WelcomeProjectHint says "Keep a grant’s or a paper’s tasks, events and notes together."
+// in the language the app shows.
+func WelcomeProjectHint() string { return In(i18n.Locale()).WelcomeProjectHint() }
+
+// WelcomeProjectHint says "Keep a grant’s or a paper’s tasks, events and notes together."
+// in the language of msgs.
+func (msgs Messages) WelcomeProjectHint() string {
+	return Catalog.Format(msgs.locale, "welcomeProjectHint", nil)
+}
+
+// WelcomeImport says "Import a calendar"
+// in the language the app shows.
+func WelcomeImport() string { return In(i18n.Locale()).WelcomeImport() }
+
+// WelcomeImport says "Import a calendar"
+// in the language of msgs.
+func (msgs Messages) WelcomeImport() string {
+	return Catalog.Format(msgs.locale, "welcomeImport", nil)
+}
+
+// WelcomeImportHint says "Bring in events of Calendar, Google or Outlook, as .ics."
+// in the language the app shows.
+func WelcomeImportHint() string { return In(i18n.Locale()).WelcomeImportHint() }
+
+// WelcomeImportHint says "Bring in events of Calendar, Google or Outlook, as .ics."
+// in the language of msgs.
+func (msgs Messages) WelcomeImportHint() string {
+	return Catalog.Format(msgs.locale, "welcomeImportHint", nil)
+}
+
+// WelcomeMenuBar says "Today is in the menu bar too, and {keys} opens it from any app."
+// in the language the app shows.
+func WelcomeMenuBar(keys string) string { return In(i18n.Locale()).WelcomeMenuBar(keys) }
+
+// WelcomeMenuBar says "Today is in the menu bar too, and {keys} opens it from any app."
+// in the language of msgs.
+func (msgs Messages) WelcomeMenuBar(keys string) string {
+	return Catalog.Format(msgs.locale, "welcomeMenuBar", map[string]any{"keys": keys})
+}
+
+// WelcomeSample says "Look around with sample data first"
+// in the language the app shows.
+func WelcomeSample() string { return In(i18n.Locale()).WelcomeSample() }
+
+// WelcomeSample says "Look around with sample data first"
+// in the language of msgs.
+func (msgs Messages) WelcomeSample() string {
+	return Catalog.Format(msgs.locale, "welcomeSample", nil)
+}
+
+// SampleNotice says "This is sample data, to show what NextTodo keeps."
+// in the language the app shows.
+func SampleNotice() string { return In(i18n.Locale()).SampleNotice() }
+
+// SampleNotice says "This is sample data, to show what NextTodo keeps."
+// in the language of msgs.
+func (msgs Messages) SampleNotice() string {
+	return Catalog.Format(msgs.locale, "sampleNotice", nil)
+}
+
+// ClearSample says "Clear sample data"
+// in the language the app shows.
+func ClearSample() string { return In(i18n.Locale()).ClearSample() }
+
+// ClearSample says "Clear sample data"
+// in the language of msgs.
+func (msgs Messages) ClearSample() string {
+	return Catalog.Format(msgs.locale, "clearSample", nil)
+}
+
+// SampleCleared says "Sample data cleared"
+// in the language the app shows.
+func SampleCleared() string { return In(i18n.Locale()).SampleCleared() }
+
+// SampleCleared says "Sample data cleared"
+// in the language of msgs.
+func (msgs Messages) SampleCleared() string {
+	return Catalog.Format(msgs.locale, "sampleCleared", nil)
+}
+
 // SampleLoaded says "Sample data loaded"
 // in the language the app shows.
 func SampleLoaded() string { return In(i18n.Locale()).SampleLoaded() }

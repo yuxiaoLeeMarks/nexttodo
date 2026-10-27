@@ -1,7 +1,9 @@
 package main
 
 import (
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"nexttodo/locales"
@@ -29,6 +31,63 @@ func defaultKinds(lang string) []*Kind {
 		{ID: defaultKindIDs[3], Name: tr.KindFocus(), Color: 5},
 		{ID: defaultKindIDs[4], Name: tr.KindOther(), Color: 6},
 	}
+}
+
+// freshData is the data of a first launch, in the language lang: nothing
+// yet but the default categories of projects and tags of events.
+func freshData(lang string) *Data {
+	d := newData()
+	d.Categories, d.Kinds = defaultCategories(lang), defaultKinds(lang)
+	return d
+}
+
+// sampleTitles are the titles of the things of the sample data, in both
+// languages, by which they are found again to be cleared.
+var sampleTitles = sync.OnceValue(func() map[string]bool {
+	m := map[string]bool{}
+	for _, lang := range []string{"en", "zh-Hans"} {
+		d := sampleData(time.Now(), lang)
+		for _, x := range d.Projects {
+			m[x.Title] = true
+		}
+		for _, x := range d.Tasks {
+			m[x.Title] = true
+		}
+		for _, x := range d.Events {
+			m[x.Title] = true
+		}
+		for _, x := range d.Directions {
+			m[x.Title] = true
+		}
+	}
+	return m
+})
+
+// hasSample reports whether the data still holds things of the sample data.
+func (d *Data) hasSample() bool {
+	is := sampleTitles()
+	return slices.ContainsFunc(d.Projects, func(x *Project) bool { return is[x.Title] }) ||
+		slices.ContainsFunc(d.Tasks, func(x *Task) bool { return is[x.Title] }) ||
+		slices.ContainsFunc(d.Events, func(x *Event) bool { return is[x.Title] }) ||
+		slices.ContainsFunc(d.Directions, func(x *Direction) bool { return is[x.Title] })
+}
+
+// clearSample deletes the things of the sample data, leaving those the
+// user made, those of a sample project without one.
+func (d *Data) clearSample() {
+	is := sampleTitles()
+	for _, x := range slices.Clone(d.Projects) {
+		if is[x.Title] {
+			d.deleteProject(x.ID)
+		}
+	}
+	for _, x := range slices.Clone(d.Directions) {
+		if is[x.Title] {
+			d.deleteDirection(x.ID)
+		}
+	}
+	d.Tasks = slices.DeleteFunc(d.Tasks, func(x *Task) bool { return is[x.Title] })
+	d.Events = slices.DeleteFunc(d.Events, func(x *Event) bool { return is[x.Title] })
 }
 
 // sampleData is the almanac of an imagined researcher's season, around
