@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0
+
+**Schedule**
+
+- Event tags are yours: name them, color them, put them in order (the first tags new events), add and delete them, from Settings › Schedule or the tag button of an event. Calendar files carry them as categories.
+
+**Feel**
+
+- The settings open at once: they asked macOS on every frame whether the app opens at login, 16 ms each time.
+- Pages, lists and views switch as the pointer goes down, as Safari's tabs do, and show at once, without the rise that stuttered as a page laid out its text.
+- The switches and popovers move on short curves that end when they say, not springs that drew a second of frames that moved nothing.
+- The window's traffic lights sit in the middle of the title bar, level with the name and the pages.
+
 ## 0.4.0
 
 **Projects**

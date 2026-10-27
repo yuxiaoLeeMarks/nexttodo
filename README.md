@@ -34,7 +34,7 @@
 A research life lives in too many places: grants in a spreadsheet, meetings in a calendar, to-dos in another app, and the notes on how an experiment went nowhere at all. NextTodo keeps them together, on your Mac:
 
 - **Projects, sorted your way.** Make your own categories (by funding, by lab, by anything) with a color and an icon, or group by research direction or status; see them as a list or on a timeline. Each project keeps its tasks, events, dated journal and particulars (grant number, lead, funder, dates) in one place, and goes to the archive when it ends.
-- **A calendar that moves with you.** Week and month views, events that repeat, drag to reschedule, to sketch a new one or to block time for a task, a notification before each event starts, and .ics import and export to get along with Calendar, Google and Outlook.
+- **A calendar that moves with you.** Week and month views, tags of your own, events that repeat, drag to reschedule, to sketch a new one or to block time for a task, a notification before each event starts, and .ics import and export to get along with Calendar, Google and Outlook.
 - **Today, from the menu bar.** What is left of the day, and a field to add a task or an event, one click or ⌃⌥Space away.
 - **Yours, offline.** No account, no cloud. One JSON file in your Library, saved as you type, copied every day, with Undo for every deletion.
 
