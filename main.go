@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -401,6 +402,31 @@ func (a *app) captureForCheck() {
 			{"panel", func() { a.togglePanel() }},
 		} {
 			steps = append(steps, st)
+		}
+		// Live resizes, as a drag of the window's corner, on each page.
+		for _, pg := range []Page{PageOverview, PageTasks, PageSchedule, PageProjects, PageSettings} {
+			steps = append(steps, struct {
+				name string
+				do   func()
+			}{fmt.Sprintf("resize page %d", pg), func() {
+				a.hidePanel()
+				a.navigate(pg)
+				go func() {
+					time.Sleep(300 * time.Millisecond)
+					for i := range 30 {
+						mygo.RunOnMain(func() { a.win.SetSize(1240-i*8, 820-i*3) })
+						time.Sleep(16 * time.Millisecond)
+					}
+					mygo.RunOnMain(func() { a.win.SetSize(1240, 820) })
+				}()
+			}})
+		}
+		if f := os.Getenv("NEXTTODO_PPROF"); f != "" {
+			out, err := os.Create(f)
+			if err == nil {
+				pprof.StartCPUProfile(out)
+				time.AfterFunc(time.Duration(len(steps))*1200*time.Millisecond, pprof.StopCPUProfile)
+			}
 		}
 		go func() {
 			for _, st := range steps {
