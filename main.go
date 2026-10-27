@@ -403,6 +403,25 @@ func (a *app) captureForCheck() {
 		} {
 			steps = append(steps, st)
 		}
+		// Scrolling the week, as a trackpad does.
+		steps = append(steps, struct {
+			name string
+			do   func()
+		}{"scroll week", func() {
+			a.hidePanel()
+			a.navigate(PageSchedule)
+			a.schedMode = 0
+			go func() {
+				time.Sleep(300 * time.Millisecond)
+				for i := range 40 {
+					mygo.RunOnMain(func() {
+						a.schedScroll.Y = float32(i) * 12
+						a.redraw()
+					})
+					time.Sleep(8 * time.Millisecond)
+				}
+			}()
+		}})
 		// Live resizes, as a drag of the window's corner, on each page.
 		for _, pg := range []Page{PageOverview, PageTasks, PageSchedule, PageProjects, PageSettings} {
 			steps = append(steps, struct {

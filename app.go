@@ -490,8 +490,8 @@ func (a *app) header(c *ui.Context) {
 		if a.page == PageSettings {
 			gear.Background(p.pill).TextColor(p.fg)
 		}
-		if gear.Clicked() {
-			a.navigate(PageSettings)
+		if gear.Clicked() || gear.Pressed() && a.page != PageSettings {
+			a.navigate(PageSettings) // as the pointer goes down, as the pages do
 		}
 		a.pageSwitch(c).Attach(ui.AnchorCenter, ui.AnchorCenter)
 	})
