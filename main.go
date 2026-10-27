@@ -100,6 +100,9 @@ func (a *app) openMain() {
 		StateKey:       "main",
 		TitleBarStyle:  mygo.TitleBarHiddenInset,
 		TitleBarHeight: 50,
+		// The traffic lights centered in the 50 points of the title bar, as
+		// magpie's are in its toolbar, beside the name and the pages.
+		TrafficLightPosition: &mygo.Point{X: 18, Y: 18},
 		Content:        ui.View(a.view),
 	})
 	a.win = win
