@@ -850,6 +850,12 @@ func TestSnapshots(t *testing.T) {
 				}
 				a := testApp(lang)
 				a.picturing = true
+				// NT_NOW, as 2026-11-01T21:30, pictures the pages then.
+				if now, err := time.ParseInLocation("2006-01-02T15:04", os.Getenv("NT_NOW"), time.Local); err == nil {
+					a = newApp(sampleData(now, lang), "")
+					a.now = func() time.Time { return now }
+					a.schedAnchor, a.alertedTo, a.picturing = day(now), now.Add(-time.Minute), true
+				}
 				view := a.view
 				if s.set == nil {
 					view = a.panelView

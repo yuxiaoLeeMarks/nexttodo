@@ -435,14 +435,19 @@ func (a *app) captureForCheck() {
 				}
 			}()
 		}})
-		// Live resizes, as a drag of the window's corner, on each page.
-		for _, pg := range []Page{PageOverview, PageTasks, PageSchedule, PageProjects, PageSettings} {
+		// Live resizes, as a drag of the window's corner, on each page, and
+		// on the month and the timeline, which fit what they show to it.
+		for i, pg := range []Page{PageOverview, PageTasks, PageSchedule, PageProjects, PageSettings, PageSchedule, PageProjects} {
 			steps = append(steps, struct {
 				name string
 				do   func()
 			}{fmt.Sprintf("resize page %d", pg), func() {
 				a.hidePanel()
 				a.navigate(pg)
+				a.schedMode, a.data.Prefs.Timeline = 0, false
+				if i > 4 {
+					a.schedMode, a.data.Prefs.Timeline = 1, true
+				}
 				go func() {
 					time.Sleep(300 * time.Millisecond)
 					for i := range 30 {
