@@ -377,9 +377,11 @@ func (d *Data) moveKind(moved, at *Kind) {
 	d.Kinds = slices.Insert(d.Kinds, j, moved)
 }
 
-// empty reports whether the data has nothing of the user's yet.
+// empty reports whether the data has nothing of the user's yet: the
+// events of calendars subscribed to, as of holidays, are not.
 func (d *Data) empty() bool {
-	return len(d.Projects)+len(d.Tasks)+len(d.Events)+len(d.Directions) == 0
+	return len(d.Projects)+len(d.Tasks)+len(d.Directions) == 0 &&
+		!slices.ContainsFunc(d.Events, func(e *Event) bool { return e.Sub == "" })
 }
 
 // newKind is the tag of new events: the first, or none.

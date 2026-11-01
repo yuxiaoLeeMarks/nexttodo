@@ -340,12 +340,18 @@ func (a *app) exportBackup() {
 }
 
 // loadSample shows the sample data, to look around with, keeping the
-// categories and tags of now, with Undo.
+// categories, tags and calendars subscribed to of now, with Undo.
 func (a *app) loadSample() {
 	d := sampleData(a.now(), a.lang)
 	// The user's categories and tags, as they are, even none: the sample's
 	// things of those gone have none.
 	d.Categories, d.Kinds = a.data.Categories, a.data.Kinds
+	d.Subscriptions = a.data.Subscriptions
+	for _, e := range a.data.Events {
+		if e.Sub != "" {
+			d.Events = append(d.Events, e)
+		}
+	}
 	for _, p := range d.Projects {
 		if d.category(p.Category) == nil {
 			p.Category = ""

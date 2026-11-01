@@ -749,3 +749,25 @@ func TestMonthFit(t *testing.T) {
 		}
 	}
 }
+
+// Holidays subscribed to before anything else leave the welcome, and the
+// sample comes with them, rather than in their place.
+func TestWelcomeWithHolidays(t *testing.T) {
+	a := newApp(freshData("en"), "")
+	a.now = func() time.Time { return monday }
+	sub := &Subscription{ID: "h", Name: "Holidays", URL: "https://example.com/h.ics"}
+	hol := &Event{ID: "x", Title: "Holiday", Sub: "h", AllDay: true, Start: day(monday), End: addDays(day(monday), 1)}
+	a.data.Subscriptions, a.data.Events = []*Subscription{sub}, []*Event{hol}
+	tt := newTester(t, a, "en")
+	if !a.data.empty() || !tt.HasText("Welcome to NextTodo") {
+		t.Fatalf("no welcome beside the holidays: %q", tt.Texts())
+	}
+	tt.Click("Look around with sample data first")
+	if !a.data.hasSample() || len(a.data.Subscriptions) != 1 || a.data.event("x") == nil {
+		t.Fatalf("the sample took the holidays' place: %d calendars", len(a.data.Subscriptions))
+	}
+	a.clearSample()
+	if !a.data.empty() || a.data.event("x") == nil {
+		t.Error("clearing the sample took the holidays")
+	}
+}
