@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.2
+
+**Updates**
+
+- NextTodo updates itself: it checks for a new version a little after launch and once a day, shows what is new, and installs it and relaunches on a click, downloading only what changed when it can. Settings › Updates turns the daily check off, and "Check for Updates…" in the NextTodo menu and in Settings checks at once. Updates are signed, and an update that is not is refused.
+- Settings… moved to the NextTodo menu, where it is in Mac apps.
+
+**软件更新**
+
+- NextTodo 现在可以自动更新：启动后稍等片刻、之后每天检查一次新版本，告诉你更新了什么，点一下即可安装并重新打开，能只下载有变化的部分时只下载这部分。在「设置 › 软件更新」可关闭自动检查；NextTodo 菜单和设置里的「检查更新…」可立即检查。更新均经过签名，未签名的更新会被拒绝。
+- 「设置…」移到了 NextTodo 菜单中，与其他 Mac 应用一致。
+
 ## 0.7.1
 
 **Projects**

@@ -16,7 +16,9 @@ jobs:
         with:
           go-version: "1.27.x"
       - run: go test ./...
-      - name: Build for Apple silicon and Intel, in one app
+      - name: Build for Apple silicon and Intel, in one app, with its signed update
+        env:
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
         run: go tool mygo build -platform darwin/universal -skip-dmg
       - name: Make the disk image, which tells how to install the app
         run: packaging/dmg/build.sh build/darwin-universal/NextTodo.app "build/NextTodo-${GITHUB_REF_NAME#v}.dmg"
@@ -26,4 +28,10 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           awk -v v="$version" '$0 == "## " v {f=1; next} /^## / {f=0} f' CHANGELOG.md > notes.md
-          gh release create "$GITHUB_REF_NAME" "build/NextTodo-$version.dmg" --title "NextTodo $version" --notes-file notes.md
+          # The update's archive and deltas, then, last, the manifest that
+          # installed apps read, in a draft published once all are there.
+          shopt -s nullglob
+          gh release create "$GITHUB_REF_NAME" --draft --title "NextTodo $version" --notes-file notes.md \
+            "build/NextTodo-$version.dmg" build/darwin-universal/*.tar.gz build/darwin-universal/*.delta
+          gh release upload "$GITHUB_REF_NAME" build/darwin-universal/update-darwin-universal.json
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest

@@ -354,6 +354,10 @@
   "settingsAbout": "About",
   "aboutText": "A quiet, local-first planner for research: schedules, tasks and projects, kept on your Mac.",
   "version": "Version {v}",
+  "settingsUpdates": "Updates",
+  "autoUpdate": "Check for updates automatically",
+  "autoUpdateHint": "Once a day; a new version asks before it installs",
+  "checkUpdates": "Check for Updates…",
 
   "panelTask": "Task",
   "panelEvent": "Event",

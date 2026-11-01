@@ -3196,6 +3196,46 @@ func (msgs Messages) Version(v string) string {
 	return Catalog.Format(msgs.locale, "version", map[string]any{"v": v})
 }
 
+// SettingsUpdates says "Updates"
+// in the language the app shows.
+func SettingsUpdates() string { return In(i18n.Locale()).SettingsUpdates() }
+
+// SettingsUpdates says "Updates"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdates() string {
+	return Catalog.Format(msgs.locale, "settingsUpdates", nil)
+}
+
+// AutoUpdate says "Check for updates automatically"
+// in the language the app shows.
+func AutoUpdate() string { return In(i18n.Locale()).AutoUpdate() }
+
+// AutoUpdate says "Check for updates automatically"
+// in the language of msgs.
+func (msgs Messages) AutoUpdate() string {
+	return Catalog.Format(msgs.locale, "autoUpdate", nil)
+}
+
+// AutoUpdateHint says "Once a day; a new version asks before it installs"
+// in the language the app shows.
+func AutoUpdateHint() string { return In(i18n.Locale()).AutoUpdateHint() }
+
+// AutoUpdateHint says "Once a day; a new version asks before it installs"
+// in the language of msgs.
+func (msgs Messages) AutoUpdateHint() string {
+	return Catalog.Format(msgs.locale, "autoUpdateHint", nil)
+}
+
+// CheckUpdates says "Check for Updates…"
+// in the language the app shows.
+func CheckUpdates() string { return In(i18n.Locale()).CheckUpdates() }
+
+// CheckUpdates says "Check for Updates…"
+// in the language of msgs.
+func (msgs Messages) CheckUpdates() string {
+	return Catalog.Format(msgs.locale, "checkUpdates", nil)
+}
+
 // PanelTask says "Task"
 // in the language the app shows.
 func PanelTask() string { return In(i18n.Locale()).PanelTask() }

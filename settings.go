@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/plugins/updater"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -222,6 +223,23 @@ func (a *app) settingsPage(c *ui.Context) {
 				}
 			})
 
+			a.section(c, a.tr.SettingsUpdates(), "", nil)
+			a.list(c, func() {
+				a.formRowHint(c, a.tr.AutoUpdate(), a.tr.AutoUpdateHint(), func() {
+					on := a.autoUpdate
+					if ui.Switch(c, &on).Label(a.tr.AutoUpdate()).Disabled(!a.updates).Changed() {
+						a.autoUpdate = on
+						updater.SetAutomaticChecks(on)
+					}
+				})
+				a.formRow(c, a.tr.Version(appVersion()), func() {
+					// A build that cannot update itself says why when asked.
+					if a.btn(c, a.tr.CheckUpdates(), btnSecondary).Disabled(!a.live).Clicked() {
+						updater.CheckForUpdates()
+					}
+				})
+			})
+
 			a.section(c, a.tr.SettingsAbout(), "", nil)
 			a.card(c).Padding(14).Children(func() {
 				ui.Row(c).Gap(14).AlignItems(ui.Center).Children(func() {
@@ -265,7 +283,7 @@ var appVersion = sync.OnceValue(func() string {
 	if v := mygo.App.Version(); v != "" {
 		return v
 	}
-	return "0.7.1"
+	return "0.7.2"
 })
 
 func (a *app) setLanguage(tag string) {

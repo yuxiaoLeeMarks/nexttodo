@@ -1,9 +1,18 @@
 {
   "name": "NextTodo",
   "identifier": "dev.nexttodo.app",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "copyright": "© 2026 NextTodo",
   "out": "build",
-  "i18n": { "dir": "locales", "source": "en" },
-  "linux": { "webview": false }
+  "i18n": {
+    "dir": "locales",
+    "source": "en"
+  },
+  "linux": {
+    "webview": false
+  },
+  "updates": {
+    "publicKey": "4nccbh46e4HiImxSF9mIEG8zAMLg6O4jVJkjQdu43DY=",
+    "github": "yuxiaoLeeMarks/nexttodo"
+  }
 }

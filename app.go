@@ -136,11 +136,14 @@ type app struct {
 	searchField ui.Handle
 
 	// Settings.
-	openAtLogin bool     // as macOS says, asked once at launch
-	backupList  []backup // the automatic backups, as the settings show them
-	backupsRead bool
-	askErase    bool
-	notifyNote  string // what the test notification found
+	openAtLogin bool // as macOS says, asked once at launch
+	// autoUpdate is whether updates are checked for in the background, as
+	// the updater keeps it; updates is whether this build can update.
+	autoUpdate, updates bool
+	backupList          []backup // the automatic backups, as the settings show them
+	backupsRead         bool
+	askErase            bool
+	notifyNote          string // what the test notification found
 
 	// The menu bar's panel.
 	quick quickDraft

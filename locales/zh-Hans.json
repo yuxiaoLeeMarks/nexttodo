@@ -328,6 +328,10 @@
   "settingsAbout": "关于",
   "aboutText": "一款安静、本地优先的科研规划工具：日程、待办与项目，都留在你的 Mac 上。",
   "version": "版本 {v}",
+  "settingsUpdates": "软件更新",
+  "autoUpdate": "自动检查更新",
+  "autoUpdateHint": "每天检查一次；有新版本时会先询问再安装",
+  "checkUpdates": "检查更新…",
 
   "panelTask": "待办",
   "panelEvent": "日程",

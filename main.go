@@ -5,6 +5,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -15,6 +16,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/plugins/updater"
+	"github.com/egoist/mygo/plugins/updater/native"
 	"github.com/egoist/mygo/ui"
 
 	"nexttodo/locales"
@@ -31,6 +34,14 @@ func main() {
 	}
 	a := newApp(newData(), path)
 	a.live = true
+
+	// Updates, signed, from the releases on GitHub: checked a little after
+	// launch and each day, offered in a window, installed and relaunched.
+	mygo.Use(native.Plugin)
+	updater.OnChange(func() {
+		a.autoUpdate = updater.AutomaticChecks()
+		a.redraw()
+	})
 
 	// A click on an alert opens its event or task, also one of an earlier
 	// run that launched the app again.
@@ -69,6 +80,7 @@ func main() {
 		time.AfterFunc(time.Second, func() {
 			mygo.RunOnMain(func() {
 				a.openAtLogin = mygo.App.OpenAtLogin()
+				a.updates, a.autoUpdate = mygo.Updater.Enabled(), updater.AutomaticChecks()
 				a.redraw()
 			})
 		})
@@ -82,6 +94,22 @@ func main() {
 			}
 		}()
 		a.captureForCheck()
+		// NEXTTODO_UPDATE checks for an update and installs it, logging how,
+		// then quits: to try updating end to end without the window.
+		if os.Getenv("NEXTTODO_UPDATE") != "" {
+			go func() {
+				defer mygo.RunOnMain(mygo.App.Quit)
+				ctx := context.Background()
+				up, err := mygo.Updater.Check(ctx)
+				log.Printf("update: enabled %v, found %v, err %v", mygo.Updater.Enabled(), up != nil, err)
+				if up == nil {
+					return
+				}
+				log.Printf("update: installing %s", up.Version)
+				err = up.Install(ctx, func(got, total int64) {})
+				log.Printf("update: installed, err %v", err)
+			}()
+		}
 	})
 	mygo.App.OnLocaleChanged(func(string) {
 		mygo.App.SetMenu(a.menu())
@@ -342,7 +370,20 @@ func (a *app) menu() *mygo.Menu {
 	}
 	page := func(p Page) func(*mygo.MenuItem, *mygo.Window) { return run(func() { a.navigate(p) }) }
 	return mygo.NewMenu([]*mygo.MenuItem{
-		{Role: mygo.RoleAppMenu},
+		{Role: mygo.RoleAppMenu, Submenu: []*mygo.MenuItem{
+			{Role: mygo.RoleAbout},
+			updater.MenuItem(),
+			mygo.Separator(),
+			{Label: tr.NavSettings(), Accelerator: "CmdOrCtrl+,", Click: page(PageSettings)},
+			mygo.Separator(),
+			{Role: mygo.RoleServices},
+			mygo.Separator(),
+			{Role: mygo.RoleHide},
+			{Role: mygo.RoleHideOthers},
+			{Role: mygo.RoleUnhide},
+			mygo.Separator(),
+			{Role: mygo.RoleQuit},
+		}},
 		{Role: mygo.RoleFileMenu, Submenu: []*mygo.MenuItem{
 			{Label: tr.MenuNewTask(), Accelerator: "CmdOrCtrl+N", Click: run(a.startTask)},
 			{Label: tr.MenuNewEvent(), Accelerator: "CmdOrCtrl+Shift+N", Click: run(func() { a.newEvent(a.nextSlot(), "") })},
@@ -365,7 +406,6 @@ func (a *app) menu() *mygo.Menu {
 			{Label: tr.NavDirections(), Accelerator: "CmdOrCtrl+5", Click: page(PageDirections)},
 			mygo.Separator(),
 			{Label: tr.Search(), Accelerator: "CmdOrCtrl+F", Click: run(a.openSearch)},
-			{Label: tr.NavSettings(), Accelerator: "CmdOrCtrl+,", Click: page(PageSettings)},
 		}},
 		{Role: mygo.RoleWindowMenu},
 	})
