@@ -782,6 +782,15 @@ func TestMarkSample(t *testing.T) {
 	d := sampleData(monday, "zh-Hans")
 	own := &Task{ID: "own", Title: "我的待办"}
 	d.Tasks = append(d.Tasks, own)
+	// A sample project with an entry of one's own, and one with a task of
+	// one's own, and a sample direction with a project of one's own: all
+	// stay as the sample goes.
+	noted, tasked := d.Projects[0], d.Projects[1]
+	noted.Journal = append(noted.Journal, Entry{ID: "mine", Date: monday, Text: "与审稿人沟通了补充实验的范围。"})
+	mineToo := &Task{ID: "own2", Title: "我自己的实验", Project: tasked.ID}
+	d.Tasks = append(d.Tasks, mineToo)
+	myProject := &Project{ID: "mp", Title: "我的项目", Direction: d.Directions[0].ID}
+	d.Projects = append(d.Projects, myProject)
 	for _, x := range d.Tasks {
 		x.Sample = false
 	}
@@ -798,6 +807,15 @@ func TestMarkSample(t *testing.T) {
 	d.migrate("zh-Hans")
 	if !d.hasSample() || own.Sample {
 		t.Errorf("legacy sample: marked %v, own %v", d.hasSample(), own.Sample)
+	}
+	d.clearSample()
+	if d.project(noted.ID) == nil || len(noted.Journal) == 0 || d.project(tasked.ID) == nil || mineToo.Project != tasked.ID ||
+		myProject.Direction == "" || d.direction(myProject.Direction) == nil {
+		t.Errorf("clearing took one's own: noted %v, tasked %v, my direction %q",
+			d.project(noted.ID) != nil, d.project(tasked.ID) != nil, myProject.Direction)
+	}
+	if d.hasSample() {
+		t.Error("the sample stayed")
 	}
 	alone := freshData("zh-Hans")
 	alone.Events = append(alone.Events, &Event{ID: "g", Title: "组会"})

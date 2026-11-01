@@ -59,6 +59,11 @@ var sampleTitles = sync.OnceValue(func() map[string]bool {
 		for _, x := range d.Directions {
 			m[x.Title] = true
 		}
+		for _, x := range d.Projects {
+			for _, en := range x.Journal {
+				m["entry:"+en.Text] = true
+			}
+		}
 	}
 	return m
 })
@@ -74,6 +79,19 @@ func (d *Data) hasSample() bool {
 // clearSample deletes the things of the sample data, leaving those the
 // user made, those of a sample project without one.
 func (d *Data) clearSample() {
+	// A sample project with a task or an event of one's own in it is one's
+	// own, and a sample direction with a project of one's own.
+	for _, x := range d.Projects {
+		if x.Sample && (slices.ContainsFunc(d.Tasks, func(t *Task) bool { return !t.Sample && t.Project == x.ID }) ||
+			slices.ContainsFunc(d.Events, func(e *Event) bool { return !e.Sample && e.Project == x.ID })) {
+			x.Sample = false
+		}
+	}
+	for _, x := range d.Directions {
+		if x.Sample && slices.ContainsFunc(d.Projects, func(p *Project) bool { return !p.Sample && p.Direction == x.ID }) {
+			x.Sample = false
+		}
+	}
 	for _, x := range slices.Clone(d.Projects) {
 		if x.Sample {
 			d.deleteProject(x.ID)
@@ -125,6 +143,12 @@ func (d *Data) markSample() {
 	}
 	for _, x := range d.Directions {
 		x.Sample = is[x.Title]
+	}
+	// A project with an entry of one's own in its journal is one's own.
+	for _, x := range d.Projects {
+		if x.Sample && slices.ContainsFunc(x.Journal, func(en Entry) bool { return !is["entry:"+en.Text] }) {
+			x.Sample = false
+		}
 	}
 }
 
