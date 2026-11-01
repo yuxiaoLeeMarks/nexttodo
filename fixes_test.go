@@ -303,8 +303,50 @@ func TestTimeline(t *testing.T) {
 	if from.After(pr.Start) || to.Before(pr.End) || from.Day() != 1 || to.Day() != 1 {
 		t.Errorf("the timeline runs %v – %v", from, to)
 	}
-	if n := len(timelineTicks(time.Date(2020, 3, 1, 0, 0, 0, 0, time.Local), time.Date(2030, 1, 1, 0, 0, 0, 0, time.Local))); n != 9 {
-		t.Errorf("%d ticks from March 2020 to 2030, want each January", n)
+	months := timelineMonths(time.Date(2020, 3, 1, 0, 0, 0, 0, time.Local), time.Date(2030, 1, 1, 0, 0, 0, 0, time.Local))
+	step := timelineStep(len(months), 600, 30)
+	n := 0
+	for _, m := range months {
+		if marked(m, step) {
+			n++
+		}
+	}
+	if step != 12 || n != 9 {
+		t.Errorf("%d marks every %d months from March 2020 to 2030 in 600 DIPs, want each January", n, step)
+	}
+}
+
+// The months of the timeline leave room for their labels, however narrow
+// it is: fewer marks, never one over another.
+func TestTimelineSteps(t *testing.T) {
+	for _, c := range []struct {
+		n        int
+		w, label float32
+		want     int
+	}{
+		{13, 1000, 26, 1},
+		{13, 520, 26, 1},
+		{13, 400, 26, 2},
+		{13, 300, 26, 2},
+		{13, 200, 26, 3},
+		{13, 150, 26, 6},
+		{13, 60, 30, 12},
+		{240, 600, 30, 24},
+		{240, 100, 30, 120},
+		{1, 0, 30, 120},
+	} {
+		if got := timelineStep(c.n, c.w, c.label); got != c.want {
+			t.Errorf("%d months in %v DIPs, labels %v wide: every %d, want %d", c.n, c.w, c.label, got, c.want)
+		}
+	}
+	jan := time.Date(2027, 1, 1, 0, 0, 0, 0, time.Local)
+	for _, step := range timelineSteps[:5] {
+		if !marked(jan, step) {
+			t.Errorf("January not marked every %d months", step)
+		}
+	}
+	if marked(jan.AddDate(0, 1, 0), 2) || !marked(jan.AddDate(0, 2, 0), 2) || !marked(jan.AddDate(0, 3, 0), 3) {
+		t.Error("months marked out of step")
 	}
 }
 

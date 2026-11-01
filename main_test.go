@@ -809,6 +809,7 @@ func TestSnapshots(t *testing.T) {
 		{"panel", nil, 340, 480},
 		{"quickparse", func(a *app) { a.page, a.taskDraft = PageTasks, "Write the rebuttal fri 3pm" }, 1280, 820},
 		{"timeline", func(a *app) { a.page, a.data.Prefs.Timeline = PageProjects, true }, 1280, 820},
+		{"timelinenarrow", func(a *app) { a.page, a.data.Prefs.Timeline = PageProjects, true }, 940, 700},
 		{"steps", func(a *app) {
 			a.page, a.taskList = PageTasks, listAll
 			for _, x := range a.data.Tasks {
