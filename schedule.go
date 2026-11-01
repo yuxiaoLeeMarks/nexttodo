@@ -828,7 +828,19 @@ func (a *app) monthView(c *ui.Context, first time.Weekday) {
 	for i := range tracks {
 		tracks[i] = ui.Fr(1)
 	}
-	ui.Grid(c).Columns(7).RowTracks(tracks...).Grow(1).MinHeight(0).Children(func() {
+	grid := ui.Grid(c).Columns(7).RowTracks(tracks...).Grow(1).MinHeight(0)
+	// How tall a week is: the window, but for what the last frame left
+	// beside the weeks, which a resize does not change.
+	_, h := c.Size()
+	if b := grid.Bounds(); b.H > 0 && a.monthWinH > 0 {
+		a.monthChrome = a.monthWinH - b.H
+	}
+	if a.monthChrome == 0 {
+		a.monthChrome = 142
+	}
+	a.monthWinH = h
+	fit := monthFit((h - a.monthChrome) / 6)
+	grid.Children(func() {
 		for i := 0; i < 42; i++ {
 			d := addDays(start, i)
 			inMonth := d.Month() == m
@@ -851,7 +863,7 @@ func (a *app) monthView(c *ui.Context, first time.Weekday) {
 			}
 			a.dropDay(cell, d)
 			cell.Children(func() {
-				ui.Row(c).Padding(0, 0, 2).Children(func() {
+				ui.Row(c).Height(monthDayH).Shrink(0).AlignItems(ui.Center).Children(func() {
 					open := ui.ButtonBase(c).Radius(11).FocusRing(false).Label(a.fmt(d, "yMMMMd")).Tooltip(a.tr.ViewWeek())
 					open.Children(func() {
 						n := ui.Text(c, itoa(d.Day())).FontSize(12.5).FontWeight(500).FontFeatures("tnum").Padding(1, 6).Radius(10).TextColor(p.fg)
@@ -868,26 +880,25 @@ func (a *app) monthView(c *ui.Context, first time.Weekday) {
 						a.schedAnchor, a.schedMode, a.schedScrolled = d, 0, false
 					}
 				})
-				shown, more := 0, 0
+				var on []*Event
 				for _, e := range events {
 					if e.Start.Before(addDays(d, 1)) && e.End.After(d) || sameDay(e.Start, d) {
-						if shown < 3 {
-							a.eventChip(c, e, true)
-							shown++
-						} else {
-							more++
-						}
+						on = append(on, e)
 					}
 				}
-				for _, t := range a.data.tasksDueOn(d) {
-					if shown < 3 {
+				due := a.data.tasksDueOn(d)
+				n := fit(len(on) + len(due))
+				for i, e := range on {
+					if i < n {
+						a.eventChip(c, e, true)
+					}
+				}
+				for i, t := range due {
+					if len(on)+i < n {
 						a.dueChip(c, t)
-						shown++
-					} else {
-						more++
 					}
 				}
-				if more > 0 {
+				if more := len(on) + len(due) - n; more > 0 {
 					m := ui.ButtonBase(c.Key("more")).Radius(4).Padding(1, 5).AlignSelf(ui.Start).FocusRing(false)
 					if m.Hovered() {
 						m.Background(p.pill)
@@ -905,6 +916,29 @@ func (a *app) monthView(c *ui.Context, first time.Weekday) {
 			}
 		}
 	})
+}
+
+// The heights in a day of the month: the row of its number, an event or
+// task in it, the gap between them, the line of how many more there are,
+// and the room around them.
+const (
+	monthDayH  = 20
+	monthChipH = 20
+	monthGap   = 1
+	monthMoreH = 16
+	monthPad   = 5
+)
+
+// monthFit returns, for days h DIPs tall, how many of n events and tasks a
+// day shows: all that fit, or as many as leave room for how many more.
+func monthFit(h float32) func(n int) int {
+	room := h - 1 - 2*monthPad - monthDayH // its border, padding and number
+	return func(n int) int {
+		if float32(n)*(monthChipH+monthGap) <= room {
+			return n
+		}
+		return max(0, int((room-monthGap-monthMoreH)/(monthChipH+monthGap)))
+	}
 }
 
 // eventDialog edits a.evt while a.evtOpen.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -831,6 +832,16 @@ func TestSnapshots(t *testing.T) {
 		}, 1280, 820},
 	}
 	only := os.Getenv("NT_PAGE")
+	// NT_SIZE, as 940x600, pictures the pages in a window of that size.
+	if size := os.Getenv("NT_SIZE"); size != "" {
+		var w, h int
+		fmt.Sscanf(size, "%dx%d", &w, &h)
+		for i := range shots {
+			if shots[i].set != nil {
+				shots[i].w, shots[i].h = w, h
+			}
+		}
+	}
 	for _, lang := range []string{"en", "zh-Hans"} {
 		for _, dark := range []bool{false, true} {
 			for _, s := range shots {

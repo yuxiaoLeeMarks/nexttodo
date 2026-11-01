@@ -63,12 +63,15 @@ type app struct {
 	schedMode     int       // 0 week, 1 month
 	schedScroll   ui.ScrollState
 	schedScrolled bool
-	evt           eventDraft
-	evtOpen       bool
-	askEvent      bool
-	drag          eventDrag
-	sketch        sketch
-	colW          float32 // the width of a day in the week, as last painted
+	// The window's height when the month was last laid out, and what of
+	// it the month's weeks did not take, which tells how tall they are.
+	monthWinH, monthChrome float32
+	evt                    eventDraft
+	evtOpen                bool
+	askEvent               bool
+	drag                   eventDrag
+	sketch                 sketch
+	colW                   float32 // the width of a day in the week, as last painted
 
 	// Projects.
 	projGroup        int // by category, direction or status

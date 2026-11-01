@@ -722,3 +722,30 @@ func TestMarkSample(t *testing.T) {
 		t.Error("one's own 组会 was taken for the sample")
 	}
 }
+
+// A day of the month shows the events that fit it, and how many more
+// there are, never one cut in half.
+func TestMonthFit(t *testing.T) {
+	for _, c := range []struct {
+		h       float32
+		n, want int
+	}{
+		{120, 3, 3}, // room 89: three take 63
+		{120, 4, 4}, // four take 84
+		{120, 5, 3}, // five do not: three and "2 more" take 80
+		{76, 2, 2},  // room 45: two take 42
+		{76, 4, 1},  // one and "3 more" take 38
+		{40, 3, 0},  // no room but for "3 more"
+		{200, 0, 0},
+	} {
+		if got := monthFit(c.h)(c.n); got != c.want {
+			t.Errorf("%d in a day %v tall: shows %d, want %d", c.n, c.h, got, c.want)
+		}
+		if got := monthFit(c.h)(c.n); got < c.n {
+			room := c.h - 1 - 2*monthPad - monthDayH
+			if used := float32(got)*(monthChipH+monthGap) + monthGap + monthMoreH; used > room && got > 0 {
+				t.Errorf("%d in a day %v tall: %d and more take %v of %v", c.n, c.h, got, used, room)
+			}
+		}
+	}
+}
