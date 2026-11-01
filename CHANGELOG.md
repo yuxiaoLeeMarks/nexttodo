@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.7.1
+
+**Projects**
+
+- The timeline's months make room for themselves: in a narrow window they are marked every other month, each quarter or each year, never one over another, and today is a dot under them. A bar too short for its dates has them beside it.
+
+**Schedule**
+
+- A day of the month shows as many events as fit it, and how many more, rather than three, the third cut in half in a short window.
+- The days the clocks change, the week draws and takes times by the clock, not an hour off; a calendar's "one day" lasts until the next.
+- A series set to end before it begins comes once rather than never, and an end date set starts on the event's day. A series made one-off from a later occurrence stays on that occurrence's day.
+- Dragging an all-day event of days by a later day moves it as far as that day went. The part of an overnight event before midnight no longer resizes its end the next day. A press that hardly moved no longer leaves a sketch for the next drag to start from.
+- Alerts: an occurrence changed after its alert does not alert again, nor does a UID-less calendar's event at every refresh; alerts days ahead come then; the alert of an occurrence since deleted opens its week, not the series. Task reminders that came due while NextTodo was quit come as it launches.
+- A calendar file imported no longer changes the events of a calendar subscribed to, and a deleted tag no longer comes back with one.
+
+**Tasks**
+
+- A repeating task of the 31st keeps coming on the 31st, or the last of a shorter month; one of February 29 on it in leap years. One repeating in a way of a later version no longer hangs the app when done. Unchecked after its next was done or changed, it no longer duplicates or deletes it.
+- Quick add reads "tonight 10:30", 今晚10:30, 明早6点 and "tomorrow morning at 6" in their part of the day, 上午11点到1点 as two hours, "every other friday" and 隔周五, and February 29 as the next one. The menu bar's panel takes a time typed before Event is chosen.
+- A task added to Planned at a time gone today is due when it reminds. Filtering by a project later archived no longer hides every task.
+
+**Data**
+
+- Clearing the sample keeps what you wrote into it: a project with your entry, task or event, and a direction with your project. Subscribing to holidays first no longer hides the welcome.
+- Data that cannot be read at once is asked for again, and is never saved over.
+
 ## 0.7.0
 
 **Tasks**
