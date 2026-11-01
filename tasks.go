@@ -600,7 +600,7 @@ func (a *app) taskDetail(c *ui.Context, t *Task) {
 			})
 			a.taskSteps(c, t)
 			ui.Column(c).Dividers(1, p.line2).Gap(1).Margin(4, 0, 0, 0).Children(func() {
-				a.formRow(c, a.tr.FieldDue(), func() { a.dateField(c, "due", &t.Due) })
+				a.formRow(c, a.tr.FieldDue(), func() { a.dateField(c, "due", &t.Due, time.Time{}) })
 				a.formRow(c, a.tr.FieldRemind(), func() { a.remindField(c, t) })
 				a.formRow(c, a.tr.FieldRepeat(), func() {
 					if selectOf(a, c, "repeat", &t.Repeat, repeats, a.repeatName).Label(a.tr.FieldRepeat()).Changed() {

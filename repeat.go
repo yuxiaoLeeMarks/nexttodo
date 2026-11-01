@@ -147,6 +147,7 @@ func (d *Data) detach(occ *Event) *Event {
 	d.skip(occ)
 	e := *occ
 	e.ID, e.series, e.Repeat, e.Until, e.Skip, e.UID = newID(), nil, RepeatNone, time.Time{}, nil, ""
+	e.was = occ.root().ID
 	d.Events = append(d.Events, &e)
 	return &e
 }

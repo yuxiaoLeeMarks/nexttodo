@@ -573,12 +573,16 @@ func (a *app) titleInput(c *ui.Context, value *string, placeholder string, size 
 	return in
 }
 
-// dateField edits an optional date: a button sets it, a cross clears it.
-func (a *app) dateField(c *ui.Context, key string, date *time.Time) {
+// dateField edits an optional date: a button sets it, to today or from,
+// whichever is later, as the end of what begins then; a cross clears it.
+func (a *app) dateField(c *ui.Context, key string, date *time.Time, from time.Time) {
 	ui.Row(c.Key(key)).Gap(2).AlignItems(ui.Center).Shrink(0).Children(func() {
 		if date.IsZero() {
 			if a.btn(c, a.tr.SetDate(), btnSecondary).Clicked() {
 				*date = day(a.now())
+				if !from.IsZero() && from.After(*date) {
+					*date = day(from)
+				}
 				a.changed()
 			}
 			return

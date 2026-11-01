@@ -46,9 +46,16 @@ func (a *app) dueAlerts(now time.Time) []alert {
 		a.alertedTo = now
 	}
 	var out []alert
-	// The events starting within the longest lead, a day, and those going
-	// on, with the occurrences of repeating ones.
-	for _, e := range a.data.eventsBetween(now.Add(-48*time.Hour), now.Add(48*time.Hour)) {
+	// The events starting within the longest lead, a day or an imported
+	// event's own, and those going on, with the occurrences of repeating
+	// ones.
+	longest := 48 * time.Hour
+	for _, e := range a.data.Events {
+		if e.Alert != nil {
+			longest = max(longest, time.Duration(*e.Alert+60)*time.Minute)
+		}
+	}
+	for _, e := range a.data.eventsBetween(now.Add(-48*time.Hour), now.Add(longest)) {
 		lead, ok := a.alertLead(e)
 		if !ok || !e.End.After(now) {
 			continue
@@ -57,8 +64,12 @@ func (a *app) dueAlerts(now time.Time) []alert {
 		if at.After(now) || !at.After(from) && !e.Start.After(now) {
 			continue
 		}
-		key := e.ID + "@" + strconv.FormatInt(e.Start.Unix(), 10) // an occurrence, or a time moved to, alerts anew
-		if a.alerted[key] {
+		// An occurrence, or a time moved to, alerts anew; an occurrence made
+		// one of its own, at its time, does not.
+		start := "@" + strconv.FormatInt(e.Start.Unix(), 10)
+		key := e.ID + start
+		if a.alerted[key] || e.was != "" && a.alerted[e.was+start] {
+			a.alerted[key] = true
 			continue
 		}
 		a.alerted[key] = true

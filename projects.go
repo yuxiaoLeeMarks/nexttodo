@@ -474,8 +474,8 @@ func (a *app) projectDetails(c *ui.Context, pr *Project) {
 				a.changed()
 			}
 		})
-		a.formRow(c, a.tr.FieldStartDate(), func() { a.dateField(c, "start", &pr.Start) })
-		a.formRow(c, a.tr.FieldEndDate(), func() { a.dateField(c, "end", &pr.End) })
+		a.formRow(c, a.tr.FieldStartDate(), func() { a.dateField(c, "start", &pr.Start, time.Time{}) })
+		a.formRow(c, a.tr.FieldEndDate(), func() { a.dateField(c, "end", &pr.End, pr.Start) })
 		for _, f := range []struct {
 			label string
 			value *string

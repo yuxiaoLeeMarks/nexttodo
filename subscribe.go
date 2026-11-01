@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -97,18 +98,25 @@ func (d *Data) subscription(id string) *Subscription {
 // of those it had, which keep their IDs and alerts.
 func (d *Data) applySubscription(s *Subscription, got icsImport, now time.Time) {
 	old := map[string]*Event{}
+	// An event is the one it was by its UID, or, with none, by its start
+	// and title, to keep its ID, and so the alerts given.
+	key := func(e *Event) string {
+		if e.UID != "" {
+			return e.UID
+		}
+		return "@" + strconv.FormatInt(e.Start.Unix(), 10) + " " + e.Title
+	}
 	var keep []*Event
 	for _, e := range d.Events {
-		switch {
-		case e.Sub != s.ID:
+		if e.Sub != s.ID {
 			keep = append(keep, e)
-		case e.UID != "":
-			old[e.UID] = e
+		} else {
+			old[key(e)] = e
 		}
 	}
 	for _, e := range got.events {
 		e.Sub, e.Kind = s.ID, s.Kind
-		if o := old[e.UID]; o != nil && e.UID != "" {
+		if o := old[key(e)]; o != nil {
 			e.ID = o.ID
 			if e.Alert == nil {
 				e.Alert = o.Alert
@@ -337,6 +345,9 @@ func (a *app) eventInfo(c *ui.Context) {
 		switch {
 		case e.AllDay && daysBetween(e.Start, e.End) > 1:
 			when += " – " + a.fmt(addDays(e.End, -1), "yMMMEd")
+		case !e.AllDay && !sameDay(e.Start, e.End) && !e.End.Equal(addDays(day(e.Start), 1)):
+			// Over days: the day it ends too.
+			when += " · " + a.clock(e.Start) + " – " + a.fmt(e.End, "yMMMEd") + " · " + a.clock(e.End)
 		case !e.AllDay:
 			when += " · " + a.clock(e.Start) + " – " + a.clock(e.End)
 		}

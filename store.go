@@ -205,6 +205,9 @@ type Event struct {
 	Sample bool   `json:"sample,omitempty"` // of the sample data
 
 	series *Event // the event an occurrence repeats
+	// was is the series an event was an occurrence of, as the session
+	// made it one of its own: its alert, given, is not given again.
+	was string
 }
 
 // alertNone is an alert that is never sent.
@@ -635,6 +638,24 @@ func sameDay(a, b time.Time) bool {
 func addDays(t time.Time, n int) time.Time {
 	y, m, d := t.Date()
 	return time.Date(y, m, d+n, t.Hour(), t.Minute(), 0, 0, t.Location())
+}
+
+// addMinutes returns t moved n minutes by the clock, which a change of the
+// clocks does not stretch: 9:00 and an hour is 10:00 on any day.
+func addMinutes(t time.Time, n int) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute()+n, t.Second(), t.Nanosecond(), t.Location())
+}
+
+// dayMinutes returns how far into the day starting at d t is, in minutes
+// by the clock: none before the day, all of it after.
+func dayMinutes(t, d time.Time) float32 {
+	switch {
+	case t.Before(d):
+		return 0
+	case !t.Before(addDays(d, 1)):
+		return 24 * 60
+	}
+	return float32(t.Hour()*60+t.Minute()) + float32(t.Second())/60
 }
 
 // weekStart returns the first day of t's week, which starts on first.

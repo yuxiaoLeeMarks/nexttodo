@@ -70,8 +70,11 @@ type app struct {
 	evtOpen                bool
 	askEvent               bool
 	drag                   eventDrag
-	sketch                 sketch
-	colW                   float32 // the width of a day in the week, as last painted
+	// grab is the event a chip of which is being dragged to another day,
+	// and the day of the chip, which the event moves from.
+	grab   grabbed
+	sketch sketch
+	colW   float32 // the width of a day in the week, as last painted
 
 	// Projects.
 	projGroup        int // by category, direction or status
@@ -604,11 +607,24 @@ func (a *app) openEvent(ref string) {
 		return
 	}
 	if e.repeating() && !start.IsZero() {
+		// The occurrence, or the event it became, or, gone or moved, its
+		// week alone, rather than the whole series.
+		var found *Event
 		for _, occ := range e.occurrences(day(start), addDays(day(start), 1)) {
 			if occ.Start.Equal(start) {
-				e = occ
+				found = occ
 			}
 		}
+		for _, x := range a.data.Events {
+			if found == nil && x.was == e.ID && x.Start.Equal(start) {
+				found = x
+			}
+		}
+		a.page, a.schedMode, a.schedAnchor, a.schedScrolled = PageSchedule, 0, day(start), false
+		if found == nil {
+			return
+		}
+		e = found
 	}
 	a.page, a.schedMode = PageSchedule, 0
 	a.schedAnchor = day(e.Start)

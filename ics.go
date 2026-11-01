@@ -821,10 +821,14 @@ func (d *Data) kindNamed(names []string) KindID {
 }
 
 // byUID finds the events by the UIDs calendar files know them by: those
-// imported by theirs, and NextTodo's own by ID@nexttodo.
+// imported by theirs, and NextTodo's own by ID@nexttodo. Those of calendars
+// subscribed to are theirs, not to change by a file.
 func (d *Data) byUID() map[string]*Event {
 	m := map[string]*Event{}
 	for _, e := range d.Events {
+		if e.Sub != "" {
+			continue
+		}
 		m[e.ID+"@nexttodo"] = e
 		if e.UID != "" {
 			m[e.UID] = e
@@ -838,7 +842,7 @@ func (d *Data) byUID() map[string]*Event {
 func (d *Data) skipImported(skips []icsSkip) {
 	for _, sk := range skips {
 		for _, e := range d.Events {
-			if sk.uid != "" && (e.UID == sk.uid || strings.HasPrefix(e.UID, sk.uid+"#")) && !e.skipped(sk.day) {
+			if sk.uid != "" && e.Sub == "" && (e.UID == sk.uid || strings.HasPrefix(e.UID, sk.uid+"#")) && !e.skipped(sk.day) {
 				e.Skip = append(e.Skip, sk.day)
 			}
 		}

@@ -116,9 +116,12 @@ func (a *app) saveEvent() {
 		a.data.Events = append(a.data.Events, e)
 	case series && d.all == 0:
 		a.data.skip(&Event{Start: d.occ, series: e})
-		e = &Event{ID: newID()}
+		e = &Event{ID: newID(), was: e.ID}
 		a.data.Events = append(a.data.Events, e)
 		d.repeat, d.until = RepeatNone, time.Time{}
+	case series && d.repeat == RepeatNone:
+		// Made once, it is the occurrence edited, on its day, not the
+		// series' first, which may have been deleted.
 	case series:
 		// The series moves as the occurrence did, its skipped days and its
 		// end too.
@@ -161,14 +164,24 @@ func (a *app) saveEvent() {
 			}
 		}
 	}
+	// A series ending before it begins comes once, rather than never.
+	if !e.Until.IsZero() && e.Until.Before(day(e.Start)) {
+		e.Until = day(e.Start)
+	}
 	a.evtOpen = false
 	a.changed()
 }
 
 // moveToDay moves an event to the day d, keeping its times: an occurrence
-// of a repeating event goes alone.
+// of a repeating event goes alone. One of days, grabbed by a day of them,
+// moves as far as that day did.
 func (a *app) moveToDay(e *Event, d time.Time) {
-	n := daysBetween(e.Start, d)
+	from := e.Start
+	if a.grab.key == e.key() {
+		from = a.grab.d
+	}
+	a.grab = grabbed{}
+	n := daysBetween(from, d)
 	if n == 0 {
 		return
 	}
@@ -294,15 +307,14 @@ func (a *app) sketchRange(d time.Time) (from, to time.Time, ok bool) {
 	if !sameDay(s.day, d) || abs(s.y-s.y0) < 6 {
 		return time.Time{}, time.Time{}, false
 	}
-	step := func(y float32) time.Time {
+	step := func(y float32) int {
 		n := int(math.Round(float64(y) / hourHeight * 60 / snapMinutes))
-		return d.Add(time.Duration(max(0, min(n*snapMinutes, 24*60))) * time.Minute)
+		return max(0, min(n*snapMinutes, 24*60))
 	}
-	from, to = step(min(s.y0, s.y)), step(max(s.y0, s.y))
-	if !to.After(from) {
-		to = from.Add(snapMinutes * time.Minute)
-	}
-	return from, to, true
+	// Within the day: begun in its last minutes, it is its last step.
+	m0 := min(step(min(s.y0, s.y)), 24*60-snapMinutes)
+	m1 := max(step(max(s.y0, s.y)), m0+snapMinutes)
+	return addMinutes(d, m0), addMinutes(d, m1), true
 }
 
 // placed is an event's part in one day, in the lane it takes among those
@@ -389,11 +401,10 @@ func (a *app) dragged(e *Event) {
 	if days != 0 || minutes != 0 {
 		e = a.data.detach(e)
 	}
-	shift := time.Duration(minutes) * time.Minute
 	if a.drag.resize {
-		e.End = maxTime(e.End.Add(shift), e.Start.Add(snapMinutes*time.Minute))
+		e.End = maxTime(addMinutes(e.End, minutes), addMinutes(e.Start, snapMinutes))
 	} else {
-		e.Start, e.End = addDays(e.Start, days).Add(shift), addDays(e.End, days).Add(shift)
+		e.Start, e.End = addMinutes(addDays(e.Start, days), minutes), addMinutes(addDays(e.End, days), minutes)
 	}
 	a.drag = eventDrag{}
 	a.changed()
@@ -441,7 +452,7 @@ func (a *app) weekView(c *ui.Context, start time.Time) {
 				for _, e := range events {
 					if e.AllDay && e.Start.Before(addDays(d, 1)) && e.End.After(d) {
 						if n < 3 {
-							a.eventChip(c, e, false)
+							a.eventChip(c, e, d, false)
 						}
 						n++
 					}
@@ -507,7 +518,14 @@ func (a *app) dayColumn(c *ui.Context, i int, d time.Time, events []*Event, now 
 		}
 	}
 	// A drag down empty hours sketches a new event over them, as Calendar
-	// does, which the dialog opens on as the pointer lets go.
+	// does, which the dialog opens on as the pointer lets go. A press
+	// begins it anew, though the last moved too little to be one.
+	col.HandleInput(func(ev ui.InputEvent) bool {
+		if ev.Kind == ui.InputPointerDown && sameDay(a.sketch.day, d) {
+			a.sketch = sketch{}
+		}
+		return false
+	})
 	if _, dy, ok := col.Dragged(); ok && dy != 0 && a.drag.id == "" {
 		_, y, _ := col.PointerPosition()
 		if !sameDay(a.sketch.day, d) {
@@ -516,10 +534,14 @@ func (a *app) dayColumn(c *ui.Context, i int, d time.Time, events []*Event, now 
 		a.sketch.y = y
 	}
 	from, to, sketching := a.sketchRange(d)
-	if _, _, ended := col.DragEnded(); ended && sketching {
+	if _, _, ended := col.DragEnded(); ended && sameDay(a.sketch.day, d) {
+		// Too short to be a sketch, it is gone too, not where the next
+		// begins.
 		a.sketch = sketch{}
-		a.newEvent(from, "")
-		a.evt.end = to
+		if sketching {
+			a.newEvent(from, "")
+			a.evt.end = to
+		}
 	}
 	// A task or an all-day event dragged down from above into the hours
 	// takes an hour there: for a task, an hour blocked to work on it.
@@ -540,7 +562,7 @@ func (a *app) dayColumn(c *ui.Context, i int, d time.Time, events []*Event, now 
 			a.eventBlock(c, pl, d)
 		}
 		if !block.IsZero() {
-			top := float32(block.Sub(d).Minutes()) / 60 * hourHeight
+			top := dayMinutes(block, d) / 60 * hourHeight
 			ui.Column(c).Absolute().Top(top+1).Left(2).Right(2).Height(hourHeight-2).Padding(3, 7).Gap(1).Radius(5).PassThrough().
 				Background(a.p.accent.Alpha(0.16)).Border(1, a.p.accent.Alpha(0.6)).Children(func() {
 				ui.Text(c, orUntitled(blockTitle, a.tr.Untitled())).FontSize(11).FontWeight(600).TextColor(a.ink(a.p.accent)).SingleLine()
@@ -548,15 +570,15 @@ func (a *app) dayColumn(c *ui.Context, i int, d time.Time, events []*Event, now 
 			})
 		}
 		if sketching {
-			top := float32(from.Sub(d).Minutes()) / 60 * hourHeight
-			h := float32(to.Sub(from).Minutes()) / 60 * hourHeight
+			top := dayMinutes(from, d) / 60 * hourHeight
+			h := (dayMinutes(to, d) - dayMinutes(from, d)) / 60 * hourHeight
 			ui.Column(c).Absolute().Top(top+1).Left(2).Right(2).Height(h-2).Padding(3, 7).Radius(5).PassThrough().
 				Background(p.accent.Alpha(0.16)).Border(1, p.accent.Alpha(0.6)).Children(func() {
 				ui.Text(c, a.clock(from)+" – "+a.clock(to)).FontSize(10.5).FontWeight(500).FontFeatures("tnum").TextColor(a.ink(p.accent))
 			})
 		}
 		if today {
-			y := float32(now.Sub(d).Minutes()) / 60 * hourHeight
+			y := dayMinutes(now, d) / 60 * hourHeight
 			ui.Box(c).Absolute().Top(y - 0.75).Left(0).Right(0).Height(1.5).Background(p.red).PassThrough()
 			ui.Box(c).Absolute().Top(y-4).Left(-4).Size(8, 8).Radius(4).Background(p.red).PassThrough()
 			c.After(time.Minute)
@@ -571,8 +593,8 @@ func (a *app) eventBlock(c *ui.Context, pl placed, d time.Time) {
 	e := pl.e
 	col := a.kindColor(e.Kind)
 	from, to := pl.from, pl.to
-	top := float32(from.Sub(d).Minutes()) / 60 * hourHeight
-	h := max(float32(to.Sub(from).Minutes())/60*hourHeight, 18)
+	top := dayMinutes(from, d) / 60 * hourHeight
+	h := max((dayMinutes(to, d)-dayMinutes(from, d))/60*hourHeight, 18)
 	w := 100 / float32(pl.lanes)
 	key := e.key() // one occurrence of a series drags alone
 	b := ui.ButtonBase(c.Key(key)).Absolute().Top(top+1).LeftPercent(w*float32(pl.lane)).WidthPercent(w).
@@ -588,12 +610,11 @@ func (a *app) eventBlock(c *ui.Context, pl placed, d time.Time) {
 	dragging := a.drag.id == key
 	if dragging {
 		days, minutes := a.dragShift()
-		shift := time.Duration(minutes) * time.Minute
 		if a.drag.resize {
-			to = maxTime(to.Add(shift), from.Add(snapMinutes*time.Minute))
-			b.Height(float32(to.Sub(from).Minutes())/60*hourHeight - 2)
+			to = maxTime(addMinutes(to, minutes), addMinutes(from, snapMinutes))
+			b.Height((dayMinutes(to, d)-dayMinutes(from, d))/60*hourHeight - 2)
 		} else {
-			from, to = from.Add(shift), to.Add(shift)
+			from, to = addMinutes(from, minutes), addMinutes(to, minutes)
 			b.Translate(float32(days)*a.colW, float32(minutes)/60*hourHeight)
 		}
 	}
@@ -621,8 +642,9 @@ func (a *app) eventBlock(c *ui.Context, pl placed, d time.Time) {
 				ui.Text(c, e.Location).FontSize(10.5).TextColor(fg.Alpha(0.75)).SingleLine()
 			}
 		})
-		// The bottom edge resizes the event.
-		if e.Sub != "" {
+		// The bottom edge resizes the event, where it ends: a part going on
+		// into the next day has none.
+		if e.Sub != "" || pl.to.Before(e.End) {
 			return
 		}
 		edge := ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(7).Cursor(ui.CursorResizeNS)
@@ -669,7 +691,7 @@ func (*Task) dated()  {}
 // block of an hour dropped there starts.
 func blockStart(d time.Time, y float32) time.Time {
 	m := int(y/hourHeight*60) / snapMinutes * snapMinutes
-	return d.Add(time.Duration(max(0, min(m, 23*60))) * time.Minute)
+	return addMinutes(d, max(0, min(m, 23*60)))
 }
 
 func titleOf(v dated) string {
@@ -746,9 +768,15 @@ func (a *app) eventMenu(c *ui.Context, b ui.Element, e *Event) {
 	})
 }
 
+// grabbed is an event dragged by its chip on the day d.
+type grabbed struct {
+	key string
+	d   time.Time
+}
+
 // eventChip is an event on one line, as the all-day row and the month
-// show them, which drags to another day.
-func (a *app) eventChip(c *ui.Context, e *Event, withTime bool) {
+// show them on the day d, which drags to another day.
+func (a *app) eventChip(c *ui.Context, e *Event, d time.Time, withTime bool) {
 	p := &a.p
 	b := ui.ButtonBase(c.Key(e.key())).Height(20).Gap(5).Padding(0, 5).AlignItems(ui.Center).Justify(ui.Start).AlignSelf(ui.Stretch).
 		Radius(4).FocusRing(false).Label(orUntitled(e.Title, a.tr.Untitled()))
@@ -764,6 +792,7 @@ func (a *app) eventChip(c *ui.Context, e *Event, withTime bool) {
 	}
 	if b.Dragging() {
 		b.Opacity(0.4)
+		a.grab = grabbed{key: e.key(), d: day(d)}
 	}
 	b.Children(func() {
 		a.dot(c, col, 7)
@@ -890,7 +919,7 @@ func (a *app) monthView(c *ui.Context, first time.Weekday) {
 				n := fit(len(on) + len(due))
 				for i, e := range on {
 					if i < n {
-						a.eventChip(c, e, true)
+						a.eventChip(c, e, d, true)
 					}
 				}
 				for i, t := range due {
@@ -1030,7 +1059,7 @@ func (a *app) eventDialog(c *ui.Context) {
 					selectOf(a, c, "repeat", &d.repeat, repeats, a.repeatName).Label(a.tr.FieldRepeat())
 				})
 				if d.repeat != RepeatNone {
-					a.formRow(c, a.tr.FieldRepeatEnd(), func() { a.dateField(c, "until", &d.until) })
+					a.formRow(c, a.tr.FieldRepeatEnd(), func() { a.dateField(c, "until", &d.until, d.date) })
 				}
 			}
 			a.formRow(c, a.tr.FieldProject(), func() {
