@@ -361,6 +361,12 @@ func (d *Data) deleteKind(id KindID) {
 			e.Kind = ""
 		}
 	}
+	// Nor do the calendars subscribed to give it their events again.
+	for _, s := range d.Subscriptions {
+		if s.Kind == id {
+			s.Kind = ""
+		}
+	}
 }
 
 // moveKind puts the tag moved before the one at, or last.

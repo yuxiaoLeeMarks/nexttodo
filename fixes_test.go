@@ -512,17 +512,21 @@ func TestKinds(t *testing.T) {
 	}
 	a.evtOpen = false
 	// Deleting a tag of events leaves them untagged, until Undo.
+	// So does a calendar subscribed to, which would give it to its events
+	// again.
 	meeting := a.data.kind("meeting")
 	n := a.eventsTagged("meeting")
+	sub := &Subscription{ID: "s", Name: "Dept", Kind: "meeting"}
+	a.data.Subscriptions = append(a.data.Subscriptions, sub)
 	step := a.remember()
 	a.data.deleteKind(meeting.ID)
 	a.settle(step)
-	if a.data.kind("meeting") != nil || a.eventsTagged("meeting") != 0 || n == 0 {
-		t.Fatalf("deleted: %d events still tagged", a.eventsTagged("meeting"))
+	if a.data.kind("meeting") != nil || a.eventsTagged("meeting") != 0 || n == 0 || sub.Kind != "" {
+		t.Fatalf("deleted: %d events still tagged, the calendar's tag %q", a.eventsTagged("meeting"), sub.Kind)
 	}
 	a.restore(step)
-	if a.data.kind("meeting") == nil || a.eventsTagged("meeting") != n {
-		t.Errorf("after Undo, %d of %d events tagged", a.eventsTagged("meeting"), n)
+	if a.data.kind("meeting") == nil || a.eventsTagged("meeting") != n || a.data.Subscriptions[0].Kind != "meeting" {
+		t.Errorf("after Undo, %d of %d events tagged, the calendar's tag %q", a.eventsTagged("meeting"), n, a.data.Subscriptions[0].Kind)
 	}
 }
 
