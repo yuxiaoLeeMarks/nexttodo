@@ -136,21 +136,22 @@ func icsZone(id string, loc *time.Location) *time.Location {
 	return loc
 }
 
-// icsDuration reads a duration: P1D, PT1H30M, P1W.
-func icsDuration(s string) time.Duration {
+// icsDuration reads a duration, as P1D, PT1H30M or P1W: its days, weeks
+// counted in, which are those of the calendar, as long as a change of the
+// clocks makes them, and the time besides.
+func icsDuration(s string) (days int, d time.Duration) {
 	s = strings.TrimPrefix(strings.TrimPrefix(strings.ToUpper(s), "+"), "-")
 	s = strings.TrimPrefix(s, "P")
-	var d time.Duration
 	n := 0
 	for _, r := range s {
 		switch {
 		case r >= '0' && r <= '9':
 			n = n*10 + int(r-'0')
 		case r == 'W':
-			d += time.Duration(n) * 7 * 24 * time.Hour
+			days += 7 * n
 			n = 0
 		case r == 'D':
-			d += time.Duration(n) * 24 * time.Hour
+			days += n
 			n = 0
 		case r == 'H':
 			d += time.Duration(n) * time.Hour
@@ -163,7 +164,7 @@ func icsDuration(s string) time.Duration {
 			n = 0
 		}
 	}
-	return d
+	return days, d
 }
 
 // icsImport is what a calendar file holds: its events, the occurrences
@@ -232,7 +233,8 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 		if depth > 0 {
 			// An alarm's trigger before the start is the event's alert.
 			if l.name == "TRIGGER" && strings.HasPrefix(l.value, "-") && l.params["VALUE"] != "DATE-TIME" && e.Alert == nil {
-				n := int(icsDuration(l.value) / time.Minute)
+				days, d := icsDuration(l.value)
+				n := days*24*60 + int(d/time.Minute)
 				e.Alert = &n
 			}
 			continue
@@ -283,7 +285,8 @@ func readICS(b []byte, loc *time.Location) (icsImport, error) {
 		if v.end != nil {
 			e.End, _, _ = icsTime(*v.end, loc)
 		} else if v.duration != "" {
-			e.End = e.Start.Add(icsDuration(v.duration))
+			days, d := icsDuration(v.duration)
+			e.End = e.Start.AddDate(0, 0, days).Add(d)
 		}
 		switch {
 		case e.AllDay && !e.End.After(e.Start):

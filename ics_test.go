@@ -411,3 +411,27 @@ func TestExpandRules(t *testing.T) {
 	}
 	eq(leap, "2024", "2028", "2032")
 }
+
+// A duration of days lasts days of the calendar, however long the change
+// of the clocks makes them: the night New York's clocks go back is a day.
+func TestICSDurationOverDST(t *testing.T) {
+	ny, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Skip(err)
+	}
+	b := "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:a\r\nSUMMARY:Retreat\r\nDTSTART;VALUE=DATE:20261101\r\nDURATION:P1D\r\nEND:VEVENT\r\n" +
+		"BEGIN:VEVENT\r\nUID:b\r\nSUMMARY:Run\r\nDTSTART;TZID=America/New_York:20261031T090000\r\nDURATION:P1DT1H\r\n" +
+		"BEGIN:VALARM\r\nTRIGGER:-P1DT2H\r\nEND:VALARM\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+	got, err := readICS([]byte(b), ny)
+	if err != nil || len(got.events) != 2 {
+		t.Fatalf("%v, %d events", err, len(got.events))
+	}
+	if e := got.events[0]; !e.End.Equal(time.Date(2026, 11, 2, 0, 0, 0, 0, ny)) {
+		t.Errorf("the all-day event ends %v, want the start of November 2", e.End)
+	}
+	if e := got.events[1]; !e.End.Equal(time.Date(2026, 11, 1, 10, 0, 0, 0, ny)) {
+		t.Errorf("the event ends %v, want 10 AM the next day", e.End)
+	} else if e.Alert == nil || *e.Alert != 26*60 {
+		t.Errorf("alert %v, want 26 hours before", e.Alert)
+	}
+}
