@@ -103,9 +103,22 @@ func (a *app) panelView(c *ui.Context) {
 				a.showMain()
 			}
 		})
+		// The time the line says shows in an event's pickers, to change, as
+		// it is typed or the event chosen after.
+		sync := func() {
+			if w := a.quickWhen(first); q.mode == 1 {
+				if w.clock {
+					q.start = at(q.start, w.hour%24, w.minute) // its day stays the panel's
+				}
+				if w.minutes > 0 {
+					q.minutes = w.minutes
+				}
+			}
+		}
 		a.card(c).Padding(10).Gap(8).Shrink(0).Children(func() {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				if a.segTrack(c, "quickMode", &q.mode, a.tr.PanelTask(), a.tr.PanelEvent()) {
+					sync()
 					q.field.Focus()
 				}
 				ui.Spacer(c)
@@ -126,15 +139,7 @@ func (a *app) panelView(c *ui.Context) {
 				Radius(7).Padding(5, 9)
 			if in.Changed() {
 				q.added = ""
-				// The time the line says shows in the pickers, to change.
-				if w := a.quickWhen(first); q.mode == 1 {
-					if w.clock {
-						q.start = at(q.start, w.hour%24, w.minute) // its day stays the panel's
-					}
-					if w.minutes > 0 {
-						q.minutes = w.minutes
-					}
-				}
+				sync()
 			}
 			if in.Submitted() {
 				a.quickAddNow(first)

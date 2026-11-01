@@ -730,6 +730,15 @@ func TestPanel(t *testing.T) {
 	if e == nil || !e.Start.Equal(at(monday, 15, 0)) || e.End.Sub(e.Start) != 90*time.Minute {
 		t.Fatalf("event %+v", e)
 	}
+	// A time typed as a task, then made an event, is the event's.
+	tt.Click("Task")
+	tt.Click("Add a task to My Day")
+	tt.Type("Tea with Lin 4pm")
+	tt.Click("Event")
+	tt.Key(0, ui.KeyEnter)
+	if e := eventTitled(a, "Tea with Lin"); e == nil || !e.Start.Equal(at(monday, 16, 0)) {
+		t.Errorf("made an event after typing: %+v", e)
+	}
 }
 
 func TestChinese(t *testing.T) {
