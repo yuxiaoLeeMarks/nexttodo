@@ -219,26 +219,35 @@ func (a *app) flush() {
 
 // loadData reads the data at path; a first launch starts with nothing but
 // the default categories and tags, for the user's own things.
-func loadData(path string, now time.Time, lang string) *Data {
+func loadData(path string, now time.Time, lang string) (d *Data, keep bool) {
 	b, err := os.ReadFile(path)
+	// A file the system could not give at once, as one iCloud is fetching,
+	// is asked for again.
+	for i := 0; i < 3 && err != nil && !os.IsNotExist(err); i++ {
+		time.Sleep(200 * time.Millisecond)
+		b, err = os.ReadFile(path)
+	}
 	if os.IsNotExist(err) {
 		d := freshData(lang)
 		if b, err := d.encode(); err == nil {
 			writeFile(path, b)
 		}
-		return d
+		return d, true
 	}
 	if err == nil {
-		var d *Data
 		if d, err = decodeData(b); err == nil {
 			d.migrate(lang)
-			return d
+			return d, true
 		}
 	}
-	// Keep what could not be read, and start afresh.
+	// Keep what could not be read, and start afresh; if it cannot be put
+	// aside, it is not saved over.
 	log.Printf("reading %s: %v", path, err)
-	os.Rename(path, strings.TrimSuffix(path, ".json")+".unreadable-"+now.Format("20060102-150405")+".json")
-	return freshData(lang)
+	if err := os.Rename(path, strings.TrimSuffix(path, ".json")+".unreadable-"+now.Format("20060102-150405")+".json"); err != nil {
+		log.Printf("keeping %s: %v; not saving over it", path, err)
+		return freshData(lang), false
+	}
+	return freshData(lang), true
 }
 
 // Names.
@@ -581,6 +590,11 @@ func (a *app) openProject(id string) {
 }
 
 func (a *app) openTask(id string) {
+	// One of a project put away is with it, which shows its tasks still.
+	if t := a.data.task(id); t != nil && a.data.shelved(t) {
+		a.openProject(t.Project)
+		return
+	}
 	a.page = PageTasks
 	a.taskSel = id
 	if t := a.data.task(id); t != nil {

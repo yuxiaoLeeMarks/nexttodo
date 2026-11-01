@@ -95,7 +95,7 @@ func (d *Data) subscription(id string) *Subscription {
 }
 
 // applySubscription puts the events of a calendar file of s in the place
-// of those it had, which keep their IDs and alerts.
+// of those it had, which keep their IDs, and so the alerts given.
 func (d *Data) applySubscription(s *Subscription, got icsImport, now time.Time) {
 	old := map[string]*Event{}
 	// An event is the one it was by its UID, or, with none, by its start
@@ -117,10 +117,7 @@ func (d *Data) applySubscription(s *Subscription, got icsImport, now time.Time) 
 	for _, e := range got.events {
 		e.Sub, e.Kind = s.ID, s.Kind
 		if o := old[key(e)]; o != nil {
-			e.ID = o.ID
-			if e.Alert == nil {
-				e.Alert = o.Alert
-			}
+			e.ID = o.ID // and so the alerts given, though its own alert is the calendar's as it is now
 		}
 		keep = append(keep, e)
 	}

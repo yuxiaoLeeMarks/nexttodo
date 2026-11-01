@@ -49,7 +49,11 @@ func main() {
 	mygo.App.WhenReady(func() {
 		// A first launch writes the sample data in the language the app
 		// shows.
-		a.data = loadData(a.path, time.Now(), mygo.App.Locale())
+		var keep bool
+		if a.data, keep = loadData(a.path, time.Now(), mygo.App.Locale()); !keep {
+			a.path = ""
+		}
+		a.catchUpAlerts()
 		if pg := Page(a.data.Prefs.Page); pg >= PageOverview && pg <= PageSettings {
 			a.page = pg
 		}
@@ -98,6 +102,7 @@ func main() {
 	})
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {
 		a.quitting = true
+		a.data.Prefs.AlertedTo, a.dirty = a.alertedTo, true
 		a.flush()
 	})
 	if err := mygo.App.Run(); err != nil {

@@ -875,3 +875,81 @@ func TestWelcomeWithHolidays(t *testing.T) {
 		t.Error("clearing the sample took the holidays")
 	}
 }
+
+// Data that cannot be read, nor put aside, is not saved over.
+func TestUnreadableDataKept(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "data.json")
+	writeFile(path, []byte(`{"format":"nexttodo","version":4,"tasks":[{"id":"x","title":"mine"}]}`))
+	os.Chmod(path, 0)
+	os.Chmod(dir, 0o500)
+	defer os.Chmod(dir, 0o755)
+	defer os.Chmod(path, 0o644)
+	if _, err := os.ReadFile(path); err == nil {
+		t.Skip("the file reads, as for root")
+	}
+	if _, keep := loadData(path, monday, "en"); keep {
+		t.Error("data that could not be put aside would be saved over")
+	}
+}
+
+// A task added to Planned at a time gone today is due when it reminds.
+func TestPlannedAtTimeGone(t *testing.T) {
+	a := testApp("en") // Monday, 10:00
+	w := parseWhen("Call the bank 9am", a.now(), time.Monday, readClock)
+	x := a.addTaskWhen(w, "", listPlanned)
+	if !sameDay(x.Due, x.Remind) || !sameDay(x.Due, addDays(monday, 1)) {
+		t.Errorf("due %v, reminding %v", x.Due, x.Remind)
+	}
+}
+
+// Tasks of a project put away: a filter of it goes, rather than hiding
+// every task and each one added, and one found opens with its project.
+func TestTasksOfArchivedProject(t *testing.T) {
+	a := testApp("en")
+	pr := a.data.Projects[0]
+	a.page, a.taskList, a.taskFilter = PageTasks, listAll, pr.ID
+	pr.Archived = true
+	tt := newTester(t, a, "en")
+	tt.Frame()
+	if a.taskFilter != "" || len(a.tasksIn(listAll)) == 0 {
+		t.Errorf("filter %q, %d tasks", a.taskFilter, len(a.tasksIn(listAll)))
+	}
+	var shelved *Task
+	for _, x := range a.data.Tasks {
+		if x.Project == pr.ID {
+			shelved = x
+		}
+	}
+	a.openTask(shelved.ID)
+	if a.projOpen != pr.ID {
+		t.Errorf("opened on %v, project %q", a.page, a.projOpen)
+	}
+}
+
+// A task's reminder that came due while the app was not running comes as
+// it launches, once; one of long ago does not.
+func TestRemindersWhileQuit(t *testing.T) {
+	a := testApp("en")
+	a.useTestLanguage("en")
+	a.data.Prefs.AlertedTo = at(monday, 7, 0) // quit then
+	x := a.addTask("Call the bank", "", listAll)
+	x.Remind = at(monday, 8, 30)
+	old := a.addTask("Old", "", listAll)
+	old.Remind = addDays(at(monday, 8, 0), -2)
+	a.catchUpAlerts()
+	tasks := func(all []alert) (out []string) {
+		for _, x := range all {
+			if x.group == "tasks" {
+				out = append(out, x.id)
+			}
+		}
+		return out
+	}
+	if got := tasks(a.dueAlerts(a.now())); len(got) != 1 || got[0] != "task:"+x.ID {
+		t.Fatalf("at launch: %q", got)
+	}
+	if again := tasks(a.dueAlerts(a.now().Add(time.Minute))); len(again) != 0 {
+		t.Errorf("again: %q", again)
+	}
+}

@@ -121,7 +121,7 @@ func TestMigrateCategories(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data.json")
 	old := `{"format":"nexttodo","version":1,"projects":[{"id":"p","title":"Grant","category":1,"status":1,"created":"2026-01-01T00:00:00Z"}],"prefs":{"weekStart":-1}}`
 	os.WriteFile(path, []byte(old), 0o644)
-	d := loadData(path, monday, "zh-Hans")
+	d, _ := loadData(path, monday, "zh-Hans")
 	if len(d.Categories) != 4 || d.Categories[1].Name != "横向课题" || d.Version != dataVersion {
 		t.Fatalf("categories %+v, version %d", d.Categories, d.Version)
 	}
@@ -232,14 +232,14 @@ func TestArchive(t *testing.T) {
 
 func TestSaveAndLoad(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data.json")
-	d := loadData(path, monday, "zh-Hans")
+	d, _ := loadData(path, monday, "zh-Hans")
 	if !d.empty() || len(d.Categories) != 4 || len(d.Kinds) != 5 || d.Kinds[0].Name != "会议" {
 		t.Fatalf("a first launch has %d projects, %d tasks, %d categories, %d tags", len(d.Projects), len(d.Tasks), len(d.Categories), len(d.Kinds))
 	}
 	a := newApp(d, path)
 	a.data.Tasks = append(a.data.Tasks, &Task{ID: "x", Title: "written"})
 	a.changed()
-	if again := loadData(path, monday, "en"); again.task("x") == nil {
+	if again, _ := loadData(path, monday, "en"); again.task("x") == nil {
 		t.Error("the change was not saved")
 	}
 }

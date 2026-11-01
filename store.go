@@ -224,6 +224,9 @@ type Prefs struct {
 	NoHotkey     bool   `json:"noHotkey,omitempty"` // no global shortcut for the panel
 	Page         int    `json:"page,omitempty"`     // the page shown last, which opens again
 	Timeline     bool   `json:"timeline,omitempty"` // the projects show as a timeline
+	// AlertedTo is when the app, quitting, had given the alerts up to: the
+	// next launch gives those that came due between.
+	AlertedTo time.Time `json:"alertedTo,omitzero"`
 }
 
 // Data is everything the app keeps, as written to disk and to backups.

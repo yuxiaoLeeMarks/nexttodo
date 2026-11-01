@@ -36,6 +36,15 @@ func (a *app) alertLead(e *Event) (time.Duration, bool) {
 	return time.Duration(n) * time.Minute, true
 }
 
+// catchUpAlerts has the alerts that came due while the app was not
+// running given now, those of the last half day: a task's reminder, or an
+// event's going on yet.
+func (a *app) catchUpAlerts() {
+	if was := a.data.Prefs.AlertedTo; !was.IsZero() && was.Before(a.alertedTo) {
+		a.alertedTo = maxTime(was, a.now().Add(-12*time.Hour))
+	}
+}
+
 // dueAlerts returns the alerts that fell due since it was last asked, up
 // to now, and those due before of events yet to start, as one made or
 // moved within its lead: once each, though an event moved to another time

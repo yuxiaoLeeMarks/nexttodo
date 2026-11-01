@@ -200,6 +200,9 @@ func (a *app) addTaskWhen(w when, project string, list int) *Task {
 	}
 	if w.clock {
 		t.Remind = w.start(a.now())
+		if w.day.IsZero() && !t.Due.IsZero() {
+			t.Due = day(t.Remind) // the list's day, as the time's next coming
+		}
 	}
 	if t.Repeat = w.repeat; t.Repeat != RepeatNone && t.Due.IsZero() {
 		t.Due = day(a.now()) // a repeating task comes due, from today
@@ -236,7 +239,8 @@ func (a *app) toggleMyDay(t *Task) {
 }
 
 func (a *app) tasksPage(c *ui.Context) {
-	if a.data.project(a.taskFilter) == nil {
+	// A project gone or put away is no filter: its tasks are not here.
+	if pr := a.data.project(a.taskFilter); pr == nil || pr.Archived {
 		a.taskFilter = ""
 	}
 	sel := a.data.task(a.taskSel)
