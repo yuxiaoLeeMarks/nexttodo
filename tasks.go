@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"slices"
 	"strings"
 	"time"
@@ -150,30 +152,39 @@ func (a *app) listName(list int) string {
 }
 
 // addTask adds a task titled title, placed by where it was added.
-// repeated is the next a repeating task done brought.
+// repeated is the next a repeating task done brought, as it was made.
 type repeated struct {
 	next   string
 	repeat Repeat
+	made   []byte
 }
 
 // setDone marks a task done, or not. A repeating task done comes again,
-// due the next time; undone at once, it takes that back.
+// due the next time; undone, it takes that back, unless its next was
+// done or changed since, which then goes on in its place.
 func (a *app) setDone(t *Task, done bool) {
 	switch {
-	case done && !t.Done && t.Repeat != RepeatNone:
+	case done && !t.Done && t.repeating():
 		r := t.Repeat
 		next := a.data.repeatTask(t, a.now())
 		if a.repeated == nil {
 			a.repeated = map[string]repeated{}
 		}
-		a.repeated[t.ID] = repeated{next: next.ID, repeat: r}
+		made, _ := json.Marshal(next)
+		a.repeated[t.ID] = repeated{next: next.ID, repeat: r, made: made}
 	case !done && t.Done:
 		if r, ok := a.repeated[t.ID]; ok {
-			if n := a.data.task(r.next); n != nil && !n.Done {
-				a.data.deleteTask(n.ID)
-			}
-			t.Repeat = r.repeat
 			delete(a.repeated, t.ID)
+			n := a.data.task(r.next)
+			if n != nil && !n.Done {
+				if now, _ := json.Marshal(n); bytes.Equal(now, r.made) {
+					a.data.deleteTask(n.ID)
+					n = nil
+				}
+			}
+			if n == nil {
+				t.Repeat = r.repeat
+			}
 		}
 	}
 	t.setDone(done, a.now())
@@ -410,7 +421,7 @@ func (a *app) taskRow(c *ui.Context, t *Task, where int) {
 			if !t.Remind.IsZero() && !t.Done {
 				item(iconBell, a.remindText(t.Remind), p.muted)
 			}
-			if t.Repeat != RepeatNone && !t.Done {
+			if t.repeating() && !t.Done {
 				item(iconRepeat, a.repeatName(t.Repeat), p.muted)
 			}
 			if len(t.Steps) > 0 {

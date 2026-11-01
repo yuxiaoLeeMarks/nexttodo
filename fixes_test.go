@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -606,9 +607,36 @@ func TestRepeatingTask(t *testing.T) {
 			t.Errorf("a late weekly task comes again %v", y.Due)
 		}
 	}
-	// A monthly one on the 31st comes on the last of a shorter month.
-	if got := nextDay(RepeatMonthly, time.Date(2027, 1, 31, 0, 0, 0, 0, time.Local)); got.Day() != 28 || got.Month() != 2 {
-		t.Errorf("after Jan 31: %v", got)
+	// A monthly one on the 31st comes on the last of a shorter month, and
+	// on the 31st again after it; a yearly one of February 29 in leap years.
+	jan31 := &Task{ID: "m", Title: "Rent", Due: time.Date(2027, 1, 31, 0, 0, 0, 0, time.Local), Repeat: RepeatMonthly}
+	var dues []string
+	for x := jan31; len(dues) < 4; {
+		x = a.data.repeatTask(x, x.Due)
+		dues = append(dues, x.Due.Format("01-02"))
+	}
+	if strings.Join(dues, " ") != "02-28 03-31 04-30 05-31" {
+		t.Errorf("monthly from Jan 31: %v", dues)
+	}
+	leap := &Task{ID: "y", Title: "Birthday", Due: time.Date(2028, 2, 29, 0, 0, 0, 0, time.Local), Repeat: RepeatYearly}
+	dues = nil
+	for x := leap; len(dues) < 4; {
+		x = a.data.repeatTask(x, x.Due)
+		dues = append(dues, x.Due.Format("2006-01-02"))
+	}
+	if strings.Join(dues, " ") != "2029-02-28 2030-02-28 2031-02-28 2032-02-29" {
+		t.Errorf("yearly from Feb 29: %v", dues)
+	}
+	// Late and done, a monthly one of the 31st comes on the next 31st or
+	// last day still to come.
+	late := &Task{ID: "l", Title: "Late", Due: time.Date(2027, 1, 31, 0, 0, 0, 0, time.Local), Repeat: RepeatMonthly}
+	if x := a.data.repeatTask(late, time.Date(2027, 4, 15, 10, 0, 0, 0, time.Local)); x.Due.Day() != 30 {
+		t.Errorf("caught up to %v, want April 30", x.Due)
+	}
+	// One moved off the end of its month by hand keeps its new day.
+	moved := &Task{ID: "v", Title: "Moved", Due: time.Date(2027, 2, 15, 0, 0, 0, 0, time.Local), Repeat: RepeatMonthly, RepeatDay: 31}
+	if x := a.data.repeatTask(moved, moved.Due); x.Due.Day() != 15 {
+		t.Errorf("moved by hand, comes again on %v", x.Due)
 	}
 	// Typed: due Friday, every week.
 	a.page = PageTasks
@@ -618,6 +646,60 @@ func TestRepeatingTask(t *testing.T) {
 	tt.Key(0, ui.KeyEnter)
 	if y := taskTitled(a, "Group seminar"); y == nil || y.Repeat != RepeatWeekly || !y.Due.Equal(friday) {
 		t.Errorf("typed: %+v", y)
+	}
+}
+
+// A task repeating in a way of a later version is done once, rather than
+// hanging the app as it looked for its next day.
+func TestUnknownTaskRepeat(t *testing.T) {
+	a := testApp("en")
+	x := a.addTask("Quarterly review", "", listAll)
+	x.Due, x.Repeat = addDays(day(monday), -7), Repeat("quarterly")
+	n := len(a.data.Tasks)
+	done := make(chan bool)
+	go func() {
+		a.setDone(x, true)
+		done <- true
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("hung")
+	}
+	if !x.Done || len(a.data.Tasks) != n {
+		t.Errorf("done %v, %d tasks", x.Done, len(a.data.Tasks))
+	}
+}
+
+// Undoing a repeating task's done takes its next back, unless the next was
+// done or changed since: then the next goes on, and the first stays once.
+func TestUndoRepeatingTaskLater(t *testing.T) {
+	a := testApp("en")
+	r := a.addTask("Weekly report", "", listAll)
+	r.Due, r.Repeat = addDays(day(monday), 4), RepeatWeekly
+	a.setDone(r, true)
+	n1 := a.data.Tasks[len(a.data.Tasks)-1]
+	a.setDone(n1, true)
+	n2 := a.data.Tasks[len(a.data.Tasks)-1]
+	a.setDone(r, false)
+	open := 0
+	for _, x := range a.data.Tasks {
+		if x.Title == "Weekly report" && !x.Done && x.Repeat != RepeatNone {
+			open++
+		}
+	}
+	if open != 1 || r.Repeat != RepeatNone || a.data.task(n2.ID) == nil {
+		t.Errorf("%d series open, the first repeats %q", open, r.Repeat)
+	}
+	// Changed since, the next stays with what was added to it.
+	s := a.addTask("Monthly bills", "", listAll)
+	s.Due, s.Repeat = addDays(day(monday), 4), RepeatMonthly
+	a.setDone(s, true)
+	next := a.data.Tasks[len(a.data.Tasks)-1]
+	next.Notes = "Pay the lab's cloud bill too"
+	a.setDone(s, false)
+	if a.data.task(next.ID) == nil || s.Repeat != RepeatNone {
+		t.Errorf("the next, changed, went: %v; the first repeats %q", a.data.task(next.ID) == nil, s.Repeat)
 	}
 }
 

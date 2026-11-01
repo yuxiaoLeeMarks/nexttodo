@@ -22,9 +22,16 @@ const (
 
 var repeats = []Repeat{RepeatNone, RepeatDaily, RepeatWeekdays, RepeatWeekly, RepeatBiweekly, RepeatMonthly, RepeatYearly}
 
-// repeating reports whether e repeats in a way this version knows: one it
+// known reports whether r repeats in a way this version knows: one it
 // does not, from a later version, is taken as once.
-func (e *Event) repeating() bool { return e.Repeat != RepeatNone && slices.Contains(repeats, e.Repeat) }
+func (r Repeat) known() bool { return r != RepeatNone && slices.Contains(repeats, r) }
+
+// repeating reports whether e repeats in a way this version knows.
+func (e *Event) repeating() bool { return e.Repeat.known() }
+
+// repeating reports whether t, done, comes again, in a way this version
+// knows.
+func (t *Task) repeating() bool { return t.Repeat.known() }
 
 // root is the event an occurrence repeats, or e itself.
 func (e *Event) root() *Event {
@@ -145,8 +152,8 @@ func (d *Data) detach(occ *Event) *Event {
 }
 
 // nextDay returns the day after d on which a thing repeating as r comes
-// again: a monthly one on the same day of the month, or its last.
-func nextDay(r Repeat, d time.Time) time.Time {
+// again: a monthly or yearly one on day dom of the month, or its last.
+func nextDay(r Repeat, d time.Time, dom int) time.Time {
 	d = day(d)
 	switch r {
 	case RepeatDaily:
@@ -162,31 +169,48 @@ func nextDay(r Repeat, d time.Time) time.Time {
 	case RepeatBiweekly:
 		return addDays(d, 14)
 	case RepeatMonthly:
-		y, m, dd := d.Date()
-		last := time.Date(y, m+2, 0, 0, 0, 0, 0, d.Location()).Day()
-		return time.Date(y, m+1, min(dd, last), 0, 0, 0, 0, d.Location())
+		y, m, _ := d.Date()
+		return time.Date(y, m+1, min(dom, lastDay(y, m+1)), 0, 0, 0, 0, d.Location())
 	case RepeatYearly:
-		y, m, dd := d.Date()
-		last := time.Date(y+1, m+1, 0, 0, 0, 0, 0, d.Location()).Day()
-		return time.Date(y+1, m, min(dd, last), 0, 0, 0, 0, d.Location())
+		y, m, _ := d.Date()
+		return time.Date(y+1, m, min(dom, lastDay(y+1, m)), 0, 0, 0, 0, d.Location())
 	}
-	return d
+	return addDays(d, 1)
+}
+
+// lastDay returns the last day of month m of year y.
+func lastDay(y int, m time.Month) int {
+	return time.Date(y, m+1, 0, 0, 0, 0, 0, time.UTC).Day()
 }
 
 // repeatTask adds the next of a repeating task, done now: a copy of it
 // due the next of its days still to come, reminding as many days later,
-// which it returns. The task done stops repeating, its next going on.
+// which it returns, or nil for a task not repeating. The task done stops
+// repeating, its next going on.
 func (d *Data) repeatTask(t *Task, now time.Time) *Task {
+	if !t.repeating() {
+		return nil
+	}
 	due := t.Due
 	if due.IsZero() {
 		due = day(now)
 	}
-	next := nextDay(t.Repeat, due)
+	// The day of the month it comes on, which a short month made the
+	// last of its own.
+	dom := due.Day()
+	if t.RepeatDay > dom && dom == lastDay(due.Year(), due.Month()) {
+		dom = t.RepeatDay
+	}
+	next := nextDay(t.Repeat, due, dom)
 	for next.Before(day(now)) {
-		next = nextDay(t.Repeat, next)
+		next = nextDay(t.Repeat, next, dom)
 	}
 	n := *t
 	n.ID, n.Created, n.Done, n.DoneAt, n.MyDay, n.Due = newID(), now, false, time.Time{}, time.Time{}, next
+	n.RepeatDay = 0
+	if dom > next.Day() {
+		n.RepeatDay = dom
+	}
 	if !t.Remind.IsZero() {
 		n.Remind = t.Remind.AddDate(0, 0, daysBetween(due, next))
 	}

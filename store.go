@@ -140,21 +140,24 @@ type Project struct {
 // Task is a to-do. Due is a date (local midnight), zero for none; the task
 // is in My Day while MyDay is today.
 type Task struct {
-	ID       string    `json:"id"`
-	Title    string    `json:"title"`
-	Notes    string    `json:"notes,omitempty"`
-	Project  string    `json:"project,omitempty"`
-	Due      time.Time `json:"due,omitzero"`
-	Remind   time.Time `json:"remind,omitzero"`    // when a notification reminds of it
-	Repeat   Repeat    `json:"repeat,omitempty"`   // done, it comes again, due the next time
-	Steps    []*Step   `json:"steps,omitempty"`    // a checklist of what it takes
-	Priority int       `json:"priority,omitempty"` // 0 none, 1 low, 2 medium, 3 high
-	Starred  bool      `json:"starred,omitempty"`
-	MyDay    time.Time `json:"myDay,omitzero"`
-	Done     bool      `json:"done,omitempty"`
-	DoneAt   time.Time `json:"doneAt,omitzero"`
-	Created  time.Time `json:"created"`
-	Sample   bool      `json:"sample,omitempty"` // of the sample data
+	ID      string    `json:"id"`
+	Title   string    `json:"title"`
+	Notes   string    `json:"notes,omitempty"`
+	Project string    `json:"project,omitempty"`
+	Due     time.Time `json:"due,omitzero"`
+	Remind  time.Time `json:"remind,omitzero"`  // when a notification reminds of it
+	Repeat  Repeat    `json:"repeat,omitempty"` // done, it comes again, due the next time
+	// RepeatDay is the day of the month a monthly or yearly task comes on,
+	// when its month is too short for it, as the 31st, due the 30th.
+	RepeatDay int       `json:"repeatDay,omitempty"`
+	Steps     []*Step   `json:"steps,omitempty"`    // a checklist of what it takes
+	Priority  int       `json:"priority,omitempty"` // 0 none, 1 low, 2 medium, 3 high
+	Starred   bool      `json:"starred,omitempty"`
+	MyDay     time.Time `json:"myDay,omitzero"`
+	Done      bool      `json:"done,omitempty"`
+	DoneAt    time.Time `json:"doneAt,omitzero"`
+	Created   time.Time `json:"created"`
+	Sample    bool      `json:"sample,omitempty"` // of the sample data
 }
 
 // Step is a step of a task's checklist.
