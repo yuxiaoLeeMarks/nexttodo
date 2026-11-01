@@ -33,7 +33,7 @@ func (w when) start(now time.Time) time.Time {
 	}
 	t := at(now, w.hour, w.minute)
 	if t.Before(now) {
-		t = addDays(at(now, 0, 0), 1).Add(time.Duration(w.hour*60+w.minute) * time.Minute)
+		t = at(addDays(day(now), 1), w.hour, w.minute)
 	}
 	return t
 }
@@ -55,10 +55,12 @@ const (
 
 // parseState is what the rules read besides the match.
 type parseState struct {
-	now     time.Time
-	first   time.Weekday
-	reads   int  // what the line is read for: a task's times need saying plainly
-	evening bool // "tonight", "今晚": a bare hour is in the evening
+	now   time.Time
+	first time.Weekday
+	reads int // what the line is read for: a task's times need saying plainly
+	// part is the part of the day the line names, "morning", "pm" or
+	// "evening", as "tonight", "明早": a bare hour is in it.
+	part string
 }
 
 // The words joining a time to the rest, which go with it.
@@ -106,8 +108,15 @@ func year(s string) int {
 // a thing repeats before the days it names, as 每周一.
 var rules = []rule{
 	// How it repeats.
-	{regexp.MustCompile(`(?i)\bevery\s+(?:other|second)\s+week\b|\bbiweekly\b|\bfortnightly\b|每两周|每隔一周|隔周|双周`), ruleRepeat, func(m []string, w *when, s *parseState) bool {
+	{regexp.MustCompile(`(?i)\bevery\s+(?:other|second)\s+(?:week|` + weekdayNames + `)\b|\bbiweekly\b|\bfortnightly\b|(?:每两周|每隔一周|隔周|双周)(?:周|星期|礼拜)?([一二三四五六日天])?(次)?`), ruleRepeat, func(m []string, w *when, s *parseState) bool {
+		// Every other Friday, 隔周五, but 每两周一次: once in two weeks.
 		w.repeat = RepeatBiweekly
+		switch {
+		case w.day.IsZero() && m[1] != "":
+			w.day = weekday(s, weekdaysEN[strings.ToLower(m[1][:3])], "")
+		case w.day.IsZero() && m[2] != "" && m[3] == "":
+			w.day = weekday(s, weekdaysZH[m[2]], "")
+		}
 		return true
 	}},
 	{regexp.MustCompile(`(?i)\bevery\s+weekday\b|\bon\s+weekdays\b|每个?工作日`), ruleRepeat, func(m []string, w *when, s *parseState) bool {
@@ -167,21 +176,37 @@ var rules = []rule{
 	{regexp.MustCompile(`(\d{1,2})月(\d{1,2})[日号]?`), ruleDay, func(m []string, w *when, s *parseState) bool {
 		return w.setDate(0, atoi(m[1]), atoi(m[2]), s.now)
 	}},
-	{regexp.MustCompile(`(?i)` + onEN + `\b(today|tonight|tomorrow|tmrw|tmr)\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
+	{regexp.MustCompile(`(?i)` + onEN + `\b(?:(today|tonight|tomorrow|tmrw|tmr)|this)(?:\s+(morning|afternoon|evening|night))?\b`), ruleDay, func(m []string, w *when, s *parseState) bool {
 		switch strings.ToLower(m[1]) {
-		case "today":
+		case "", "today":
+			if m[1] == "" && m[2] == "" {
+				return false // this paper
+			}
 			w.day = day(s.now)
 		case "tonight":
-			w.day, s.evening = day(s.now), true
+			w.day, s.part = day(s.now), "evening"
 		default:
 			w.day = addDays(day(s.now), 1)
 		}
+		switch strings.ToLower(m[2]) {
+		case "morning":
+			s.part = "morning"
+		case "afternoon":
+			s.part = "pm"
+		case "evening", "night":
+			s.part = "evening"
+		}
 		return true
 	}},
-	{regexp.MustCompile(`(大后天|后天|今天|今日|今晚|明天|明日|明早|明晚)`), ruleDay, func(m []string, w *when, s *parseState) bool {
-		n := map[string]int{"今天": 0, "今日": 0, "今晚": 0, "明天": 1, "明日": 1, "明早": 1, "明晚": 1, "后天": 2, "大后天": 3}[m[1]]
+	{regexp.MustCompile(`(大后天|后天|今天|今日|今晚|今早|明天|明日|明早|明晚)`), ruleDay, func(m []string, w *when, s *parseState) bool {
+		n := map[string]int{"今天": 0, "今日": 0, "今晚": 0, "今早": 0, "明天": 1, "明日": 1, "明早": 1, "明晚": 1, "后天": 2, "大后天": 3}[m[1]]
 		w.day = addDays(day(s.now), n)
-		s.evening = strings.HasSuffix(m[1], "晚")
+		switch {
+		case strings.HasSuffix(m[1], "晚"):
+			s.part = "evening"
+		case strings.HasSuffix(m[1], "早"):
+			s.part = "morning"
+		}
 		return true
 	}},
 	// Friday next week, next week on Friday.
@@ -253,15 +278,19 @@ var rules = []rule{
 			return false
 		}
 		h1, m1, ok1 := clockZH(m[2:8])
-		p2 := m[8]
-		if p2 == "" {
-			p2 = m[2] // 下午3点到5点
-		}
-		h2, m2, ok2 := clockZH(append([]string{p2}, m[9:14]...))
+		h2, m2, ok2 := clockZH(m[8:14])
 		if !ok1 || !ok2 {
 			return false
 		}
-		return w.setRange(h1, m1, zhPeriod(m[2]), h2, m2, zhPeriod(p2), s)
+		// The end in the start's part of the day, 下午3点到5点, but after
+		// noon when it comes before a morning's start: 上午11点到1点.
+		p2 := zhPeriod(m[8])
+		if m[8] == "" {
+			if p2 = zhPeriod(m[2]); p2 == "morning" && h2 < h1 {
+				p2 = "pm"
+			}
+		}
+		return w.setRange(h1, m1, zhPeriod(m[2]), h2, m2, p2, s)
 	}},
 	{regexp.MustCompile(`(?i)` + atEN + `\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b`), ruleClock, func(m []string, w *when, s *parseState) bool {
 		return w.setClock(atoi(m[1]), atoi(m[2]), strings.ToLower(m[3]), s)
@@ -402,11 +431,13 @@ func (w *when) setDate(y, m, d int, now time.Time) bool {
 		y = now.Year()
 	}
 	t := time.Date(y, time.Month(m), d, 0, 0, 0, 0, now.Location())
+	// Gone, or not this year, the next year's, or for February 29 the next
+	// leap year's.
+	for next := y + 1; guess && (t.Day() != d || t.Before(day(now))) && next <= y+8; next++ {
+		t = time.Date(next, time.Month(m), d, 0, 0, 0, 0, now.Location())
+	}
 	if t.Day() != d {
 		return false // 2/30
-	}
-	if guess && t.Before(day(now)) {
-		t = t.AddDate(1, 0, 0)
 	}
 	w.day = t
 	return true
@@ -443,8 +474,9 @@ func weekend(s *parseState, which string) time.Time {
 // is in the afternoon, as meetings are, unless the evening was said. An
 // evening's 12 is midnight and its small hours are after it, 24 and on.
 func hour24(h int, period string, s *parseState) int {
-	if period == "" && s.evening {
-		period = "evening"
+	// The part of the day said, tonight's 10:30 too.
+	if s.part != "" && (period == "" || period == "24h" && h <= 12) {
+		period = s.part
 	}
 	switch period {
 	case "pm":

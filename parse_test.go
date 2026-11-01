@@ -79,6 +79,24 @@ func TestParseWhen(t *testing.T) {
 		{"Submit report by 5pm", readClock, "Submit report", time.Time{}, "17:00", 0},
 		{"下午5点前 提交报告", readClock, "提交报告", time.Time{}, "17:00", 0},
 		{"Meeting 9:30", readSpan, "Meeting", time.Time{}, "09:30", 0},
+		// Parts of the day said with the day.
+		{"Party tonight 10:30", readSpan, "Party", d(10, 26), "22:30", 0},
+		{"Call home tonight at 11:00", readClock, "Call home", d(10, 26), "23:00", 0},
+		{"Party tonight 10:00-11:00", readSpan, "Party", d(10, 26), "22:00", 60},
+		{"今晚10:30 写总结", readSpan, "写总结", d(10, 26), "22:30", 0},
+		{"明早6点 跑步", readSpan, "跑步", d(10, 27), "06:00", 0},
+		{"明早5点半 赶飞机", readSpan, "赶飞机", d(10, 27), "05:30", 0},
+		{"Run tomorrow morning at 6", readSpan, "Run", d(10, 27), "06:00", 0},
+		{"Call Lin this afternoon at 4", readSpan, "Call Lin", d(10, 26), "16:00", 0},
+		{"Review this paper", readDay, "Review this paper", time.Time{}, "", 0},
+		{"Night shift tonight 23:00", readClock, "Night shift", d(10, 26), "23:00", 0},
+		// Ranges over noon.
+		{"上午11点到1点 答辩", readSpan, "答辩", time.Time{}, "11:00", 120},
+		{"早上9点到1点 实验", readSpan, "实验", time.Time{}, "09:00", 240},
+		{"凌晨1点到3点 观测", readSpan, "观测", time.Time{}, "01:00", 120},
+		{"上午9点到11点 组会", readSpan, "组会", time.Time{}, "09:00", 120},
+		// February 29 in a year without one is the next leap year's.
+		{"Leap party 2/29", readDay, "Leap party", time.Date(2028, 2, 29, 0, 0, 0, 0, time.Local), "", 0},
 	}
 	repeats := []struct {
 		in     string
@@ -91,6 +109,9 @@ func TestParseWhen(t *testing.T) {
 		{"Water the plants every day", "Water the plants", RepeatDaily, time.Time{}},
 		{"每个月 报销", "报销", RepeatMonthly, time.Time{}},
 		{"每两周 组内分享", "组内分享", RepeatBiweekly, time.Time{}},
+		{"Lab sync every other friday", "Lab sync", RepeatBiweekly, d(10, 30)},
+		{"隔周五 组会", "组会", RepeatBiweekly, d(10, 30)},
+		{"每两周一次 组内分享", "组内分享", RepeatBiweekly, time.Time{}},
 		{"Standup every weekday", "Standup", RepeatWeekdays, time.Time{}},
 		{"Read every paper", "Read every paper", RepeatNone, time.Time{}},
 		{"Check every day's logs", "Check every day's logs", RepeatNone, time.Time{}},
@@ -221,5 +242,19 @@ func TestPanelNextLine(t *testing.T) {
 	}
 	if bob == nil || !sameDay(bob.Start, monday) {
 		t.Fatalf("Bob %+v, want today", bob)
+	}
+}
+
+// A time typed for tomorrow is that time by the clock, the night the
+// clocks go back too.
+func TestParseStartOverDST(t *testing.T) {
+	ny, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Skip(err)
+	}
+	now := time.Date(2026, 10, 31, 21, 0, 0, 0, ny)
+	w := parseWhen("Call home at 9", now, time.Sunday, readClock)
+	if got := w.start(now); !got.Equal(time.Date(2026, 11, 1, 9, 0, 0, 0, ny)) {
+		t.Errorf("at 9: %v", got)
 	}
 }
