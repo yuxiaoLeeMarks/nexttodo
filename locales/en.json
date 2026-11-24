@@ -489,6 +489,8 @@
   "settingsPiAuto": "Found automatically",
   "settingsAgentFiles": "Let it read files",
   "settingsAgentFilesHint": "Files on this Mac you point it to, as a paper's PDF; it never changes them",
+  "settingsAgentAllTools": "Use all of pi's MCP tools",
+  "settingsAgentAllToolsHint": "Otherwise only those that look things up: search, web pages, papers. What it writes elsewhere, as to GitHub or Notion, NextTodo cannot undo",
   "settingsAgentFolder": "Assistant folder",
   "settingsAgentFolderHint": "Its conversations; an AGENTS.md here gives it standing instructions",
   "translateInto": "Into",

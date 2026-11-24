@@ -456,6 +456,8 @@
   "settingsPiAuto": "自动查找",
   "settingsAgentFiles": "允许读取文件",
   "settingsAgentFilesHint": "读取你指给它的本机文件，比如论文 PDF；它从不修改文件",
+  "settingsAgentAllTools": "使用 pi 的全部 MCP 工具",
+  "settingsAgentAllToolsHint": "关闭时只用查找类工具：搜索、读网页、查论文。它在别处写入的内容（如 GitHub、Notion），NextTodo 无法撤销",
   "settingsAgentFolder": "助理文件夹",
   "settingsAgentFolderHint": "存放对话记录；在这里放一个 AGENTS.md 可以给它长期指示",
   "translateInto": "译为",

@@ -177,7 +177,22 @@ type Pending struct {
 	ch       chan response
 	answered chan struct{} // closed with the answer, or as pi ends
 	once     sync.Once
+	res      response // the answer, once answered
 }
+
+// switched reports whether a command changing the session, answered, did
+// change it: it may fail, or an extension may cancel it.
+func (p *Pending) switched() bool {
+	var d struct {
+		Cancelled bool `json:"cancelled"`
+	}
+	json.Unmarshal(p.res.Data, &d)
+	return p.res.Success && !d.Cancelled
+}
+
+// sessionBarriers are the barriers after which commands are of another
+// session: when one does not switch, they are not sent.
+var sessionBarriers = map[string]bool{"new_session": true, "switch_session": true, "fork": true, "clone": true}
 
 // barriers are the commands pi does not finish before it reads the next:
 // a prompt sent right after new_session starts in the session it leaves,
@@ -229,11 +244,31 @@ func (c *Client) send() {
 			p.answer(response{Error: err.Error()}, true)
 			continue
 		}
-		if t, _ := p.cmd["type"].(string); barriers[t] {
-			select {
-			case <-p.answered:
-			case <-c.done:
-				return
+		t, _ := p.cmd["type"].(string)
+		if !barriers[t] {
+			continue
+		}
+		select {
+		case <-p.answered:
+		case <-c.done:
+			return
+		}
+		if sessionBarriers[t] && !p.switched() {
+			// What was queued after it was meant for the session it did
+			// not make: it fails, rather than go to the one before.
+			why := p.res.Error
+			if why == "" {
+				why = "cancelled"
+			}
+			for {
+				select {
+				case q := <-c.queue:
+					c.forget(q.id)
+					q.answer(response{Command: fmt.Sprint(q.cmd["type"]), Error: t + " did not switch the session: " + why}, true)
+					continue
+				default:
+				}
+				break
 			}
 		}
 	}
@@ -242,6 +277,7 @@ func (c *Client) send() {
 // answer gives the command its answer, once; ok false says pi ended.
 func (p *Pending) answer(res response, ok bool) {
 	p.once.Do(func() {
+		p.res = res
 		if ok {
 			p.ch <- res
 		}
@@ -301,6 +337,17 @@ func (c *Client) Err() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.err
+}
+
+// Kill ends pi and what it started at once, without waiting: as the app
+// quits.
+func (c *Client) Kill() {
+	c.wmu.Lock()
+	c.stdin.Close()
+	c.wmu.Unlock()
+	if p := c.cmd.Process; p != nil {
+		syscall.Kill(-p.Pid, syscall.SIGTERM)
+	}
 }
 
 // Close ends pi: it closes its input, which it takes to quit, and ends

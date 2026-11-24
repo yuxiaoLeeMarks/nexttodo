@@ -4448,6 +4448,26 @@ func (msgs Messages) SettingsAgentFilesHint() string {
 	return Catalog.Format(msgs.locale, "settingsAgentFilesHint", nil)
 }
 
+// SettingsAgentAllTools says "Use all of pi's MCP tools"
+// in the language the app shows.
+func SettingsAgentAllTools() string { return In(i18n.Locale()).SettingsAgentAllTools() }
+
+// SettingsAgentAllTools says "Use all of pi's MCP tools"
+// in the language of msgs.
+func (msgs Messages) SettingsAgentAllTools() string {
+	return Catalog.Format(msgs.locale, "settingsAgentAllTools", nil)
+}
+
+// SettingsAgentAllToolsHint says "Otherwise only those that look things up: search, web pages, papers. What it writes elsewhere, as to GitHub or Notion…"
+// in the language the app shows.
+func SettingsAgentAllToolsHint() string { return In(i18n.Locale()).SettingsAgentAllToolsHint() }
+
+// SettingsAgentAllToolsHint says "Otherwise only those that look things up: search, web pages, papers. What it writes elsewhere, as to GitHub or Notion…"
+// in the language of msgs.
+func (msgs Messages) SettingsAgentAllToolsHint() string {
+	return Catalog.Format(msgs.locale, "settingsAgentAllToolsHint", nil)
+}
+
 // SettingsAgentFolder says "Assistant folder"
 // in the language the app shows.
 func SettingsAgentFolder() string { return In(i18n.Locale()).SettingsAgentFolder() }

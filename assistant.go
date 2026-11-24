@@ -35,10 +35,13 @@ var (
 )
 
 func (a *app) assistantPage(c *ui.Context) {
-	if a.ag.sessions == nil && !a.ag.listing {
+	if !a.ag.listed {
+		a.ag.listed = true
 		a.listSessions()
 	}
-	a.startAgent() // warm, so that the first message goes at once
+	if a.ag.err == "" && !a.ag.missing {
+		a.startAgent() // warm, so that the first message goes at once; not again once it failed
+	}
 	ui.Row(c).Grow(1).MinHeight(0).Padding(0, 14, 14, 10).Gap(10).AlignItems(ui.Stretch).Children(func() {
 		a.agentSidebar(c)
 		a.card(c).Grow(1).MinWidth(0).Children(func() { a.agentMain(c) })

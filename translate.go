@@ -42,7 +42,6 @@ type translator struct {
 	took   time.Duration
 	run    int  // the translation shown, so that one given up says no more
 	live   bool // pi started it: what it says before is of the one before
-	pasted bool
 	// What raw translates, so that a change of the language or the style
 	// translates again.
 	doneSrc, doneTo, doneStyle string
@@ -144,12 +143,7 @@ func (a *app) startTranslator() {
 	dir := filepath.Join(filepath.Dir(a.agentDir()), "Translate")
 	path := a.data.Prefs.PiPath
 	model := a.data.Prefs.AgentModel
-	args := []string{
-		"--no-session", "--no-context-files", "--no-skills",
-		"--exclude-tools", "bash,edit,write,powershell,read,grep,find,ls",
-		"--system-prompt", translatorPrompt,
-		"--thinking", "low",
-	}
+	args := translatorArgs()
 	go func() {
 		fail := func(msg string) {
 			mygo.RunOnMain(func() {
@@ -169,18 +163,16 @@ func (a *app) startTranslator() {
 		c, err = pi.Start(pi.Options{
 			Bin: in.Bin, Args: args, Env: in.Env, Dir: dir,
 			OnEvent: func(e pi.Event) {
-				mygo.RunOnMain(func() {
+				a.inbox.post(func() {
 					if gen == a.xl.gen {
 						a.translatorEvent(e)
-						a.redraw()
 					}
 				})
 			},
 			OnExit: func(err error) {
-				mygo.RunOnMain(func() {
+				a.inbox.post(func() {
 					if gen == a.xl.gen && a.xl.client != nil {
 						a.xl.client, a.xl.busy, a.xl.err = nil, false, err.Error()
-						a.redraw()
 					}
 				})
 			},
@@ -207,11 +199,35 @@ func (a *app) startTranslator() {
 	}()
 }
 
+// stopTranslator ends the translator, for the next translation to start
+// it again as the settings are now; one starting is given up.
 func (a *app) stopTranslator() {
+	a.xl.gen++
 	if c := a.xl.client; c != nil {
 		a.xl.client = nil
-		a.xl.gen++
-		c.Close()
+		go c.Close()
+	}
+	a.xl.starting, a.xl.err, a.xl.busy, a.xl.waiting = false, "", false, nil
+}
+
+// killTranslator ends it at once, as the app quits.
+func (a *app) killTranslator() {
+	a.xl.gen++
+	if c := a.xl.client; c != nil {
+		a.xl.client = nil
+		c.Kill()
+	}
+}
+
+// translatorArgs run pi as the translator: no session, none of the
+// user's context files or skills, and of the tools only those looking
+// things up, which it is told to use for terms alone.
+func translatorArgs() []string {
+	return []string{
+		"--no-session", "--no-context-files", "--no-skills",
+		"--tools", strings.Join(append([]string{"codemode"}, searchTools...), ","),
+		"--system-prompt", translatorPrompt,
+		"--thinking", "low",
 	}
 }
 
@@ -332,18 +348,18 @@ func splitNotes(raw string) (text, notes string) {
 func (a *app) translatePage(c *ui.Context) {
 	p := &a.p
 	x := &a.xl
-	a.startTranslator() // warm
+	if x.err == "" {
+		a.startTranslator() // warm; not again once it failed, until asked to translate
+	}
 	if x.md.Theme == nil {
 		x.md.Theme = &markdown.Theme{FontSize: 12.5}
 	}
 	if c.Shortcut(ui.Cmd, ui.KeyEnter) {
 		a.translate()
 	}
-	if x.pasted {
-		x.pasted = false
-		a.translate()
-	}
-	// A change of the language or the style translates again.
+	// A change of the language or the style translates again what was
+	// translated: the text was sent already. Text typed or pasted is not
+	// sent until the user asks.
 	if src := strings.TrimSpace(x.src); src != "" && !x.busy && x.doneSrc == x.src && x.raw != "" {
 		style := orUntitled(a.data.Prefs.TranslateStyle, "natural")
 		if a.translateTarget(src) != x.doneTo || style != x.doneStyle {
@@ -368,12 +384,6 @@ func (a *app) translatePage(c *ui.Context) {
 				if a.page == PageTranslate && x.src == "" {
 					in.AutoFocus()
 				}
-				in.OnPaste(func(text string) bool {
-					if strings.TrimSpace(x.src) == "" && strings.TrimSpace(text) != "" {
-						x.pasted = true // translated once it is in
-					}
-					return false
-				})
 				ui.Row(c).Padding(0, 16, 10).Height(30).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, a.tr.TranslateCount(len([]rune(x.src)))).FontSize(11).TextColor(p.faint).Grow(1)
 					ui.Text(c, "⌘↩").FontSize(11).TextColor(p.faint)

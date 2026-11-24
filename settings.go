@@ -554,6 +554,12 @@ func (a *app) assistantSettings(c *ui.Context) {
 				a.restartAgent()
 			}
 		})
+		a.formRowHint(c, a.tr.SettingsAgentAllTools(), a.tr.SettingsAgentAllToolsHint(), func() {
+			if ui.Switch(c, &prefs.AgentAllTools).Label(a.tr.SettingsAgentAllTools()).Changed() {
+				a.changed()
+				a.restartAgent()
+			}
+		})
 		a.formRowHint(c, a.tr.SettingsAgentFolder(), a.tr.SettingsAgentFolderHint(), func() {
 			if a.iconLabel(c, a.btn(c, "", btnSecondary), iconFinder, a.tr.ShowInFinder()).Clicked() {
 				dir := a.agentDir()

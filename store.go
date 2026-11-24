@@ -235,6 +235,9 @@ type Prefs struct {
 	AgentModel    string `json:"agentModel,omitempty"`
 	AgentThinking string `json:"agentThinking,omitempty"`
 	AgentFiles    bool   `json:"agentFiles,omitempty"`
+	// AgentAllTools lets it use every tool of the user's MCP servers, not
+	// only those that look things up.
+	AgentAllTools bool `json:"agentAllTools,omitempty"`
 	// Translation: the language to translate into, "" automatic, and how.
 	TranslateTo    string `json:"translateTo,omitempty"`
 	TranslateStyle string `json:"translateStyle,omitempty"`

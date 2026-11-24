@@ -67,7 +67,14 @@ func fakePi(mode string) {
 			go func() {
 				time.Sleep(150 * time.Millisecond)
 				switching.Add(-1)
-				ok(map[string]any{"cancelled": false})
+				switch {
+				case cmd["fail"] == true:
+					emit(map[string]any{"id": id, "type": "response", "command": "new_session", "success": false, "error": "session store is read only"})
+				case cmd["cancel"] == true:
+					ok(map[string]any{"cancelled": true})
+				default:
+					ok(map[string]any{"cancelled": false})
+				}
 			}()
 		case "prompt":
 			if switching.Load() > 0 {
@@ -219,6 +226,35 @@ func TestQueueWaitsForBarriers(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.waitFor(t, "agent_settled")
+}
+
+// A new session that fails, or that an extension cancels, takes the
+// prompt queued after it down with it: it is not sent to the session
+// left.
+func TestFailedSwitchDropsWhatFollows(t *testing.T) {
+	for _, how := range []string{"fail", "cancel"} {
+		c, r := startFake(t, "pi")
+		ns := c.Queue(map[string]any{"type": "new_session", how: true})
+		p := c.Queue(map[string]any{"type": "prompt", "message": "meant for the new session"})
+		_, err := p.Wait(context.Background())
+		if err == nil || !strings.Contains(err.Error(), "did not switch") {
+			t.Fatalf("%s: the prompt went on: %v", how, err)
+		}
+		if _, err := ns.Wait(context.Background()); (err == nil) != (how == "cancel") {
+			t.Fatalf("%s: new_session answered %v", how, err)
+		}
+		time.Sleep(100 * time.Millisecond)
+		for _, typ := range r.types() {
+			if typ == "agent_start" {
+				t.Fatalf("%s: pi ran the prompt", how)
+			}
+		}
+		// What is queued after the failure is known goes as usual.
+		if _, err := c.Call(context.Background(), map[string]any{"type": "prompt", "message": "again"}); err != nil {
+			t.Fatalf("%s: %v", how, err)
+		}
+		r.waitFor(t, "agent_settled")
+	}
 }
 
 func TestDialog(t *testing.T) {

@@ -63,6 +63,7 @@ type agent struct {
 	sessions []pi.Session
 	cache    pi.SessionCache
 	listing  bool
+	listed   bool // read once the page showed; again as they change
 
 	draft   string
 	field   ui.Handle
@@ -216,15 +217,39 @@ func (a *app) lookForPi() {
 	}()
 }
 
-// toolsOff are pi's tools the assistant goes without: it runs no
-// commands and changes no files, and reads them only as the settings
-// allow.
-func (a *app) toolsOff() string {
-	off := "bash,edit,write,powershell"
-	if !a.data.Prefs.AgentFiles {
-		off += ",read,grep,find,ls"
+// searchTools are the tools of the user's other MCP servers that look
+// things up on the web or among papers, by their names; lookupTools add
+// those that read, as a page of their notes or a file of a repository.
+// The translator has the first, the assistant both: writing to the
+// user's other services (GitHub, Notion, …), which NextTodo cannot undo,
+// and running code there wait for the settings' leave (AgentAllTools).
+var (
+	searchTools = []string{"mcp__*search*", "mcp__*scrape*", "mcp__*fetch*", "mcp__*paper*"}
+	lookupTools = slices.Concat(searchTools, []string{"mcp__*_get_*", "mcp__*_list_*", "mcp__*_read*", "mcp__*query*", "mcp__*lookup*", "mcp__*_map"})
+)
+
+// assistantArgs run pi as the assistant: in NextTodo's folder, whose
+// .pi/mcp.json is NextTodo's own, as is its persona, and with no shell
+// nor editing of files, which it reads only as the settings allow.
+func (a *app) assistantArgs() []string {
+	args := []string{
+		"--approve",
+		"--session-dir", a.sessionsDir(),
+		"--system-prompt", assistantPrompt,
+		"--append-system-prompt", "The app shows itself in " + languageName(a.lang) + "; write in it unless the user writes in another language.",
 	}
-	return off
+	if a.data.Prefs.AgentAllTools {
+		off := "bash,edit,write,powershell"
+		if !a.data.Prefs.AgentFiles {
+			off += ",read,grep,find,ls"
+		}
+		return append(args, "--exclude-tools", off)
+	}
+	tools := []string{"codemode", "mcp__nexttodo__*"}
+	if a.data.Prefs.AgentFiles {
+		tools = append(tools, "read", "grep", "find", "ls")
+	}
+	return append(args, "--tools", strings.Join(append(tools, lookupTools...), ","))
 }
 
 // startAgent starts pi, if it is not running, and runs what waits for it
@@ -241,14 +266,8 @@ func (a *app) startAgent() {
 		a.ag.server.Instructions = "The user's own tasks, events, projects, project journals and research directions in NextTodo. Read before writing; there is no deleting."
 	}
 	srv := a.ag.server
-	dir, sessions, path := a.agentDir(), a.sessionsDir(), a.data.Prefs.PiPath
-	args := []string{
-		"--approve", // the folder's .pi/mcp.json is NextTodo's own
-		"--exclude-tools", a.toolsOff(),
-		"--session-dir", sessions,
-		"--system-prompt", assistantPrompt,
-		"--append-system-prompt", "The app shows itself in " + languageName(a.lang) + "; write in it unless the user writes in another language.",
-	}
+	dir, path := a.agentDir(), a.data.Prefs.PiPath
+	args := a.assistantArgs()
 	model := a.data.Prefs.AgentModel
 	level := a.data.Prefs.AgentThinking
 	resume := a.ag.chat.path // a pi started again goes on with it
@@ -283,18 +302,19 @@ func (a *app) startAgent() {
 			Env:  pi.Setenv(in.Env, "NEXTTODO_MCP_TOKEN", srv.Token()),
 			Dir:  dir,
 			OnEvent: func(e pi.Event) {
-				mygo.RunOnMain(func() {
+				a.inbox.post(func() {
 					if gen == a.ag.gen {
 						a.piEvent(e)
-						a.redraw()
 					}
 				})
 			},
 			OnExit: func(err error) {
-				mygo.RunOnMain(func() {
+				a.inbox.post(func() {
 					if gen == a.ag.gen && a.ag.client != nil {
 						a.ag.client = nil
-						a.agentFailed(a.tr.AgentEnded(err.Error()))
+						// Not started again by itself: the next message does.
+						a.ag.err = a.tr.AgentEnded(err.Error())
+						a.agentFailed(a.ag.err)
 					}
 				})
 			},
@@ -395,6 +415,42 @@ func (a *app) agentCall(cmd map[string]any, done func(json.RawMessage, error)) {
 	})
 }
 
+// inbox hands what pi says to the main thread in order, without holding
+// up the goroutine reading it: mygo.RunOnMain waits for the main thread,
+// which may itself be waiting for pi, as it quits. What comes while the
+// main thread is busy is taken in at once, in one frame.
+type inbox struct {
+	mu     sync.Mutex
+	queue  []func()
+	posted bool
+	redraw func()
+}
+
+func (b *inbox) post(fn func()) {
+	b.mu.Lock()
+	b.queue = append(b.queue, fn)
+	if b.posted {
+		b.mu.Unlock()
+		return
+	}
+	b.posted = true
+	b.mu.Unlock()
+	go mygo.RunOnMain(b.flush)
+}
+
+func (b *inbox) flush() {
+	b.mu.Lock()
+	queue := b.queue
+	b.queue, b.posted = nil, false
+	b.mu.Unlock()
+	for _, fn := range queue {
+		fn()
+	}
+	if b.redraw != nil {
+		b.redraw()
+	}
+}
+
 // agentFailed ends the run shown, saying why.
 func (a *app) agentFailed(msg string) {
 	ch := &a.ag.chat
@@ -412,12 +468,13 @@ func (a *app) agentFailed(msg string) {
 	a.redraw()
 }
 
-// stopAgent ends pi, as the app quits.
+// stopAgent ends pi as the app quits, without waiting for it: the main
+// thread, waiting, would hold up what pi is still saying.
 func (a *app) stopAgent() {
+	a.ag.gen++
 	if c := a.ag.client; c != nil {
 		a.ag.client = nil
-		a.ag.gen++
-		c.Close()
+		c.Kill()
 	}
 	if a.ag.server != nil {
 		a.ag.server.Close()
@@ -425,14 +482,14 @@ func (a *app) stopAgent() {
 }
 
 // restartAgent ends pi so that the next message starts it again, with
-// the settings as they are now.
+// the settings as they are now; one starting is given up.
 func (a *app) restartAgent() {
+	a.ag.gen++
 	if c := a.ag.client; c != nil {
 		a.ag.client = nil
-		a.ag.gen++
 		go c.Close()
 	}
-	a.ag.starting = false
+	a.ag.starting, a.ag.err, a.ag.waiting = false, "", nil
 	if a.ag.chat.running {
 		a.agentFailed(a.tr.AgentRestarted())
 	}

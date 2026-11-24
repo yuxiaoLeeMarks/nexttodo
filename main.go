@@ -131,7 +131,7 @@ func main() {
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {
 		a.quitting = true
 		a.stopAgent()
-		a.stopTranslator()
+		a.killTranslator()
 		a.data.Prefs.AlertedTo, a.dirty = a.alertedTo, true
 		a.flush()
 	})

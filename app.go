@@ -156,6 +156,7 @@ type app struct {
 	// The assistant, its translator, and the overview's field asking it.
 	ag       agent
 	xl       translator
+	inbox    inbox // what pi says, on its way to the main thread
 	askDraft string
 	askField ui.Handle
 	// asked is whether the conversation shown began on the overview,
@@ -183,6 +184,7 @@ type app struct {
 
 func newApp(d *Data, path string) *app {
 	a := &app{data: d, path: path, now: time.Now, alerted: map[string]bool{}, literal: map[*string]bool{}}
+	a.inbox.redraw = a.redraw
 	a.schedAnchor = day(a.now())
 	a.alertedTo = a.now().Add(-time.Minute)
 	a.quick = quickDraft{minutes: 60}
