@@ -799,6 +799,11 @@ func TestSnapshots(t *testing.T) {
 			a.data.Subscriptions = []*Subscription{{ID: "s", Name: "Department", URL: "https://example.edu/dept.ics", Kind: "seminar", Updated: monday}}
 		}, 1280, 1500},
 		{"welcome", func(a *app) { a.data, a.page = freshData(a.lang), PageOverview }, 1280, 820},
+		{"welcomeask", func(a *app) {
+			a.data, a.page = freshData(a.lang), PageOverview
+			scriptChat(t, a, false)
+			a.asked = true
+		}, 1280, 820},
 		{"archived", func(a *app) {
 			a.page, a.projShowArchived = PageProjects, true
 			a.data.Projects[4].Archived, a.data.Projects[4].ArchivedAt = true, monday

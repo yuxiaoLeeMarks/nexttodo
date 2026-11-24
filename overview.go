@@ -68,6 +68,9 @@ func (a *app) overview(c *ui.Context) {
 
 	a.pageBody(c, nil, func() {
 		if a.data.empty() {
+			// Telling the assistant is a way to begin too: what it adds
+			// turns the welcome into the dashboard, its answer kept above.
+			a.askBar(c)
 			a.welcome(c)
 			return
 		}
