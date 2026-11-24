@@ -74,6 +74,7 @@ func (a *app) overview(c *ui.Context) {
 		if a.data.hasSample() && !a.picturing {
 			a.notice(c, iconFlask, a.tr.SampleNotice(), a.tr.ClearSample(), a.clearSample)
 		}
+		a.askBar(c)
 		a.overviewHero(c, now, wk, a.openCount(myDay), len(todays), overdue, dueWeek, len(active))
 		ui.Row(c).Gap(16).AlignItems(ui.Start).Children(func() {
 			ui.Column(c).Grow(3).Basis(0).MinWidth(0).Children(func() {

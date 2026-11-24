@@ -3,7 +3,9 @@ package main
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -84,6 +86,8 @@ func (a *app) settingsPage(c *ui.Context) {
 					}
 				})
 			})
+
+			a.assistantSettings(c)
 
 			a.section(c, a.tr.NavProjects(), "", nil)
 			a.list(c, func() {
@@ -503,4 +507,69 @@ func (a *app) importBackup() {
 			a.replaceData(d, done)
 		})
 	}()
+}
+
+// assistantSettings are the assistant's: the pi it runs, where to find
+// it, what it may read, and its folder.
+func (a *app) assistantSettings(c *ui.Context) {
+	p := &a.p
+	prefs := &a.data.Prefs
+	if a.ag.version == "" && !a.ag.missing && a.live && !a.ag.looked {
+		a.ag.looked = true
+		a.lookForPi()
+	}
+	a.section(c, a.tr.NavAssistant(), "", nil)
+	ui.Text(c, a.tr.SettingsAgentHint()).FontSize(12).TextColor(p.muted).Margin(0, 4, 6)
+	a.list(c, func() {
+		status := a.tr.SettingsPiLooking()
+		switch {
+		case a.ag.missing:
+			status = a.tr.SettingsPiMissing()
+		case a.ag.version != "":
+			status = a.tr.SettingsPiFound(a.ag.version)
+			if a.ag.bin != "" {
+				status += " · " + tildePath(a.ag.bin)
+			}
+		}
+		a.formRowHint(c, "pi", status, func() {
+			if a.btn(c, a.tr.SettingsPiLookAgain(), btnSecondary).Clicked() {
+				a.lookForPi()
+				a.restartAgent()
+				a.stopTranslator()
+			}
+		})
+		a.formRowHint(c, a.tr.SettingsPiPath(), a.tr.SettingsPiPathHint(), func() {
+			in := a.input(c, &prefs.PiPath, a.tr.SettingsPiAuto()).Width(220)
+			if in.Submitted() {
+				prefs.PiPath = strings.TrimSpace(prefs.PiPath)
+				a.changed()
+				a.lookForPi()
+				a.restartAgent()
+				a.stopTranslator()
+			}
+		})
+		a.formRowHint(c, a.tr.SettingsAgentFiles(), a.tr.SettingsAgentFilesHint(), func() {
+			if ui.Switch(c, &prefs.AgentFiles).Label(a.tr.SettingsAgentFiles()).Changed() {
+				a.changed()
+				a.restartAgent()
+			}
+		})
+		a.formRowHint(c, a.tr.SettingsAgentFolder(), a.tr.SettingsAgentFolderHint(), func() {
+			if a.iconLabel(c, a.btn(c, "", btnSecondary), iconFinder, a.tr.ShowInFinder()).Clicked() {
+				dir := a.agentDir()
+				os.MkdirAll(dir, 0o755)
+				exec.Command("open", dir).Start()
+			}
+		})
+	})
+}
+
+// tildePath writes a path in the home folder from ~.
+func tildePath(path string) string {
+	if home, err := os.UserHomeDir(); err == nil {
+		if rest, ok := strings.CutPrefix(path, home+"/"); ok {
+			return "~/" + rest
+		}
+	}
+	return path
 }

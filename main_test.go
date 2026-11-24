@@ -11,6 +11,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"nexttodo/internal/pi"
 	"nexttodo/locales"
 )
 
@@ -829,6 +830,41 @@ func TestSnapshots(t *testing.T) {
 					break
 				}
 			}
+		}, 1280, 820},
+		{"assistant", func(a *app) {
+			a.page = PageAssistant
+			a.ag.state.Model = &pi.Model{Name: "DeepSeek-V4.1-Flash"}
+			a.ag.sessions = []pi.Session{
+				{Path: "a", First: "What changed in diffusion policies this year?", Updated: monday},
+				{Path: "b", Name: "Rebuttal plan", Updated: monday.Add(-26 * time.Hour)},
+				{Path: "c", First: "<now>x</now>\n把周五的组会挪到下午", Updated: monday.Add(-75 * time.Hour)},
+				{Path: "d", First: "Summarize the reviews", Updated: monday.Add(-20 * 24 * time.Hour)},
+			}
+		}, 1280, 820},
+		{"chat", func(a *app) {
+			a.page = PageAssistant
+			scriptChat(t, a, true)
+			a.ag.chat.path = "a"
+			a.ag.sessions = []pi.Session{{Path: "a", First: a.ag.chat.items[0].text, Updated: monday}}
+		}, 1280, 900},
+		{"chatlive", func(a *app) {
+			a.page = PageAssistant
+			scriptChat(t, a, false)
+		}, 1280, 820},
+		{"asksetup", func(a *app) {
+			a.page = PageAssistant
+			a.ag.err, a.ag.missing = "pi is not installed", true
+		}, 1280, 820},
+		{"askoverview", func(a *app) {
+			a.page = PageOverview
+			scriptChat(t, a, true)
+			a.asked = true
+		}, 1280, 900},
+		{"translate", func(a *app) {
+			a.page = PageTranslate
+			a.xl.src = "Retrieval-augmented generation (RAG) grounds a language model's answers in documents retrieved at query time, which reduces hallucination on knowledge-intensive tasks."
+			a.xl.raw = "检索增强生成（RAG）在查询时检索文档，并以这些文档为依据生成语言模型的回答，从而减少知识密集型任务中的幻觉。\n\n<notes>\n- retrieval-augmented generation → 检索增强生成：中文文献的通行译法\n- hallucination → 幻觉：NLP 领域的标准术语\n</notes>"
+			a.xl.doneSrc, a.xl.doneTo, a.xl.doneStyle, a.xl.took = a.xl.src, "Simplified Chinese", "natural", 6*time.Second
 		}, 1280, 820},
 		{"reminder", func(a *app) {
 			a.page = PageTasks

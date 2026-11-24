@@ -227,6 +227,17 @@ type Prefs struct {
 	// AlertedTo is when the app, quitting, had given the alerts up to: the
 	// next launch gives those that came due between.
 	AlertedTo time.Time `json:"alertedTo,omitzero"`
+
+	// The assistant: where pi is when it cannot be found, the model and
+	// thinking chosen in NextTodo ("provider/id", "" for pi's default),
+	// and whether it may read the Mac's files.
+	PiPath        string `json:"piPath,omitempty"`
+	AgentModel    string `json:"agentModel,omitempty"`
+	AgentThinking string `json:"agentThinking,omitempty"`
+	AgentFiles    bool   `json:"agentFiles,omitempty"`
+	// Translation: the language to translate into, "" automatic, and how.
+	TranslateTo    string `json:"translateTo,omitempty"`
+	TranslateStyle string `json:"translateStyle,omitempty"`
 }
 
 // Data is everything the app keeps, as written to disk and to backups.

@@ -14,6 +14,7 @@ import (
 // after a deletion survives undoing it.
 type undoStep struct {
 	before, after []byte
+	undone        bool
 }
 
 const undoDepth = 20
@@ -53,6 +54,7 @@ func (a *app) replaceData(d *Data, msg string) {
 
 // restore undoes the change of step, with the settings of now.
 func (a *app) restore(step *undoStep) {
+	step.undone = true
 	i := slices.Index(a.undo, step)
 	if i >= 0 {
 		a.undo = slices.Delete(a.undo, i, i+1)

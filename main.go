@@ -65,7 +65,7 @@ func main() {
 			a.path = ""
 		}
 		a.catchUpAlerts()
-		if pg := Page(a.data.Prefs.Page); pg >= PageOverview && pg <= PageSettings {
+		if pg := Page(a.data.Prefs.Page); pg >= PageOverview && pg <= PageTranslate {
 			a.page = pg
 		}
 		mygo.Theme.SetSource(themeSource(a.data.Prefs.Appearance))
@@ -130,6 +130,8 @@ func main() {
 	})
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {
 		a.quitting = true
+		a.stopAgent()
+		a.stopTranslator()
 		a.data.Prefs.AlertedTo, a.dirty = a.alertedTo, true
 		a.flush()
 	})
@@ -400,10 +402,15 @@ func (a *app) menu() *mygo.Menu {
 		{Role: mygo.RoleEditMenu},
 		{Label: tr.MenuGo(), Submenu: []*mygo.MenuItem{
 			{Label: tr.NavOverview(), Accelerator: "CmdOrCtrl+1", Click: page(PageOverview)},
-			{Label: tr.NavTasks(), Accelerator: "CmdOrCtrl+2", Click: page(PageTasks)},
-			{Label: tr.NavSchedule(), Accelerator: "CmdOrCtrl+3", Click: page(PageSchedule)},
-			{Label: tr.NavProjects(), Accelerator: "CmdOrCtrl+4", Click: page(PageProjects)},
-			{Label: tr.NavDirections(), Accelerator: "CmdOrCtrl+5", Click: page(PageDirections)},
+			{Label: tr.NavAssistant(), Accelerator: "CmdOrCtrl+2", Click: page(PageAssistant)},
+			{Label: tr.NavTasks(), Accelerator: "CmdOrCtrl+3", Click: page(PageTasks)},
+			{Label: tr.NavSchedule(), Accelerator: "CmdOrCtrl+4", Click: page(PageSchedule)},
+			{Label: tr.NavProjects(), Accelerator: "CmdOrCtrl+5", Click: page(PageProjects)},
+			{Label: tr.NavDirections(), Accelerator: "CmdOrCtrl+6", Click: page(PageDirections)},
+			{Label: tr.NavTranslate(), Accelerator: "CmdOrCtrl+T", Click: page(PageTranslate)},
+			mygo.Separator(),
+			{Label: tr.MenuAsk(), Accelerator: "CmdOrCtrl+J", Click: run(a.askFromAnywhere)},
+			{Label: tr.AgentNewChat(), Accelerator: "CmdOrCtrl+Shift+J", Click: run(func() { a.navigate(PageAssistant); a.newChat() })},
 			mygo.Separator(),
 			{Label: tr.Search(), Accelerator: "CmdOrCtrl+F", Click: run(a.openSearch)},
 		}},
@@ -425,6 +432,14 @@ func (a *app) captureForCheck() {
 	}
 	if os.Getenv("NEXTTODO_PANEL") != "" && a.tray != nil {
 		a.togglePanel()
+	}
+	// NEXTTODO_ASK asks the assistant, and NEXTTODO_TRANSLATE translates,
+	// on the page shown: once pi is done, main.png and transcript.txt are
+	// written and the app quits.
+	// NEXTTODO_OPEN, a session's file, opens that conversation first.
+	if ask, text := os.Getenv("NEXTTODO_ASK"), os.Getenv("NEXTTODO_TRANSLATE"); ask != "" || text != "" {
+		go a.checkAgent(dir, ask, text)
+		return
 	}
 	// NEXTTODO_CYCLE steps through the pages, for timing their frames with
 	// MYGO_FRAME_STATS.
@@ -542,4 +557,72 @@ func (a *app) captureForCheck() {
 			}
 		}
 	}()
+}
+
+// checkAgent asks the assistant, or translates, as a check of the app with
+// the user's pi, and saves what it shows.
+func (a *app) checkAgent(dir, ask, text string) {
+	time.Sleep(1500 * time.Millisecond)
+	// NEXTTODO_OPEN opens a saved conversation first, which the question
+	// goes on with.
+	if path := os.Getenv("NEXTTODO_OPEN"); path != "" {
+		mygo.RunOnMain(func() { a.navigate(PageAssistant); a.openSession(path) })
+		for i := 0; i < 60; i++ {
+			time.Sleep(250 * time.Millisecond)
+			var loading bool
+			mygo.RunOnMain(func() { loading = a.ag.chat.loading })
+			if !loading {
+				break
+			}
+		}
+	}
+	mygo.RunOnMain(func() {
+		if text != "" {
+			a.navigate(PageTranslate)
+			a.xl.src = text
+			a.translate()
+			return
+		}
+		if a.page == PageOverview {
+			a.freshChat()
+			a.asked = true
+		}
+		a.askAgent(ask)
+		a.redraw()
+	})
+	for i := 0; i < 480; i++ {
+		time.Sleep(500 * time.Millisecond)
+		var done bool
+		mygo.RunOnMain(func() {
+			if text != "" {
+				done = !a.xl.busy
+			} else {
+				done = !a.ag.chat.running && a.ag.client != nil || a.ag.err != ""
+			}
+		})
+		if done {
+			break
+		}
+	}
+	time.Sleep(1500 * time.Millisecond)
+	var out strings.Builder
+	var win *mygo.Window
+	mygo.RunOnMain(func() {
+		win = a.win
+		if text != "" {
+			fmt.Fprintf(&out, "translation (%s):\n%s\nerror: %s\n", a.xl.doneTo, a.xl.raw, a.xl.err)
+			return
+		}
+		fmt.Fprintf(&out, "session: %s\nerror: %s\n", a.ag.chat.path, a.ag.err)
+		for _, it := range a.ag.chat.items {
+			fmt.Fprintf(&out, "[%d] %s %s %s\n", it.kind, it.tool, it.text, clip(it.result, 300))
+		}
+	})
+	os.WriteFile(filepath.Join(dir, "transcript.txt"), []byte(out.String()), 0o644)
+	if win != nil {
+		if b, err := win.CapturePage(); err == nil {
+			os.WriteFile(filepath.Join(dir, "main.png"), b, 0o644)
+		}
+	}
+	mygo.RunOnMain(mygo.App.Quit)
 }

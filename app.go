@@ -24,9 +24,14 @@ const (
 	PageProjects
 	PageDirections
 	PageSettings
+	// Added in 0.8, after the others, so that the page saved as shown last
+	// keeps its number.
+	PageAssistant
+	PageTranslate
 )
 
-var pages = []Page{PageOverview, PageTasks, PageSchedule, PageProjects, PageDirections}
+// pages are those of the title bar's switch, in its order.
+var pages = []Page{PageOverview, PageAssistant, PageTasks, PageSchedule, PageProjects, PageDirections}
 
 // app is the state the windows show: the main window and the menu bar's
 // panel. Everything here is read and changed on the main thread.
@@ -147,6 +152,19 @@ type app struct {
 
 	// The menu bar's panel.
 	quick quickDraft
+
+	// The assistant, its translator, and the overview's field asking it.
+	ag       agent
+	xl       translator
+	askDraft string
+	askField ui.Handle
+	// asked is whether the conversation shown began on the overview,
+	// which shows its answer under the field.
+	asked bool
+
+	// first is the first day of the user's week, as last drawn, for what
+	// reads dates outside a build.
+	first *time.Weekday
 
 	// literal holds the fields whose line is added as typed, its time unread.
 	literal map[*string]bool
@@ -365,6 +383,10 @@ func (a *app) navLabel(p Page) string {
 		return a.tr.NavDirections()
 	case PageSettings:
 		return a.tr.NavSettings()
+	case PageAssistant:
+		return a.tr.NavAssistant()
+	case PageTranslate:
+		return a.tr.NavTranslate()
 	}
 	return a.tr.NavOverview()
 }
@@ -427,6 +449,8 @@ func (a *app) begin(c *ui.Context) {
 	a.lang = c.Locale()
 	a.locale = c.Region().FormatLocale(a.lang)
 	a.tr = locales.In(a.lang)
+	first := a.firstWeekday(c)
+	a.first = &first
 	// Midnight passes while the app is open: draw the new day.
 	now := a.now()
 	c.After(at(addDays(now, 1), 0, 0).Sub(now) + time.Second)
@@ -473,6 +497,10 @@ func (a *app) view(c *ui.Context) {
 				a.directionsPage(c)
 			case PageSettings:
 				a.settingsPage(c)
+			case PageAssistant:
+				a.assistantPage(c)
+			case PageTranslate:
+				a.translatePage(c)
 			}
 		})
 	})
@@ -498,6 +526,13 @@ func (a *app) header(c *ui.Context) {
 			ui.Text(c, a.tr.AppName()).FontSize(13).FontWeight(600).TextColor(p.fg).SingleLine()
 		})
 		ui.Spacer(c)
+		trans := a.iconBtn(c, iconTrans, a.tr.NavTranslate()+"  ⌘T")
+		if a.page == PageTranslate {
+			trans.Background(p.pill).TextColor(p.fg)
+		}
+		if pressed := a.pressedDown(trans); clicked(trans) || a.page != PageTranslate && pressed {
+			a.navigate(PageTranslate)
+		}
 		if a.iconBtn(c, iconSearch, a.tr.Search()+"  ⌘F").Clicked() {
 			a.openSearch()
 		}
