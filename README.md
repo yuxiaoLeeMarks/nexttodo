@@ -7,7 +7,7 @@
 <h3 align="center">Your research, planned. On your Mac.</h3>
 
 <p align="center">
-  <b>Schedules, tasks and projects in one quiet app,<br>sorted the way you think about your work.</b>
+  <b>Schedules, tasks and projects in one quiet app,<br>with an assistant that keeps them for you.</b>
 </p>
 
 <p align="center">
@@ -26,7 +26,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/overview-dark.png">
-  <img src="docs/img/overview-light.png" alt="NextTodo's overview: the tasks left today, the week's load, the event coming next, today's agenda and upcoming deadlines">
+  <img src="docs/img/overview-light.png" alt="NextTodo's overview: a field to ask the assistant, the tasks left today, the week's load, the event coming next, today's agenda and upcoming deadlines">
 </picture>
 
 ## Is NextTodo for you?
@@ -35,8 +35,10 @@ A research life lives in too many places: grants in a spreadsheet, meetings in a
 
 - **Projects, sorted your way.** Make your own categories (by funding, by lab, by anything) with a color and an icon, or group by research direction or status; see them as a list or on a timeline. Each project keeps its tasks, events, dated journal and particulars (grant number, lead, funder, dates) in one place, and goes to the archive when it ends.
 - **A calendar that moves with you.** Week and month views, tags of your own, events that repeat, calendars on the web followed (your university's, Google's, the holidays of your region), drag to reschedule, to sketch a new one or to block time for a task, a notification before each event starts, and .ics import and export to get along with Calendar, Google and Outlook.
+- **An assistant that does the filing.** Tell it "meeting with my advisor Monday, rebuttal due next Wednesday" and both are on your calendar and list. Think an idea through with it, and when it is worth keeping, it becomes a project with its first tasks. It looks things up with the search tools you gave it, and every change it makes has Undo.
+- **Translation for research.** Any language into any other, naturally, academically or literally, with the terms it was unsure of checked and explained.
 - **Today, from the menu bar.** What is left of the day, and a field to add a task or an event, one click or ⌃⌥Space away.
-- **Yours, offline.** No account, no cloud. One JSON file in your Library, saved as you type, copied every day, with Undo for every deletion.
+- **Yours, on your Mac.** No account, no cloud. One JSON file in your Library, saved as you type, copied every day, with Undo for every deletion. The assistant and translation use the model you set up in [pi](https://github.com/earendil-works/pi), and send it only what they need (below).
 
 It's for you if you juggle more than one project and more than one kind of commitment. If one list of to-dos is enough, Reminders will do.
 
@@ -78,6 +80,22 @@ English and 简体中文. Light and dark.
     </td>
   </tr>
   <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/img/assistant-dark.png">
+        <img src="docs/img/assistant-light.png" alt="The assistant, having made a project with two tasks, with Undo">
+      </picture>
+      <p><b>Assistant.</b> Ask it anything, or tell it what to remember. It reads your tasks, schedule and projects before it writes, says what it changed with a link to each, and takes it all back with one Undo. Conversations are kept on your Mac, to pick up later.</p>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/img/translate-dark.png">
+        <img src="docs/img/translate-light.png" alt="A paragraph translated into Chinese, with notes on its terms">
+      </picture>
+      <p><b>Translate.</b> From any language into any other: automatic picks Chinese or English for you. Natural, academic or literal. Terms of art are looked up, not guessed, and explained under the translation. ⌘↩ to translate.</p>
+    </td>
+  </tr>
+  <tr>
     <td colspan="2">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/img/timeline-dark.png">
@@ -88,7 +106,7 @@ English and 简体中文. Light and dark.
   </tr>
 </table>
 
-And: tasks that repeat and checklists of steps, type the day and the time with what you add ("Seminar fri 3-4pm", "明天下午3点 组会"), reminders for tasks, search everything with ⌘F, research directions with their projects, reminders before events (a default and one per event), a Dock badge for what is due, open at login, ⌘1–⌘5 for the pages, daily backups you can restore, and a clean start: the first launch welcomes you with where to begin, and sample data is a click away if you would rather look around first.
+And: tasks that repeat and checklists of steps, type the day and the time with what you add ("Seminar fri 3-4pm", "明天下午3点 组会"), reminders for tasks, search everything with ⌘F, research directions with their projects, reminders before events (a default and one per event), a Dock badge for what is due, open at login, ⌘1–⌘6 for the pages, daily backups you can restore, and a clean start: the first launch welcomes you with where to begin, and sample data is a click away if you would rather look around first.
 
 ## Quick start
 
@@ -98,7 +116,23 @@ And: tasks that repeat and checklists of steps, type the day and the time with w
 
 **3 · Sort your projects.** Create a project for each grant, contract or line of inquiry, give it a direction, and its tasks and events follow it everywhere.
 
+**4 · Meet the assistant (optional).** It runs on [pi](https://github.com/earendil-works/pi), the agent you may already use in the terminal. Install it with `npm install -g @earendil-works/pi-coding-agent`, run `pi` once to sign in or choose a model, and the Assistant page and ⌘J are ready. NextTodo finds pi on its own; if it can't, give its path in Settings › Assistant.
+
 Your data is in `~/Library/Application Support/NextTodo/data.json`. Export a backup from Settings › Data.
+
+## The assistant and translation
+
+NextTodo does not ship a model or an agent of its own. The assistant is the **pi** of your Mac, run in its RPC mode: it uses the models, keys, settings and MCP servers you set up for pi, and NextTodo gives it one more MCP server, its own, on `127.0.0.1` with a token that changes at every launch. NextTodo never reads pi's keys.
+
+**What it can do.** Read your tasks, events, projects, journals and directions; add tasks, events, projects, journal entries and directions; change them, mark them done, archive projects. It deletes nothing. It acts when you tell it something to do or remember, and when you are only thinking aloud it talks, and offers once to keep an idea, rather than filling your lists.
+
+**What it can reach besides.** By default, only the MCP tools of pi that look things up: search, web pages, papers, and those named `get`, `list`, `read` or `query`. Not a shell, not your files, nothing that writes elsewhere. Settings › Assistant can let it read files you point it to, as a paper's PDF (never change them), or use all of pi's MCP tools (still no shell, nor editing files); what it then writes elsewhere, as in GitHub or Notion, NextTodo cannot undo.
+
+**What is sent, and where.** Your message, with today's date and time, goes to the model you chose in pi, and so do the answers of the tools it calls: when it reads your tasks, the tasks it read. A search sends the search's words to that search tool. Translation sends the text you asked to translate, nothing more, and is told to search for terms alone, never the text. Nothing is sent before you press Return or Translate.
+
+**What stays on your Mac.** Conversations are files of pi's, in `~/Library/Application Support/NextTodo/Assistant/sessions`, listed in the Assistant's sidebar to reopen, rename or delete. An `AGENTS.md` in the Assistant folder gives it standing instructions ("my advisor is Prof. Li", "I write in English"). Translations are not kept.
+
+**Undo.** What a question changed is shown under its answer, each item a click from where it is, and Undo takes it all back, as long as that conversation stays open; what you changed by hand since is kept.
 
 ## How it's built
 
@@ -115,6 +149,11 @@ NextTodo is written in Go with [MyGo](https://mygo.egoist.dev/)'s native UI: no 
 | `timeline.go` | the projects over the months they run |
 | `categories.go`, `search.go`, `undo.go`, `backups.go` | categories, search, Undo, daily copies |
 | `panel.go`, `alerts.go` | the menu bar panel, and when events alert |
+| `assistant.go`, `agent.go`, `agent_tools.go` | the Assistant's page, running pi, and NextTodo's tools for it |
+| `translate.go` | the Translate page, on a pi of its own |
+| `prompts/` | what the assistant and the translator are told |
+| `internal/pi` | pi's RPC: the process, its commands and events, its sessions |
+| `internal/mcp` | a small MCP server, over HTTP on this Mac |
 | `locales/` | every string, in English and Chinese |
 
 ## Build from source
@@ -129,7 +168,7 @@ go tool mygo build    # build/darwin-arm64/NextTodo.app and its .dmg
 go tool mygo build -platform darwin/universal   # for Apple silicon and Intel
 ```
 
-`NT_SNAPSHOTS=/tmp/shots go test -run TestSnapshots .` renders every page, light and dark, in both languages. Strings live in `locales/en.json` and `locales/zh-Hans.json`.
+`NT_SNAPSHOTS=/tmp/shots go test -run TestSnapshots .` renders every page, light and dark, in both languages. Strings live in `locales/en.json` and `locales/zh-Hans.json`. `NT_REAL_PI=1 go test -run TestRealPi .` asks the pi of your Mac which tools the assistant and the translator can reach. How it fits together: [docs/architecture.md](docs/architecture.md).
 
 ## License
 

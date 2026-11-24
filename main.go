@@ -407,7 +407,7 @@ func (a *app) menu() *mygo.Menu {
 			{Label: tr.NavSchedule(), Accelerator: "CmdOrCtrl+4", Click: page(PageSchedule)},
 			{Label: tr.NavProjects(), Accelerator: "CmdOrCtrl+5", Click: page(PageProjects)},
 			{Label: tr.NavDirections(), Accelerator: "CmdOrCtrl+6", Click: page(PageDirections)},
-			{Label: tr.NavTranslate(), Accelerator: "CmdOrCtrl+T", Click: page(PageTranslate)},
+			{Label: tr.NavTranslate(), Accelerator: "CmdOrCtrl+Shift+T", Click: page(PageTranslate)},
 			mygo.Separator(),
 			{Label: tr.MenuAsk(), Accelerator: "CmdOrCtrl+J", Click: run(a.askFromAnywhere)},
 			{Label: tr.AgentNewChat(), Accelerator: "CmdOrCtrl+Shift+J", Click: run(func() { a.navigate(PageAssistant); a.newChat() })},

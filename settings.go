@@ -287,7 +287,7 @@ var appVersion = sync.OnceValue(func() string {
 	if v := mygo.App.Version(); v != "" {
 		return v
 	}
-	return "0.7.2"
+	return "0.8.0"
 })
 
 func (a *app) setLanguage(tag string) {

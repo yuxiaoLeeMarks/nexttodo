@@ -528,7 +528,7 @@ func (a *app) header(c *ui.Context) {
 			ui.Text(c, a.tr.AppName()).FontSize(13).FontWeight(600).TextColor(p.fg).SingleLine()
 		})
 		ui.Spacer(c)
-		trans := a.iconBtn(c, iconTrans, a.tr.NavTranslate()+"  ⌘T")
+		trans := a.iconBtn(c, iconTrans, a.tr.NavTranslate()+"  ⇧⌘T")
 		if a.page == PageTranslate {
 			trans.Background(p.pill).TextColor(p.fg)
 		}
