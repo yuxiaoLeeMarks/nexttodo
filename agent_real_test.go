@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -72,30 +72,42 @@ func TestRealPi(t *testing.T) {
 			}
 		}
 	}
-	forbidden := func(names []string, extra ...string) {
+	// Each tool reached must be one the patterns let in, and some of those
+	// known to write, send or run code must not be.
+	check := func(who string, names []string, allow []string, nexttodo bool) {
 		t.Helper()
+		if len(names) == 0 {
+			t.Fatalf("%s: codemode listed no tools", who)
+		}
 		for _, n := range names {
-			for _, bad := range append([]string{"bash", "edit", "write", "run_code", "create_repository", "delete", "push_files", "merge_pull_request", "update_page", "create_pages"}, extra...) {
-				if n == bad || strings.Contains(n, "__"+bad) || strings.HasSuffix(n, bad) && bad != "write" && bad != "edit" {
-					t.Errorf("callable: %s", n)
+			if strings.HasPrefix(n, "mcp__nexttodo__") {
+				if !nexttodo {
+					t.Errorf("%s can call %s", who, n)
 				}
+				continue
+			}
+			if !toolMatches(allow, n) || toolMatches(sendingTools, n) {
+				t.Errorf("%s can call %s", who, n)
+			}
+		}
+		for _, bad := range []string{"bash", "edit", "write", "mcp__magpie__run_code",
+			"mcp__magpie__firecrawl__firecrawl_search_feedback", "mcp__magpie__github__create_issue",
+			"mcp__magpie__github__push_files", "mcp__magpie__notion__notion_update_page",
+			"mcp__magpie__notion__notion_delete_pages"} {
+			if slices.Contains(names, bad) {
+				t.Errorf("%s can call %s", who, bad)
 			}
 		}
 	}
 
 	names := list(a.assistantArgs(), dir)
 	t.Logf("the assistant can call %d tools:\n%s", len(names), strings.Join(names, "\n"))
-	if !containsText(names, "mcp__nexttodo__create_task") {
+	if !slices.Contains(names, "mcp__nexttodo__create_task") {
 		t.Error("the assistant has NextTodo's tools")
 	}
-	forbidden(names)
+	check("the assistant", names, lookupTools, true)
 
-	empty := t.TempDir()
-	names = list(translatorArgs(), empty)
+	names = list(translatorArgs(), t.TempDir())
 	t.Logf("the translator can call %d tools:\n%s", len(names), strings.Join(names, "\n"))
-	forbidden(names, "nexttodo", "_get_", "_list_")
-	b, _ := json.Marshal(names)
-	if strings.Contains(string(b), "nexttodo") {
-		t.Error("the translator has none of NextTodo's tools")
-	}
+	check("the translator", names, searchTools, false)
 }

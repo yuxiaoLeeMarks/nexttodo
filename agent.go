@@ -217,16 +217,68 @@ func (a *app) lookForPi() {
 	}()
 }
 
-// searchTools are the tools of the user's other MCP servers that look
-// things up on the web or among papers, by their names; lookupTools add
-// those that read, as a page of their notes or a file of a repository.
-// The translator has the first, the assistant both: writing to the
-// user's other services (GitHub, Notion, …), which NextTodo cannot undo,
-// and running code there wait for the settings' leave (AgentAllTools).
+// The tools of the user's other MCP servers that pi may call, as pi
+// matches them: whole names, "*" any characters. pi knows only their
+// names, so they are chosen by them: searchTools look things up on the
+// web or among papers, as firecrawl_search, search_papers or
+// notion_fetch; lookupTools add those that read, as a page of notes or a
+// file of a repository (get_file_contents, notion_list_shared_pages).
+// Each pattern anchors the verb at the start or the end of the tool's
+// name, so that "search" in firecrawl_search_feedback, which sends, does
+// not let it in. sendingTools are left out of both, for a name that both
+// reads and writes. The translator has searchTools, the assistant
+// lookupTools: writing to the user's other services (GitHub, Notion, …),
+// which NextTodo cannot undo, waits for the settings' leave
+// (AgentAllTools). TestToolPatterns has the names of real servers.
 var (
-	searchTools = []string{"mcp__*search*", "mcp__*scrape*", "mcp__*fetch*", "mcp__*paper*"}
-	lookupTools = slices.Concat(searchTools, []string{"mcp__*_get_*", "mcp__*_list_*", "mcp__*_read*", "mcp__*query*", "mcp__*lookup*", "mcp__*_map"})
+	searchTools = []string{
+		"mcp__*search", "mcp__*__search_*", "mcp__*_papers", "mcp__*_paper",
+		"mcp__*scrape", "mcp__*fetch",
+	}
+	lookupTools = slices.Concat(searchTools, []string{
+		"mcp__*_get_*", "mcp__*_list_*", "mcp__*_read", "mcp__*_read_*",
+		"mcp__*_query_*", "mcp__*_lookup_*", "mcp__*_map",
+	})
+	// Words of a tool's own name, after "_", not of its server's, as
+	// firecrawl. None is in a tool of NextTodo's, which pi's
+	// --exclude-tools would take away too.
+	sendingTools = []string{
+		"mcp__*_feedback*", "mcp__*_delete*", "mcp__*_remove*", "mcp__*_send*",
+		"mcp__*_submit*", "mcp__*_upload*", "mcp__*_download*", "mcp__*_save*",
+		"mcp__*_publish*", "mcp__*_monitor*", "mcp__*_crawl*", "mcp__*_interact*",
+		"mcp__*_spawn*", "mcp__*_replace*", "mcp__*_or_create*",
+	}
 )
+
+// toolMatches says whether pi takes a tool's name to match one of the
+// patterns: the whole name, "*" any characters.
+func toolMatches(patterns []string, name string) bool {
+	for _, p := range patterns {
+		parts := strings.Split(p, "*")
+		if len(parts) == 1 {
+			if p == name {
+				return true
+			}
+			continue
+		}
+		rest, ok := strings.CutPrefix(name, parts[0])
+		for _, part := range parts[1 : len(parts)-1] {
+			if !ok {
+				break
+			}
+			i := strings.Index(rest, part)
+			if i < 0 {
+				ok = false
+				break
+			}
+			rest = rest[i+len(part):]
+		}
+		if ok && strings.HasSuffix(rest, parts[len(parts)-1]) {
+			return true
+		}
+	}
+	return false
+}
 
 // assistantArgs run pi as the assistant: in NextTodo's folder, whose
 // .pi/mcp.json is NextTodo's own, as is its persona, and with no shell
@@ -249,7 +301,8 @@ func (a *app) assistantArgs() []string {
 	if a.data.Prefs.AgentFiles {
 		tools = append(tools, "read", "grep", "find", "ls")
 	}
-	return append(args, "--tools", strings.Join(append(tools, lookupTools...), ","))
+	return append(args, "--tools", strings.Join(append(tools, lookupTools...), ","),
+		"--exclude-tools", strings.Join(sendingTools, ","))
 }
 
 // startAgent starts pi, if it is not running, and runs what waits for it

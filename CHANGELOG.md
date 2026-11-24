@@ -4,10 +4,10 @@
 
 **Assistant**
 
-- NextTodo has an assistant: the [pi](https://github.com/earendil-works/pi) agent of your Mac, with the models, keys and MCP servers you set up for it. Tell it "meeting with my advisor Monday 10, rebuttal due next Wednesday" and both are on your calendar and list; ask it to make an idea a project and it does, with its first tasks; ask it anything else and it answers, looking things up with your search tools when that helps. It reads before it writes, and deletes nothing.
+- NextTodo has an assistant: the [pi](https://github.com/earendil-works/pi) agent of your Mac, with the models, keys and MCP servers you set up for it. Tell it "meeting with my advisor Monday 10, rebuttal due next Wednesday" and both are on your calendar and list; ask it to make an idea a project and it does, with its first tasks; ask it anything else and it answers, looking things up with your search tools when that helps. It reads before it writes, keeps to the times you gave (a meeting on Monday with no time is a task for Monday, and it asks when), and deletes nothing.
 - What a question changed is listed under the answer, each item a click from where it is, with Undo for all of it; what you changed by hand since is kept.
 - Ask from the top of the overview, even before there is anything in it, or from anywhere with ⌘J; the Assistant page (⌘2) keeps the conversations, to reopen, rename or delete, and starts a new one with ⇧⌘J. Answers stream in as they are written; thinking folds away; a message sent while it works steers it; Esc stops it; ↑ brings back what you last wrote. Choose its model and how hard it thinks under the field.
-- It reaches only NextTodo and tools that look things up: no shell, no files, nothing that writes elsewhere. Settings › Assistant can let it read files you point it to, or use all of pi's MCP tools. An AGENTS.md in its folder gives it standing instructions.
+- It reaches only NextTodo and tools that look things up: no shell, none of pi's file tools, nothing that writes elsewhere. Settings › Assistant can let it read files you point it to, or use all of pi's MCP tools. An AGENTS.md in its folder gives it standing instructions.
 - NextTodo finds pi when opened from the Finder too, or says how to install it.
 
 **Translate**
@@ -20,10 +20,10 @@
 
 **助理**
 
-- NextTodo 有了助理：就是你这台 Mac 上的 [pi](https://github.com/earendil-works/pi) agent，沿用你为它配置的模型、密钥和 MCP 服务器。对它说「周一十点和导师过实验结果，rebuttal 下周三前写完」，日程和待办就都排好了；让它把一个想法建成项目，它会建好并列出第一批待办；问它别的问题，它会回答，需要时用你的搜索工具查资料。它先查看再修改，不会删除任何东西。
+- NextTodo 有了助理：就是你这台 Mac 上的 [pi](https://github.com/earendil-works/pi) agent，沿用你为它配置的模型、密钥和 MCP 服务器。对它说「周一十点和导师过实验结果，rebuttal 下周三前写完」，日程和待办就都排好了；让它把一个想法建成项目，它会建好并列出第一批待办；问它别的问题，它会回答，需要时用你的搜索工具查资料。它先查看再修改，只用你给出的时间（「周一和导师见面」没说几点，就先记为周一的待办，再问你时间），不会删除任何东西。
 - 每个问题改动了什么都列在答复下方，每一项点一下即可打开，一次撤销即可全部还原；你之后手动做的修改会保留。
 - 在总览顶部即可提问（还没有任何内容时也可以），在任何地方按 ⌘J 也可以；「助理」页（⌘2）保存对话，可重新打开、重命名或删除，⇧⌘J 开始新对话。答复边写边显示，思考过程可折叠；它工作时发的消息会引导它调整方向；Esc 停止；↑ 找回上一条消息。输入框下方可以选择模型和思考深度。
-- 它只能访问 NextTodo 和查找类工具：没有 shell，不碰文件，也不往别处写入。在「设置 › 助理」中可以允许它读取你指给它的文件，或使用 pi 的全部 MCP 工具。在助理文件夹中放一个 AGENTS.md，可以给它长期指示。
+- 它只能访问 NextTodo 和查找类工具：没有 shell，没有 pi 的文件工具，也不往别处写入。在「设置 › 助理」中可以允许它读取你指给它的文件，或使用 pi 的全部 MCP 工具。在助理文件夹中放一个 AGENTS.md，可以给它长期指示。
 - 从访达打开 NextTodo 也能找到 pi；找不到时会告诉你如何安装。
 
 **翻译**

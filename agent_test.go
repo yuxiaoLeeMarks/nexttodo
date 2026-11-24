@@ -560,3 +560,116 @@ func scriptChat(t *testing.T, a *app, done bool) {
 		}
 	}
 }
+
+// TestToolPatterns checks the tools pi lets the assistant and the
+// translator call, by their names, against those of real MCP servers, as
+// pi names them: magpie's (deepxiv, firecrawl, GitHub, Notion) and others
+// often set up.
+func TestToolPatterns(t *testing.T) {
+	const (
+		none = iota
+		assistant
+		both
+	)
+	tools := map[string]int{
+		// Search, pages, papers: both.
+		"mcp__magpie__deepxiv__search_papers":                       both,
+		"mcp__magpie__deepxiv__get_full_paper":                      both,
+		"mcp__magpie__firecrawl__firecrawl_search":                  both,
+		"mcp__magpie__firecrawl__firecrawl_scrape":                  both,
+		"mcp__magpie__firecrawl__alexandria_library_search":         both,
+		"mcp__magpie__firecrawl__firecrawl_research_search_papers":  both,
+		"mcp__magpie__firecrawl__firecrawl_research_inspect_paper":  both,
+		"mcp__magpie__firecrawl__firecrawl_research_related_papers": both,
+		"mcp__magpie__firecrawl__people_company_search":             both,
+		"mcp__magpie__github__search_repositories":                  both,
+		"mcp__magpie__notion__notion_search":                        both,
+		"mcp__magpie__notion__notion_fetch":                         both,
+		"mcp__brave__brave_web_search":                              both,
+		"mcp__tavily__tavily_search":                                both,
+		"mcp__arxiv__search_papers":                                 both,
+		// What reads: the assistant.
+		"mcp__magpie__deepxiv__get_paper_brief":                     assistant,
+		"mcp__magpie__firecrawl__firecrawl_map":                     assistant,
+		"mcp__magpie__firecrawl__alexandria_library_read":           assistant,
+		"mcp__magpie__firecrawl__firecrawl_research_lookup_protein": assistant,
+		"mcp__magpie__github__get_file_contents":                    assistant,
+		"mcp__magpie__github__list_issues":                          assistant,
+		"mcp__magpie__notion__notion_get_users":                     assistant,
+		"mcp__magpie__notion__notion_query_data_sources":            assistant,
+		"mcp__magpie__notion__notion_list_shared_pages":             assistant,
+		"mcp__magpie__notion__notion_calendar_list_events":          assistant,
+		"mcp__magpie__notion__notion_read_session_event":            assistant,
+		"mcp__context7__get_library_docs":                           assistant,
+		// What writes, sends or starts jobs: neither.
+		"mcp__magpie__firecrawl__firecrawl_search_feedback":   none,
+		"mcp__magpie__firecrawl__firecrawl_feedback":          none,
+		"mcp__magpie__firecrawl__firecrawl_crawl":             none,
+		"mcp__magpie__firecrawl__firecrawl_agent":             none,
+		"mcp__magpie__firecrawl__firecrawl_interact":          none,
+		"mcp__magpie__firecrawl__firecrawl_monitor_create":    none,
+		"mcp__magpie__firecrawl__firecrawl_monitor_list":      none,
+		"mcp__magpie__firecrawl__firecrawl_save_skill":        none,
+		"mcp__magpie__github__create_or_update_file":          none,
+		"mcp__magpie__github__push_files":                     none,
+		"mcp__magpie__github__create_issue":                   none,
+		"mcp__magpie__github__add_issue_comment":              none,
+		"mcp__magpie__github__merge_pull_request":             none,
+		"mcp__magpie__github__fork_repository":                none,
+		"mcp__magpie__github__update_pull_request_branch":     none,
+		"mcp__magpie__notion__notion_create_pages":            none,
+		"mcp__magpie__notion__notion_update_page":             none,
+		"mcp__magpie__notion__notion_delete_pages":            none,
+		"mcp__magpie__notion__notion_move_pages":              none,
+		"mcp__magpie__notion__notion_send_message_to_session": none,
+		"mcp__magpie__notion__notion_spawn_session":           none,
+		"mcp__magpie__notion__notion_calendar_create_events":  none,
+		"mcp__magpie__notion__notion_calendar_cancel_events":  none,
+		"mcp__magpie__notion__notion_get_file_download_urls":  none,
+		"mcp__magpie__notion__notion_upload_skill":            none,
+		"mcp__magpie__notion__notion_create_suggested_edit":   none,
+		"mcp__magpie__notion__notion_set_comment_reaction":    none,
+		"mcp__magpie__run_code":                               none,
+		"mcp__memory__search_and_replace":                     none,
+		"mcp__crm__get_or_create_contact":                     none,
+		"mcp__arxiv__download_paper":                          none,
+		"bash":                                                none,
+		"write":                                               none,
+	}
+	for name, want := range tools {
+		a := toolMatches(lookupTools, name) && !toolMatches(sendingTools, name)
+		x := toolMatches(searchTools, name) && !toolMatches(sendingTools, name)
+		if a != (want >= assistant) {
+			t.Errorf("the assistant can call %s: %v", name, a)
+		}
+		if x != (want == both) {
+			t.Errorf("the translator can call %s: %v", name, x)
+		}
+	}
+	// pi's --exclude-tools would take NextTodo's own tools away too.
+	for _, tool := range testApp("en").agentTools() {
+		if name := "mcp__nexttodo__" + tool.Name; toolMatches(sendingTools, name) {
+			t.Errorf("%s is left out", name)
+		}
+	}
+	// As pi matches: whole names, "*" any characters.
+	for _, c := range []struct {
+		pattern, name string
+		ok            bool
+	}{
+		{"mcp__*search", "mcp__a__search", true},
+		{"mcp__*search", "mcp__a__search_x", false},
+		{"mcp__*__search_*", "mcp__a__search_x", true},
+		{"mcp__*__search_*", "mcp__a__b_search_x", false},
+		{"bash", "bash", true},
+		{"bash", "bashx", false},
+		{"*", "anything", true},
+		{"a*b*c", "abc", true},
+		{"a*b*c", "acb", false},
+		{"a*a", "a", false},
+	} {
+		if got := toolMatches([]string{c.pattern}, c.name); got != c.ok {
+			t.Errorf("%q matches %q: %v", c.pattern, c.name, got)
+		}
+	}
+}

@@ -226,6 +226,7 @@ func translatorArgs() []string {
 	return []string{
 		"--no-session", "--no-context-files", "--no-skills",
 		"--tools", strings.Join(append([]string{"codemode"}, searchTools...), ","),
+		"--exclude-tools", strings.Join(sendingTools, ","),
 		"--system-prompt", translatorPrompt,
 		"--thinking", "low",
 	}
